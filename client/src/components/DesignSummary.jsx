@@ -1,49 +1,109 @@
 import React from "react";
 import { useApp } from "../context/AppContext";
-import designCalculator from "../utils/designCalculator";
 
 export default function DesignSummary() {
 
     const {
-
-        technology,
-
-        feedWater
-
+        recommendation,
+        feedWater,
+        simulation,
+        engineering,
+        technology
     } = useApp();
 
-    const design = designCalculator(
+    if (!recommendation || !simulation) {
 
-        feedWater,
+        return (
+            <div className="panel">
+                <h2>Design Report</h2>
+                <p>No design generated.</p>
+            </div>
+        );
+    }
 
-        technology
-
-    );
+    const removal =
+        (
+            ((feedWater.tds - simulation.outputTDS) /
+                feedWater.tds) *
+            100
+        ).toFixed(1);
 
     return (
 
         <div className="panel">
 
-            <h2>Engineering Design</h2>
+            <h2>Engineering Design Report</h2>
 
-            {
+            <table className="engineering-table">
 
-                Object.entries(design).map(([key,value])=>(
+                <tbody>
 
-                    <div
-                        key={key}
-                        className="design-row"
-                    >
+                    <tr>
+                        <td><b>Technology</b></td>
+                        <td>{technology}</td>
+                    </tr>
 
-                        <span>{key}</span>
+                    <tr>
+                        <td><b>Feed TDS</b></td>
+                        <td>{feedWater.tds} ppm</td>
+                    </tr>
 
-                        <span>{value}</span>
+                    <tr>
+                        <td><b>Target TDS</b></td>
+                        <td>{feedWater.targetTds} ppm</td>
+                    </tr>
 
-                    </div>
+                    <tr>
+                        <td><b>Predicted Output</b></td>
+                        <td>{simulation.outputTDS} ppm</td>
+                    </tr>
 
-                ))
+                    <tr>
+                        <td><b>Removal Efficiency</b></td>
+                        <td>{removal}%</td>
+                    </tr>
 
-            }
+                    <tr>
+                        <td><b>Adsorption Time</b></td>
+                        <td>{simulation.adsorptionTime} min</td>
+                    </tr>
+
+                    <tr>
+                        <td><b>Desorption Time</b></td>
+                        <td>{simulation.desorptionTime} min</td>
+                    </tr>
+
+                    <tr>
+                        <td><b>Electrode Area</b></td>
+                        <td>
+                            {engineering?.area?.toFixed?.(2) ?? engineering?.area} cm²
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><b>Reactor Volume</b></td>
+                        <td>
+                            {engineering?.reactorVolume?.toFixed?.(3) ?? engineering?.reactorVolume} L
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><b>EBCT</b></td>
+                        <td>
+                            {engineering?.ebct?.toFixed?.(2) ?? engineering?.ebct} min
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><b>Status</b></td>
+                        <td style={{color:"green"}}>
+                            ✔ Design Feasible
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
 
         </div>
 

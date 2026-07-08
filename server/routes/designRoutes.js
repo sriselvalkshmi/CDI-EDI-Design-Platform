@@ -6,7 +6,9 @@ const simulationEngine = require("../services/simulationEngine");
 const getParameters = require("../services/designParameters");
 const engineeringCalculator = require("../services/engineeringCalculator");
 const ComponentSizing = require("../services/componentSizing");
-
+const optimize = require("../services/designOptimizer");
+const performanceCalculator = require("../services/performanceCalculator");
+const cdiDesign = require("../services/cdiDesignCalculator");
 router.post("/design", (req, res) => {
 
     try {
@@ -27,7 +29,11 @@ router.post("/design", (req, res) => {
             req.body,
             designParameters
         );
-
+         const cellDesign =
+cdiDesign(
+    req.body,
+    engineering
+);
         // Component Sizing
         const sizing = ComponentSizing.calculate(
             req.body,
@@ -40,22 +46,40 @@ router.post("/design", (req, res) => {
             req.body,
             designParameters
         );
+        const optimization =
+optimize(
+    req.body,
+    sizing,
+    engineering
+);
+        const performance =
+performanceCalculator(
+    req.body,
+    simulation,
+    engineering
+);
+       
 
-        res.json({
+   res.json({
 
-            success: true,
+    success:true,
 
-            recommendation,
+    recommendation,
 
-            designParameters,
+    designParameters,
 
-            engineering,
+    engineering,
 
-            sizing,
+    sizing,
 
-            simulation
+    simulation,
 
-        });
+    optimization,
+
+    performance,
+    cellDesign,
+
+});
 
     } catch (err) {
 

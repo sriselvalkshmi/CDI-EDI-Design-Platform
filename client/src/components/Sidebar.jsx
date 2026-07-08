@@ -4,27 +4,29 @@ import { useApp } from "../context/AppContext";
 
 export default function Sidebar() {
 
-    const {
+const {
 
-        technology,
-        setTechnology,
+    technology,
+    setTechnology,
 
-        feedWater,
-        setFeedWater,
+    feedWater,
+    setFeedWater,
 
-        componentSizing,
-        setComponentSizing,
+    componentSizing,
+    setComponentSizing,
 
-        loading,
-        setLoading,
+    loading,
+    setLoading,
 
-        setAiResult,
-        setSelectedDesign,
-        setDesignParameters,
-        setSimulation,
-        setEngineering
+    setAiResult,
+    setSelectedDesign,
+    setDesignParameters,
+    setSimulation,
+    setEngineering,
 
-    } = useApp();
+    setOptimization
+
+} = useApp();
 
     function update(field, value) {
 
@@ -60,11 +62,16 @@ export default function Sidebar() {
 
             if (response.data.recommendation) {
 
-                setSelectedDesign(
-                    response.data.recommendation.technology
-                );
+             console.log(
+             "Selected Technology:",
+              response.data.recommendation.technology
+    );
 
-            }
+           setSelectedDesign(
+         response.data.recommendation.technology
+    );
+
+}
 
             if (response.data.designParameters) {
 
@@ -81,6 +88,14 @@ export default function Sidebar() {
                 );
 
             }
+            if(response.data.optimization){
+
+    setOptimization(
+        response.data.optimization
+    );
+             
+
+}
 
             if (response.data.engineering) {
 
@@ -90,15 +105,12 @@ export default function Sidebar() {
 
             }
 
-            if(response.data.sizing){
+            
+         if (response.data.sizing) {
 
-                setComponentSizing(
-
-                response.data.sizing
-
-                );
-                setSimulation(response.data.simulation);
-                console.log(response.data.simulation);
+    setComponentSizing(
+        response.data.sizing
+    );
 
 }
 

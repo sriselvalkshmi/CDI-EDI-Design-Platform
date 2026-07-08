@@ -1,128 +1,138 @@
 import React, { createContext, useContext, useState } from "react";
 
-
 const AppContext = createContext();
 
+export function AppProvider({ children }) {
 
-export function AppProvider({children}){
-const [simulation,setSimulation]=useState(null);
-const [technology,setTechnology]=useState("CDI");
-const [selectedDesign,setSelectedDesign]=useState("CDI");
-const [designParameters,setDesignParameters]=useState(null);
+    const [technology, setTechnology] = useState("CDI");
 
+    const [selectedDesign, setSelectedDesign] = useState("CDI");
 
-const [feedWater, setFeedWater] = useState({
+    const [simulation, setSimulation] = useState(null);
 
-    tds: 500,
+    const [designParameters, setDesignParameters] = useState(null);
 
-    conductivity: 300,
+    const [engineering, setEngineering] = useState(null);
 
-    hardness: 150,
+    const [componentSizing, setComponentSizing] = useState(null);
 
-    ph: 7,
+    const [selectedComponent, setSelectedComponent] = useState(null);
 
-    temperature: 25,
+    const [loading, setLoading] = useState(false);
 
-    flowRate: 10,
+    const [aiResult, setAiResult] = useState(null);
 
-    pressure: 1,
+    const [optimization,setOptimization]=useState(null);
 
-    targetTds: 50
+    const [performance,setPerformance]=useState(null);
 
-});
+    const [feedWater, setFeedWater] = useState({
 
-const [aiResult,setAiResult]=useState(null);
-const [engineering, setEngineering] = useState(null);
-const [selectedComponent,setSelectedComponent]=useState(null);
-const [loading,setLoading]=useState(false);
-const [componentSizing,setComponentSizing]= useState(null);
-const [designComponents,setDesignComponents]=useState([
-{
-id:1,
-type:"Electrode",
-name:"Carbon Electrode",
-area:250,
-thickness:0.5,
-material:"Activated Carbon"
-},
+        tds: 500,
 
-{
-id:2,
-type:"Spacer",
-name:"Flow Channel",
-height:1,
-flowRate:10
-},
+        conductivity: 300,
 
-{
-id:3,
-type:"Electrode",
-name:"Carbon Electrode",
-area:250,
-thickness:0.5,
-material:"Activated Carbon"
-}
+        hardness: 150,
 
-]);
+        ph: 7,
 
-return(
+        temperature: 25,
 
-<AppContext.Provider
+        flowRate: 10,
 
-value={{
+        pressure: 1,
 
-technology,
-setTechnology,
+        targetTds: 50
 
-feedWater,
-setFeedWater,
+    });
 
-aiResult,
-setAiResult,
+    const [designComponents, setDesignComponents] = useState([
 
-selectedDesign,
-setSelectedDesign,
+        {
+            id: 1,
+            type: "Electrode",
+            name: "Carbon Electrode",
+            area: 250,
+            thickness: 0.5,
+            material: "Activated Carbon"
+        },
 
-designParameters,
-setDesignParameters,
+        {
+            id: 2,
+            type: "Spacer",
+            name: "Flow Channel",
+            height: 1,
+            flowRate: 10
+        },
 
-designComponents,
-setDesignComponents,
+        {
+            id: 3,
+            type: "Electrode",
+            name: "Carbon Electrode",
+            area: 250,
+            thickness: 0.5,
+            material: "Activated Carbon"
+        }
 
-simulation,
-setSimulation,
+    ]);
 
-selectedComponent,
-setSelectedComponent,
+    return (
 
-engineering,
-setEngineering,
+        <AppContext.Provider
+  value={{
+    technology,
+    setTechnology,
 
-componentSizing,
-setComponentSizing,
+    feedWater,
+    setFeedWater,
 
-loading,
-setLoading
+    aiResult,
+    setAiResult,
 
-}}
+    selectedDesign,
+    setSelectedDesign,
 
+    designParameters,
+    setDesignParameters,
+
+    simulation,
+    setSimulation,
+
+    engineering,
+    setEngineering,
+
+    componentSizing,
+    setComponentSizing,
+
+    optimization,
+    setOptimization,
+
+    
+    performance,
+    setPerformance,
+
+    loading,
+    setLoading,
+
+    selectedComponent,
+    setSelectedComponent,
+
+    designComponents,
+    setDesignComponents
+
+  }}
 >
 
-{children}
+            {children}
 
+        </AppContext.Provider>
 
-</AppContext.Provider>
-
-
-);
-
+    );
 
 }
 
+export function useApp() {
 
-
-export function useApp(){
-
-return useContext(AppContext);
+    return useContext(AppContext);
 
 }

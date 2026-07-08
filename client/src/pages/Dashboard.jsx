@@ -13,10 +13,11 @@ import ComponentSizing from "../components/ComponentSizing";
 import EngineeringPanel from "../components/EngineeringPanel";
 import DesignSummary from "../components/DesignSummary";
 import ResultPanel from "../components/ResultPanel";
-
+import KPIDashboard from "../components/KPIDashboard";
 import SimulationGraphs from "../components/SimulationGraphs";
-
-
+import ProcessFlow from "../components/ProcessFlow";
+import OptimizationPanel from "../components/OptimizationPanel";
+import PerformancePanel from "../components/PerformancePanel";
 export default function Dashboard(){
 
 return (
@@ -48,24 +49,11 @@ return (
 
 <div className="canvas-area">
 
+<ComponentLibrary/>
 
-<ComponentLibrary />
+<ProcessFlow/>
 
-
-<SystemDrawing />
-
-
-<DesignBuilder />
-
-
-
-<h2>
-CDI/EDI Simulation Results
-</h2>
-
-
-<SimulationGraphs />
-
+<DesignBuilder/>
 
 </div>
 
@@ -77,6 +65,8 @@ CDI/EDI Simulation Results
 {/* RIGHT INFORMATION PANEL */}
 
 <div className="right-area">
+
+<KPIDashboard />
 
 
 <RecommendationPanel />
@@ -93,6 +83,9 @@ CDI/EDI Simulation Results
 
 <DesignSummary />
 
+<OptimizationPanel />
+
+<PerformancePanel />
 
 <ResultPanel />
 
