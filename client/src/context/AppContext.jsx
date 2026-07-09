@@ -7,8 +7,21 @@ export function AppProvider({ children }) {
     const [technology, setTechnology] = useState("CDI");
 
     const [selectedDesign, setSelectedDesign] = useState("CDI");
+          
+    const [feedWater, setFeedWater] = useState({
+        tds: 500,
+        conductivity: 300,
+        hardness: 150,
+        ph: 7,
+        temperature: 25,
+        flowRate: 10,
+        pressure: 1,
+        targetTds: 50
+    });
 
-    const [simulation, setSimulation] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    const [aiResult, setAiResult] = useState(null);
 
     const [designParameters, setDesignParameters] = useState(null);
 
@@ -16,38 +29,21 @@ export function AppProvider({ children }) {
 
     const [componentSizing, setComponentSizing] = useState(null);
 
+    const [simulation, setSimulation] = useState(null);
+
+    const [optimization, setOptimization] = useState(null);
+
+    const [performance, setPerformance] = useState(null);
+
+    const [stack, setStack] = useState(null);
+
     const [selectedComponent, setSelectedComponent] = useState(null);
+    
+    const [layout, setLayout] = useState(null);
 
-    const [loading, setLoading] = useState(false);
-
-    const [aiResult, setAiResult] = useState(null);
-
-    const [optimization,setOptimization]=useState(null);
-
-    const [performance,setPerformance]=useState(null);
-
-    const [feedWater, setFeedWater] = useState({
-
-        tds: 500,
-
-        conductivity: 300,
-
-        hardness: 150,
-
-        ph: 7,
-
-        temperature: 25,
-
-        flowRate: 10,
-
-        pressure: 1,
-
-        targetTds: 50
-
-    });
+    const [selectedEquipment, setSelectedEquipment] = useState(null);
 
     const [designComponents, setDesignComponents] = useState([
-
         {
             id: 1,
             type: "Electrode",
@@ -56,7 +52,6 @@ export function AppProvider({ children }) {
             thickness: 0.5,
             material: "Activated Carbon"
         },
-
         {
             id: 2,
             type: "Spacer",
@@ -64,7 +59,6 @@ export function AppProvider({ children }) {
             height: 1,
             flowRate: 10
         },
-
         {
             id: 3,
             type: "Electrode",
@@ -73,55 +67,63 @@ export function AppProvider({ children }) {
             thickness: 0.5,
             material: "Activated Carbon"
         }
-
     ]);
 
     return (
 
         <AppContext.Provider
-  value={{
-    technology,
-    setTechnology,
+            value={{
 
-    feedWater,
-    setFeedWater,
+                technology,
+                setTechnology,
 
-    aiResult,
-    setAiResult,
+                selectedDesign,
+                setSelectedDesign,
 
-    selectedDesign,
-    setSelectedDesign,
+                feedWater,
+                setFeedWater,
 
-    designParameters,
-    setDesignParameters,
+                loading,
+                setLoading,
 
-    simulation,
-    setSimulation,
+                aiResult,
+                setAiResult,
 
-    engineering,
-    setEngineering,
+                designParameters,
+                setDesignParameters,
 
-    componentSizing,
-    setComponentSizing,
+                engineering,
+                setEngineering,
 
-    optimization,
-    setOptimization,
+                componentSizing,
+                setComponentSizing,
 
-    
-    performance,
-    setPerformance,
+                simulation,
+                setSimulation,
 
-    loading,
-    setLoading,
+                optimization,
+                setOptimization,
 
-    selectedComponent,
-    setSelectedComponent,
+                performance,
+                setPerformance,
 
-    designComponents,
-    setDesignComponents
+                stack,
+                setStack,
 
-  }}
->
+                selectedComponent,
+                setSelectedComponent,
+
+                designComponents,
+                setDesignComponents,
+
+                selectedEquipment,
+                setSelectedEquipment,
+
+                layout,
+                setLayout
+
+            }}
+        >
 
             {children}
 

@@ -1,4 +1,4 @@
-function calculatePerformance(feedWater, simulation, engineering) {
+function calculatePerformance(feedWater, simulation, engineering, cellDesign) {
 
     const inletTDS = feedWater.tds;
     const outletTDS = simulation.outputTDS;
@@ -22,6 +22,22 @@ function calculatePerformance(feedWater, simulation, engineering) {
         energyConsumption /
         (feedWater.flowRate / 1000);
 
+    // -------- CDI Performance --------
+
+    const electrodeMass =
+        Number(cellDesign?.electrodeMass || 100);
+
+    const adsorptionTime =
+        simulation.adsorptionTime || 20;
+
+    const SAC =
+        saltRemoved / electrodeMass;
+
+    const ASAR =
+        SAC / adsorptionTime;
+
+    const chargeEfficiency = 85;
+
     return {
 
         inletTDS,
@@ -41,7 +57,16 @@ function calculatePerformance(feedWater, simulation, engineering) {
             specificEnergy.toFixed(3),
 
         saltRemoved:
-            saltRemoved.toFixed(1)
+            saltRemoved.toFixed(1),
+
+        SAC:
+            SAC.toFixed(2),
+
+        ASAR:
+            ASAR.toFixed(2),
+
+        chargeEfficiency:
+            chargeEfficiency.toFixed(1)
 
     };
 

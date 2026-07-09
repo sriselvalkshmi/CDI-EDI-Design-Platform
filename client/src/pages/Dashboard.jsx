@@ -4,8 +4,9 @@ import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 
 import ComponentLibrary from "../components/ComponentLibrary";
+import ProcessFlow from "../components/ProcessFlow";
 import DesignBuilder from "../components/DesignBuilder";
-import SystemDrawing from "../components/SystemDrawing";
+import PIDDiagram from "../components/PIDDiagram";
 
 import RecommendationPanel from "../components/RecommendationPanel";
 import ParameterPanel from "../components/ParameterPanel";
@@ -15,90 +16,70 @@ import DesignSummary from "../components/DesignSummary";
 import ResultPanel from "../components/ResultPanel";
 import KPIDashboard from "../components/KPIDashboard";
 import SimulationGraphs from "../components/SimulationGraphs";
-import ProcessFlow from "../components/ProcessFlow";
 import OptimizationPanel from "../components/OptimizationPanel";
-import PerformancePanel from "../components/PerformancePanel";
-export default function Dashboard(){
+import CDIPerformancePanel from "../components/CDIPerformancePanel";
+import StackDesignPanel from "../components/StackDesignPanel";
+import EquipmentPanel from "../components/EquipmentPanel";
 
-return (
+export default function Dashboard() {
 
-<div className="dashboard">
+    return (
 
+        <div className="dashboard">
 
-<Navbar />
+            <Navbar />
 
+            <div className="workspace">
 
+                {/* LEFT PANEL */}
 
-<div className="workspace">
+                <div className="sidebar-area">
 
+                    <Sidebar />
 
+                </div>
 
-{/* LEFT INPUT PANEL */}
+                {/* CENTER */}
 
-<div className="sidebar-area">
+                <div className="canvas-area">
 
-<Sidebar />
+    
 
-</div>
+                    <PIDDiagram />
 
+                     <EquipmentPanel />
 
+                     <SimulationGraphs />
+                     < RecommendationPanel/>
 
+                </div>
 
+                {/* RIGHT PANEL */}
 
-{/* CENTER DESIGN + SIMULATION */}
+                <div className="right-area">
 
-<div className="canvas-area">
+                   
 
-<ComponentLibrary/>
-
-<ProcessFlow/>
-
-<DesignBuilder/>
-
-</div>
-
-
-
-
-
-
-{/* RIGHT INFORMATION PANEL */}
-
-<div className="right-area">
-
-<KPIDashboard />
+                    <KPIDashboard />
 
 
-<RecommendationPanel />
+                    <ParameterPanel />
+
+                    <ComponentSizing />
 
 
-<ParameterPanel />
+                    <OptimizationPanel />
 
+                    <StackDesignPanel />
 
-<ComponentSizing />
+                    <ResultPanel />
 
+                </div>
 
-<EngineeringPanel />
+            </div>
 
+        </div>
 
-<DesignSummary />
-
-<OptimizationPanel />
-
-<PerformancePanel />
-
-<ResultPanel />
-
-
-</div>
-
-
-
-</div>
-
-
-</div>
-
-);
+    );
 
 }

@@ -2,87 +2,148 @@ const express = require("express");
 const router = express.Router();
 
 const aiRecommendation = require("../services/aiRecommendation");
-const simulationEngine = require("../services/simulationEngine");
 const getParameters = require("../services/designParameters");
 const engineeringCalculator = require("../services/engineeringCalculator");
+const simulationEngine = require("../services/simulationEngine");
 const ComponentSizing = require("../services/componentSizing");
 const optimize = require("../services/designOptimizer");
-const performanceCalculator = require("../services/performanceCalculator");
 const cdiDesign = require("../services/cdiDesignCalculator");
+const stackDesigner = require("../services/stackDesigner");
+const performanceCalculator = require("../services/performanceCalculator");
+const layoutGenerator = require("../services/layoutGenerator");
 router.post("/design", (req, res) => {
 
     try {
 
+        console.log("=================================");
         console.log("INPUT FROM FRONTEND");
         console.log(req.body);
+        console.log("=================================");
 
+        //----------------------------------------
         // AI Recommendation
+        //----------------------------------------
+
         const recommendation = aiRecommendation(req.body);
 
+        //----------------------------------------
         // Design Parameters
+        //----------------------------------------
+
         const designParameters = getParameters(
             recommendation.technology
         );
 
-        // Engineering Calculations
+        //----------------------------------------
+        // Engineering
+        //----------------------------------------
+
         const engineering = engineeringCalculator(
             req.body,
-            designParameters
+            designParameters,
+            recommendation.technology
         );
-         const cellDesign =
-cdiDesign(
-    req.body,
-    engineering
-);
+
+        //----------------------------------------
         // Component Sizing
+        //----------------------------------------
+
         const sizing = ComponentSizing.calculate(
             req.body,
             recommendation.technology
         );
 
-        // Simulation  <-- FIXED
+        //----------------------------------------
+        // Simulation
+        //----------------------------------------
+
         const simulation = simulationEngine(
             recommendation.technology,
             req.body,
             designParameters
         );
-        const optimization =
-optimize(
-    req.body,
-    sizing,
-    engineering
-);
-        const performance =
-performanceCalculator(
-    req.body,
-    simulation,
-    engineering
-);
-       
 
-   res.json({
+        //----------------------------------------
+        // CDI Cell Design
+        //----------------------------------------
 
-    success:true,
+        const cellDesign = cdiDesign(
+            req.body,
+            engineering
+        );
 
-    recommendation,
+        //----------------------------------------
+        // Stack Design
+        //----------------------------------------
 
-    designParameters,
+        const stack = stackDesigner(
+            req.body,
+            cellDesign,
+            engineering
+        );
 
-    engineering,
+        const layout =
+          layoutGenerator(
+          stack,
+          engineering
+        );
 
-    sizing,
+        //----------------------------------------
+        // Performance
+        //----------------------------------------
 
-    simulation,
+        const performance = performanceCalculator(
+            req.body,
+            simulation,
+            engineering,
+            cellDesign
+        );
 
-    optimization,
+        //----------------------------------------
+        // Optimization
+        //----------------------------------------
 
-    performance,
-    cellDesign,
+        const optimization = optimize(
+            req.body,
+            sizing,
+            engineering
+        );
 
-});
+        //----------------------------------------
+        // Response
+        //----------------------------------------
 
-    } catch (err) {
+        res.json({
 
+            success: true,
+
+            recommendation,
+
+            designParameters,
+
+            engineering,
+
+            sizing,
+
+            simulation,
+
+            optimization,
+
+            stack,
+
+            cellDesign,
+
+            layout,
+
+            performance
+
+        });
+
+    }
+
+    catch (err) {
+
+        console.error("SERVER ERROR");
         console.error(err);
 
         res.status(500).json({

@@ -4,29 +4,29 @@ import { useApp } from "../context/AppContext";
 
 export default function Sidebar() {
 
-const {
+    const {
 
-    technology,
-    setTechnology,
+        technology,
+        setTechnology,
 
-    feedWater,
-    setFeedWater,
+        feedWater,
+        setFeedWater,
 
-    componentSizing,
-    setComponentSizing,
+        loading,
+        setLoading,
 
-    loading,
-    setLoading,
+        setAiResult,
+        setSelectedDesign,
+        setDesignParameters,
+        setSimulation,
+        setEngineering,
+        setComponentSizing,
+        setOptimization,
+        setPerformance,
+        setStack,
+        setLayout
 
-    setAiResult,
-    setSelectedDesign,
-    setDesignParameters,
-    setSimulation,
-    setEngineering,
-
-    setOptimization
-
-} = useApp();
+    } = useApp();
 
     function update(field, value) {
 
@@ -58,61 +58,86 @@ const {
 
             console.log("AI RESULT:", response.data);
 
-            setAiResult(response.data);
+            const data = response.data;
 
-            if (response.data.recommendation) {
+            setAiResult(data);
 
-             console.log(
-             "Selected Technology:",
-              response.data.recommendation.technology
-    );
+            if (data.recommendation) {
 
-           setSelectedDesign(
-         response.data.recommendation.technology
-    );
+                console.log(
+                    "Selected Technology:",
+                    data.recommendation.technology
+                );
 
-}
+                setSelectedDesign(
+                    data.recommendation.technology
+                );
 
-            if (response.data.designParameters) {
+            }
+
+            if (data.designParameters) {
 
                 setDesignParameters(
-                    response.data.designParameters
+                    data.designParameters
                 );
 
             }
 
-            if (response.data.simulation) {
-
-                setSimulation(
-                    response.data.simulation
-                );
-
-            }
-            if(response.data.optimization){
-
-    setOptimization(
-        response.data.optimization
-    );
-             
-
-}
-
-            if (response.data.engineering) {
+            if (data.engineering) {
 
                 setEngineering(
-                    response.data.engineering
+                    data.engineering
                 );
 
             }
 
-            
-         if (response.data.sizing) {
+            if (data.sizing) {
 
-    setComponentSizing(
-        response.data.sizing
-    );
+                setComponentSizing(
+                    data.sizing
+                );
 
-}
+            }
+
+            if (data.simulation) {
+
+                setSimulation(
+                    data.simulation
+                );
+
+            }
+
+            if (data.optimization) {
+
+                setOptimization(
+                    data.optimization
+                );
+
+            }
+
+            if (data.performance) {
+
+                setPerformance(
+                    data.performance
+                );
+
+            }
+
+            if (data.stack) {
+
+                setStack(
+                    data.stack
+                );
+
+            }
+
+            if(response.data.layout){
+
+                 setLayout(
+                   response.data.layout
+                );
+
+            }
 
         }
 
@@ -134,94 +159,110 @@ const {
 
     return (
 
-<div className="sidebar">
+        <div className="sidebar">
 
-<h2>Feed Water Input</h2>
+            <h2>Feed Water Input</h2>
 
-<label>TDS (mg/L)</label>
-<input
-type="number"
-value={feedWater.tds}
-onChange={(e)=>update("tds",e.target.value)}
-/>
+            <label>TDS (mg/L)</label>
 
-<label>Conductivity (µS/cm)</label>
-<input
-type="number"
-value={feedWater.conductivity}
-onChange={(e)=>update("conductivity",e.target.value)}
-/>
+            <input
+                type="number"
+                value={feedWater.tds}
+                onChange={(e) => update("tds", e.target.value)}
+            />
 
-<label>Hardness (mg/L as CaCO₃)</label>
-<input
-type="number"
-value={feedWater.hardness}
-onChange={(e)=>update("hardness",e.target.value)}
-/>
+            <label>Conductivity (µS/cm)</label>
 
-<label>pH</label>
-<input
-type="number"
-step="0.1"
-value={feedWater.ph}
-onChange={(e)=>update("ph",e.target.value)}
-/>
+            <input
+                type="number"
+                value={feedWater.conductivity}
+                onChange={(e) => update("conductivity", e.target.value)}
+            />
 
-<label>Temperature (°C)</label>
-<input
-type="number"
-value={feedWater.temperature}
-onChange={(e)=>update("temperature",e.target.value)}
-/>
+            <label>Hardness (mg/L as CaCO₃)</label>
 
-<label>Flow Rate (L/min)</label>
-<input
-type="number"
-value={feedWater.flowRate}
-onChange={(e)=>update("flowRate",e.target.value)}
-/>
+            <input
+                type="number"
+                value={feedWater.hardness}
+                onChange={(e) => update("hardness", e.target.value)}
+            />
 
-<label>Pressure (bar)</label>
-<input
-type="number"
-value={feedWater.pressure}
-onChange={(e)=>update("pressure",e.target.value)}
-/>
+            <label>pH</label>
 
-<label>Target TDS (mg/L)</label>
-<input
-type="number"
-value={feedWater.targetTds}
-onChange={(e)=>update("targetTds",e.target.value)}
-/>
+            <input
+                type="number"
+                step="0.1"
+                value={feedWater.ph}
+                onChange={(e) => update("ph", e.target.value)}
+            />
 
-<hr/>
+            <label>Temperature (°C)</label>
 
-<h2>Technology</h2>
+            <input
+                type="number"
+                value={feedWater.temperature}
+                onChange={(e) => update("temperature", e.target.value)}
+            />
 
-<select
-value={technology}
-onChange={(e)=>setTechnology(e.target.value)}
->
+            <label>Flow Rate (L/min)</label>
 
-<option value="CDI">CDI</option>
-<option value="MCDI">MCDI</option>
-<option value="FCDI">FCDI</option>
-<option value="EDI">EDI</option>
+            <input
+                type="number"
+                value={feedWater.flowRate}
+                onChange={(e) => update("flowRate", e.target.value)}
+            />
 
-</select>
+            <label>Pressure (bar)</label>
 
-<button
-onClick={generateDesign}
-disabled={loading}
->
+            <input
+                type="number"
+                value={feedWater.pressure}
+                onChange={(e) => update("pressure", e.target.value)}
+            />
 
-{loading ? "Generating..." : "Generate Design"}
+            <label>Target TDS (mg/L)</label>
 
-</button>
+            <input
+                type="number"
+                value={feedWater.targetTds}
+                onChange={(e) => update("targetTds", e.target.value)}
+            />
 
-</div>
+            <hr />
 
-);
+            <h2>Technology</h2>
+
+            <select
+                value={technology}
+                onChange={(e) => setTechnology(e.target.value)}
+            >
+
+                <option value="CDI">CDI</option>
+
+                <option value="MCDI">MCDI</option>
+
+                <option value="FCDI">FCDI</option>
+
+                <option value="EDI">EDI</option>
+
+            </select>
+
+            <button
+
+                onClick={generateDesign}
+
+                disabled={loading}
+
+            >
+
+                {loading
+                    ? "Generating..."
+                    : "Generate Design"}
+
+            </button>
+
+        </div>
+
+    );
 
 }

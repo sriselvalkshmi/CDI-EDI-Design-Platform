@@ -1,0 +1,64 @@
+.pipe {
+    stroke: #444;
+    stroke-width: 6;
+    fill: none;
+}
+
+.waterFlow {
+    stroke: #2196f3;
+    stroke-width: 4;
+    stroke-dasharray: 12 8;
+    animation: flow 1s linear infinite;
+}
+
+@keyframes flow {
+    from {
+        stroke-dashoffset: 20;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.pump {
+    transform-origin: center;
+    animation: rotatePump 2s linear infinite;
+}
+
+@keyframes rotatePump {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.reactor {
+    animation: reactorGlow 2s ease-in-out infinite;
+}
+
+@keyframes reactorGlow {
+    0% {
+        filter: drop-shadow(0 0 2px #66ccff);
+    }
+    50% {
+        filter: drop-shadow(0 0 12px #00aaff);
+    }
+    100% {
+        filter: drop-shadow(0 0 2px #66ccff);
+    }
+}
+
+.productTank {
+    animation: fillTank 3s ease-in-out infinite alternate;
+}
+
+@keyframes fillTank {
+    from {
+        opacity: 0.7;
+    }
+    to {
+        opacity: 1;
+    }
+}

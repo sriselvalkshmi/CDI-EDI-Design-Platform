@@ -14,11 +14,6 @@ CDI / EDI Design Platform
 </h1>
 
 
-<p>
-Engineering Digital Twin
-</p>
-
-
 </div>
 
 );
