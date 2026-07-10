@@ -41,6 +41,8 @@ export function AppProvider({ children }) {
     
     const [layout, setLayout] = useState(null);
 
+    const [electrode, setElectrode] = useState(null);
+
     const [selectedEquipment, setSelectedEquipment] = useState(null);
 
     const [designComponents, setDesignComponents] = useState([
@@ -118,6 +120,9 @@ export function AppProvider({ children }) {
 
                 selectedEquipment,
                 setSelectedEquipment,
+
+                electrode,
+                setElectrode,
 
                 layout,
                 setLayout

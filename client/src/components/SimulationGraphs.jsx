@@ -10,10 +10,14 @@ import {
     CartesianGrid,
     Tooltip,
     Legend,
-    ReferenceArea
+    ReferenceArea,
+    ReferenceLine
 } from "recharts";
 
 function GraphCard({ title, data, dataKey, unit, color }) {
+
+    const adsorptionTime = data[0]?.adsorption || 13;
+    const totalTime = data[0]?.total || 20;
 
     return (
 
@@ -28,18 +32,17 @@ function GraphCard({ title, data, dataKey, unit, color }) {
                     margin={{
                         top: 20,
                         right: 20,
-                        left: 10,
+                        left: 20,
                         bottom: 20
                     }}
                 >
 
                     {/* Adsorption */}
-
                     <ReferenceArea
                         x1={0}
-                        x2={13}
+                        x2={adsorptionTime}
                         fill="#E3F2FD"
-                        fillOpacity={0.6}
+                        fillOpacity={0.35}
                         label={{
                             value: "Adsorption",
                             position: "insideTop",
@@ -49,12 +52,11 @@ function GraphCard({ title, data, dataKey, unit, color }) {
                     />
 
                     {/* Desorption */}
-
                     <ReferenceArea
-                        x1={13}
-                        x2={20}
+                        x1={adsorptionTime}
+                        x2={totalTime}
                         fill="#FFF3E0"
-                        fillOpacity={0.7}
+                        fillOpacity={0.35}
                         label={{
                             value: "Desorption",
                             position: "insideTop",
@@ -64,8 +66,14 @@ function GraphCard({ title, data, dataKey, unit, color }) {
                     />
 
                     <CartesianGrid
-                        strokeDasharray="4 4"
-                        stroke="#d0d0d0"
+                        strokeDasharray="3 3"
+                        stroke="#d8d8d8"
+                    />
+
+                    <ReferenceLine
+                        y={0}
+                        stroke="#000"
+                        strokeWidth={2}
                     />
 
                     <XAxis
@@ -79,6 +87,10 @@ function GraphCard({ title, data, dataKey, unit, color }) {
                     />
 
                     <YAxis
+                        domain={[
+                            (dataMin) => Math.floor(dataMin * 1.2),
+                            (dataMax) => Math.ceil(dataMax * 1.2)
+                        ]}
                         tick={{ fontSize: 12 }}
                         label={{
                             value: unit,
@@ -90,8 +102,7 @@ function GraphCard({ title, data, dataKey, unit, color }) {
                     <Tooltip
                         contentStyle={{
                             borderRadius: 8,
-                            border: "1px solid #ddd",
-                            background: "#ffffff"
+                            border: "1px solid #ccc"
                         }}
                     />
 
@@ -104,10 +115,8 @@ function GraphCard({ title, data, dataKey, unit, color }) {
                         strokeWidth={3}
                         dot={false}
                         activeDot={{
-                            r:6,
-                            stroke:color,
-                            strokeWidth:2,
-                            fill:"#fff"
+                            r: 6,
+                            fill: color
                         }}
                     />
 
@@ -149,7 +158,29 @@ export default function SimulationGraphs() {
 
         current: simulation.current[i],
 
-        tds: simulation.tds[i]
+        tds: simulation.tds[i],
+
+        conductivity: simulation.conductivity?.[i] ?? 0,
+
+        charge: simulation.charge?.[i] ?? 0,
+
+        resistance: simulation.resistance?.[i] ?? 0,
+
+        currentDensity: simulation.currentDensity?.[i] ?? 0,
+
+        electrodePotential: simulation.electrodePotential?.[i] ?? 0,
+
+        coulombicEfficiency: simulation.coulombicEfficiency?.[i] ?? 0,
+
+        adsorptionRate: simulation.adsorptionRate?.[i] ?? 0,
+
+        waterRecovery: simulation.waterRecovery?.[i] ?? 0,
+
+        adsorption: simulation.adsorptionTime,
+
+        total:
+            simulation.adsorptionTime +
+            simulation.desorptionTime
 
     }));
 
@@ -178,16 +209,82 @@ export default function SimulationGraphs() {
                 />
 
                 <GraphCard
-                    title="TDS Removal Curve"
+                    title="TDS Removal"
                     data={graphData}
                     dataKey="tds"
                     unit="TDS (ppm)"
                     color="#E53935"
                 />
 
+                <GraphCard
+                    title="Conductivity"
+                    data={graphData}
+                    dataKey="conductivity"
+                    unit="µS/cm"
+                    color="#8E24AA"
+                />
+
+                <GraphCard
+                    title="Charge"
+                    data={graphData}
+                    dataKey="charge"
+                    unit="C"
+                    color="#F9A825"
+                />
+
+                <GraphCard
+                    title="Resistance"
+                    data={graphData}
+                    dataKey="resistance"
+                    unit="Ω"
+                    color="#00897B"
+                />
+
+                <GraphCard
+                    title="Current Density"
+                    data={graphData}
+                    dataKey="currentDensity"
+                    unit="A/m²"
+                    color="#6A1B9A"
+                />
+
+                <GraphCard
+                    title="Electrode Potential"
+                    data={graphData}
+                    dataKey="electrodePotential"
+                    unit="V"
+                    color="#1565C0"
+                />
+
+                <GraphCard
+                    title="Charge Efficiency"
+                    data={graphData}
+                    dataKey="coulombicEfficiency"
+                    unit="Λ"
+                    color="#2E7D32"
+                />
+
+                <GraphCard
+                    title="Adsorption Rate"
+                    data={graphData}
+                    dataKey="adsorptionRate"
+                    unit="mg/min"
+                    color="#FB8C00"
+                />
+
+                <GraphCard
+                    title="Water Recovery"
+                    data={graphData}
+                    dataKey="waterRecovery"
+                    unit="%"
+                    color="#0097A7"
+                />
+
             </div>
 
-        </div>
+
+
+         </div>
 
     );
 

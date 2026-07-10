@@ -11,6 +11,8 @@ const cdiDesign = require("../services/cdiDesignCalculator");
 const stackDesigner = require("../services/stackDesigner");
 const performanceCalculator = require("../services/performanceCalculator");
 const layoutGenerator = require("../services/layoutGenerator");
+const electrodeModel = require("../services/electrodeModel");
+
 router.post("/design", (req, res) => {
 
     try {
@@ -20,98 +22,86 @@ router.post("/design", (req, res) => {
         console.log(req.body);
         console.log("=================================");
 
-        //----------------------------------------
-        // AI Recommendation
-        //----------------------------------------
-
+        console.log("1. AI Recommendation...");
         const recommendation = aiRecommendation(req.body);
+        console.log("✓ AI Recommendation OK");
 
-        //----------------------------------------
-        // Design Parameters
-        //----------------------------------------
-
+        console.log("2. Design Parameters...");
         const designParameters = getParameters(
             recommendation.technology
         );
+        console.log("✓ Design Parameters OK");
 
-        //----------------------------------------
-        // Engineering
-        //----------------------------------------
-
+        console.log("3. Engineering...");
         const engineering = engineeringCalculator(
             req.body,
             designParameters,
             recommendation.technology
         );
+        console.log("✓ Engineering OK");
 
-        //----------------------------------------
-        // Component Sizing
-        //----------------------------------------
+        console.log("4. Electrode...");
+        const electrode = electrodeModel(
+            req.body,
+            engineering
+        );
+        console.log("✓ Electrode OK");
 
+        console.log("5. Component Sizing...");
         const sizing = ComponentSizing.calculate(
             req.body,
             recommendation.technology
         );
+        console.log("✓ Component Sizing OK");
 
-        //----------------------------------------
-        // Simulation
-        //----------------------------------------
-
+        console.log("6. Simulation...");
         const simulation = simulationEngine(
             recommendation.technology,
             req.body,
             designParameters
         );
+        console.log("✓ Simulation OK");
 
-        //----------------------------------------
-        // CDI Cell Design
-        //----------------------------------------
-
+        console.log("7. Cell Design...");
         const cellDesign = cdiDesign(
             req.body,
             engineering
         );
+        console.log("✓ Cell Design OK");
 
-        //----------------------------------------
-        // Stack Design
-        //----------------------------------------
-
+        console.log("8. Stack Design...");
         const stack = stackDesigner(
             req.body,
             cellDesign,
             engineering
         );
+        console.log("✓ Stack Design OK");
 
-        const layout =
-          layoutGenerator(
-          stack,
-          engineering
+        console.log("9. Layout...");
+        const layout = layoutGenerator(
+            stack,
+            engineering
         );
+        console.log("✓ Layout OK");
 
-        //----------------------------------------
-        // Performance
-        //----------------------------------------
-
+        console.log("10. Performance...");
         const performance = performanceCalculator(
             req.body,
             simulation,
             engineering,
             cellDesign
         );
+        console.log("✓ Performance OK");
 
-        //----------------------------------------
-        // Optimization
-        //----------------------------------------
-
+        console.log("11. Optimization...");
         const optimization = optimize(
             req.body,
             sizing,
             engineering
         );
+        console.log("✓ Optimization OK");
 
-        //----------------------------------------
-        // Response
-        //----------------------------------------
+        console.log("✓ ALL CALCULATIONS COMPLETED");
 
         res.json({
 
@@ -135,22 +125,27 @@ router.post("/design", (req, res) => {
 
             layout,
 
+            electrode,
+
             performance
 
         });
 
     }
-
     catch (err) {
 
+        console.error("=================================");
         console.error("SERVER ERROR");
         console.error(err);
+        console.error(err.stack);
+        console.error("=================================");
 
         res.status(500).json({
 
             success: false,
 
-            message: err.message
+            message: err.message,
+            stack: err.stack
 
         });
 

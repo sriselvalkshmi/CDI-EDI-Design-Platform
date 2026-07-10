@@ -24,6 +24,7 @@ export default function Sidebar() {
         setOptimization,
         setPerformance,
         setStack,
+        setElectrode,
         setLayout
 
     } = useApp();
@@ -87,6 +88,14 @@ export default function Sidebar() {
 
                 setEngineering(
                     data.engineering
+                );
+
+            }
+
+            if (response.data.electrode) {
+
+                 setElectrode(
+                   response.data.electrode
                 );
 
             }
