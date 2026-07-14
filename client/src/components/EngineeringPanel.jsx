@@ -1,297 +1,797 @@
 import React from "react";
 import { useApp } from "../context/AppContext";
 
-export default function EquipmentPanel() {
 
-    const {
-        selectedEquipment,
-        feedWater,
-        engineering,
-        simulation,
-        stack,
-        selectedDesign
-    } = useApp();
+export default function EngineeringPanel(){
 
-    if (!selectedEquipment) {
 
-        return (
-            <div className="panel">
-                <h2>Equipment Properties</h2>
-                <p>Click any equipment in the P&amp;ID diagram.</p>
-            </div>
-        );
+const {
 
-    }
+engineering,
+electrode,
+componentSizing,
+feedWater,
+selectedDesign,
+simulation
 
-    switch (selectedEquipment) {
+}=useApp();
 
-        case "Feed Tank":
 
-            return (
 
-                <div className="panel">
 
-                    <h2>Feed Tank</h2>
 
-                    <table>
+const format=(value,digits=2)=>{
 
-                        <tbody>
 
-                            <tr>
-                                <td>TDS</td>
-                                <td>{feedWater.tds} ppm</td>
-                            </tr>
+if(
+value===undefined ||
+value===null ||
+isNaN(value)
+){
 
-                            <tr>
-                                <td>Flow Rate</td>
-                                <td>{feedWater.flowRate} L/min</td>
-                            </tr>
+return "-";
 
-                            <tr>
-                                <td>Pressure</td>
-                                <td>{feedWater.pressure} bar</td>
-                            </tr>
+}
 
-                            <tr>
-                                <td>Temperature</td>
-                                <td>{feedWater.temperature} °C</td>
-                            </tr>
 
-                            <tr>
-                                <td>pH</td>
-                                <td>{feedWater.ph}</td>
-                            </tr>
+return Number(value).toFixed(digits);
 
-                        </tbody>
 
-                    </table>
+};
 
-                </div>
 
-            );
 
-        case "Flow Meter":
 
-            return (
 
-                <div className="panel">
 
-                    <h2>Flow Meter</h2>
+return(
 
-                    <table>
 
-                        <tbody>
+<div className="panel">
 
-                            <tr>
-                                <td>Measured Flow</td>
-                                <td>{feedWater.flowRate} L/min</td>
-                            </tr>
 
-                            <tr>
-                                <td>Status</td>
-                                <td>Running</td>
-                            </tr>
+<h2>
+Engineering Design Summary
+</h2>
 
-                        </tbody>
 
-                    </table>
+<hr />
 
-                </div>
 
-            );
 
-        case "Pump":
 
-            return (
 
-                <div className="panel">
+<h3>
+System Design
+</h3>
 
-                    <h2>Pump</h2>
 
-                    <table>
 
-                        <tbody>
+<table>
 
-                            <tr>
-                                <td>Voltage</td>
-                                <td>{engineering.voltage} V</td>
-                            </tr>
+<tbody>
 
-                            <tr>
-                                <td>Current</td>
-                                <td>{engineering.current} A</td>
-                            </tr>
 
-                            <tr>
-                                <td>Power</td>
-                                <td>{engineering.power} W</td>
-                            </tr>
+<tr>
 
-                        </tbody>
+<td>
+Technology
+</td>
 
-                    </table>
+<td>
+{selectedDesign ?? "-"}
+</td>
 
-                </div>
+</tr>
 
-            );
 
-        case "Pressure Gauge":
 
-            return (
 
-                <div className="panel">
+<tr>
 
-                    <h2>Pressure Gauge</h2>
+<td>
+Feed TDS
+</td>
 
-                    <table>
+<td>
+{feedWater?.tds ?? "-"} ppm
+</td>
 
-                        <tbody>
+</tr>
 
-                            <tr>
-                                <td>Pressure</td>
-                                <td>{feedWater.pressure} bar</td>
-                            </tr>
 
-                            <tr>
-                                <td>Status</td>
-                                <td>Normal</td>
-                            </tr>
 
-                        </tbody>
 
-                    </table>
 
-                </div>
+<tr>
 
-            );
+<td>
+Target TDS
+</td>
 
-        case "Conductivity Sensor":
+<td>
+{feedWater?.targetTds ?? "-"} ppm
+</td>
 
-            return (
+</tr>
 
-                <div className="panel">
 
-                    <h2>Conductivity Sensor</h2>
 
-                    <table>
 
-                        <tbody>
 
-                            <tr>
-                                <td>Conductivity</td>
-                                <td>{feedWater.conductivity} μS/cm</td>
-                            </tr>
+<tr>
 
-                            <tr>
-                                <td>Status</td>
-                                <td>Monitoring</td>
-                            </tr>
+<td>
+Flow Rate
+</td>
 
-                        </tbody>
+<td>
+{feedWater?.flowRate ?? "-"} L/min
+</td>
 
-                    </table>
+</tr>
 
-                </div>
 
-            );
 
-        case "CDI Reactor":
-        case "MCDI Reactor":
-        case "FCDI Reactor":
-        case "EDI Reactor":
+</tbody>
 
-            return (
 
-                <div className="panel">
+</table>
 
-                    <h2>{selectedDesign} Reactor</h2>
 
-                    <table>
 
-                        <tbody>
 
-                            <tr>
-                                <td>Electrode Area</td>
-                                <td>{engineering.electrodeArea} cm²</td>
-                            </tr>
 
-                            <tr>
-                                <td>Current Density</td>
-                                <td>{engineering.currentDensity} A/cm²</td>
-                            </tr>
 
-                            <tr>
-                                <td>Voltage</td>
-                                <td>{engineering.voltage} V</td>
-                            </tr>
 
-                            <tr>
-                                <td>Current</td>
-                                <td>{engineering.current} A</td>
-                            </tr>
+<hr />
 
-                            <tr>
-                                <td>Residence Time</td>
-                                <td>{stack?.residenceTime} min</td>
-                            </tr>
 
-                            <tr>
-                                <td>Stack Thickness</td>
-                                <td>{stack?.stackThickness} mm</td>
-                            </tr>
 
-                        </tbody>
 
-                    </table>
 
-                </div>
 
-            );
 
-        case "Product Tank":
+<h3>
+Electrical Design
+</h3>
 
-            return (
 
-                <div className="panel">
 
-                    <h2>Product Tank</h2>
 
-                    <table>
+<table>
 
-                        <tbody>
+<tbody>
 
-                            <tr>
-                                <td>Outlet TDS</td>
-                                <td>{simulation.outputTDS} ppm</td>
-                            </tr>
 
-                            <tr>
-                                <td>Salt Removal</td>
-                                <td>{simulation.saltRemoval}%</td>
-                            </tr>
 
-                        </tbody>
 
-                    </table>
+<tr>
 
-                </div>
+<td>
+Operating Voltage
+</td>
 
-            );
 
-        default:
+<td>
 
-            return (
+{
+format(
+engineering?.voltage
+)
+}
 
-                <div className="panel">
+ V
 
-                    <h2>Equipment Properties</h2>
+</td>
 
-                    <p>No properties available.</p>
+</tr>
 
-                </div>
 
-            );
 
-    }
+
+
+
+<tr>
+
+<td>
+Current
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.current
+)
+}
+
+ A
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Power
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.power
+)
+}
+
+ W
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Current Density
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.currentDensity
+)
+}
+
+ A/m²
+
+</td>
+
+</tr>
+
+
+
+
+</tbody>
+
+
+</table>
+
+
+
+
+
+
+
+
+
+<hr />
+
+
+
+
+
+
+
+
+<h3>
+Stack Design
+</h3>
+
+
+
+
+
+<table>
+
+<tbody>
+
+
+
+
+<tr>
+
+<td>
+Electrode Area
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.electrodeArea
+)
+}
+
+ cm²
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Cell Pairs
+</td>
+
+
+<td>
+
+{
+engineering?.cellPairs ?? "-"
+}
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Residence Time
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.residenceTime
+)
+}
+
+ min
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Stack Length
+</td>
+
+
+<td>
+
+{
+componentSizing?.stackLength ?? "-"
+}
+
+ mm
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Stack Width
+</td>
+
+
+<td>
+
+{
+componentSizing?.stackWidth ?? "-"
+}
+
+ mm
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Stack Height
+</td>
+
+
+<td>
+
+{
+componentSizing?.stackHeight ?? "-"
+}
+
+ mm
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Electrode Thickness
+</td>
+
+
+<td>
+
+{
+componentSizing?.electrodeThickness ?? "-"
+}
+
+ mm
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Spacer Thickness
+</td>
+
+
+<td>
+
+{
+componentSizing?.spacerThickness ?? "-"
+}
+
+ mm
+
+</td>
+
+</tr>
+
+
+
+
+
+</tbody>
+
+
+</table>
+
+
+
+
+
+
+
+
+
+<hr />
+
+
+
+
+
+
+
+
+<h3>
+Electrode Properties
+</h3>
+
+
+
+
+
+<table>
+
+<tbody>
+
+
+
+
+<tr>
+
+<td>
+SAC
+</td>
+
+
+<td>
+
+{
+format(
+electrode?.SAC
+)
+}
+
+ mg/g
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Electrode Mass
+</td>
+
+
+<td>
+
+{
+format(
+electrode?.electrodeMass
+)
+}
+
+ g
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Capacitance
+</td>
+
+
+<td>
+
+{
+format(
+electrode?.capacitance
+)
+}
+
+ F
+
+</td>
+
+</tr>
+
+
+
+
+
+</tbody>
+
+
+</table>
+
+
+
+
+
+
+
+
+
+<hr />
+
+
+
+
+
+
+
+
+<h3>
+Hydraulic Design
+</h3>
+
+
+
+
+
+
+<table>
+
+<tbody>
+
+
+
+
+
+<tr>
+
+<td>
+Flow Velocity
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.flowVelocity ??
+simulation?.averageVelocity
+)
+}
+
+ m/s
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Pressure Drop
+</td>
+
+
+<td>
+
+
+{
+format(
+simulation?.pressureDrop,
+1
+)
+}
+
+ Pa
+
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Pump Power
+</td>
+
+
+<td>
+
+
+{
+format(
+simulation?.pumpPower,
+3
+)
+}
+
+ W
+
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Water Recovery
+</td>
+
+
+<td>
+
+
+{
+format(
+simulation?.waterRecovery
+)
+}
+
+ %
+
+
+</td>
+
+</tr>
+
+
+
+
+
+
+</tbody>
+
+
+</table>
+
+
+
+
+
+
+</div>
+
+
+);
+
 
 }

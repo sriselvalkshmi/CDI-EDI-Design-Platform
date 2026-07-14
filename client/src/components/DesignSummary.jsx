@@ -1,112 +1,464 @@
 import React from "react";
 import { useApp } from "../context/AppContext";
 
-export default function DesignSummary() {
 
-    const {
-        recommendation,
-        feedWater,
-        simulation,
-        engineering,
-        technology
-    } = useApp();
+export default function DesignSummary(){
 
-    if (!recommendation || !simulation) {
 
-        return (
-            <div className="panel">
-                <h2>Design Report</h2>
-                <p>No design generated.</p>
-            </div>
-        );
-    }
+const {
 
-    const removal =
-        (
-            ((feedWater.tds - simulation.outputTDS) /
-                feedWater.tds) *
-            100
-        ).toFixed(1);
+feedWater,
+simulation,
+engineering,
+selectedDesign
 
-    return (
+}=useApp();
 
-        <div className="panel">
 
-            <h2>Engineering Design Report</h2>
 
-            <table className="engineering-table">
 
-                <tbody>
 
-                    <tr>
-                        <td><b>Technology</b></td>
-                        <td>{technology}</td>
-                    </tr>
 
-                    <tr>
-                        <td><b>Feed TDS</b></td>
-                        <td>{feedWater.tds} ppm</td>
-                    </tr>
 
-                    <tr>
-                        <td><b>Target TDS</b></td>
-                        <td>{feedWater.targetTds} ppm</td>
-                    </tr>
+const format=(value,digits=2)=>{
 
-                    <tr>
-                        <td><b>Predicted Output</b></td>
-                        <td>{simulation.outputTDS} ppm</td>
-                    </tr>
 
-                    <tr>
-                        <td><b>Removal Efficiency</b></td>
-                        <td>{removal}%</td>
-                    </tr>
+if(
+value===undefined ||
+value===null ||
+isNaN(value)
+){
 
-                    <tr>
-                        <td><b>Adsorption Time</b></td>
-                        <td>{simulation.adsorptionTime} min</td>
-                    </tr>
+return "-";
 
-                    <tr>
-                        <td><b>Desorption Time</b></td>
-                        <td>{simulation.desorptionTime} min</td>
-                    </tr>
+}
 
-                    <tr>
-                        <td><b>Electrode Area</b></td>
-                        <td>
-                            {engineering?.area?.toFixed?.(2) ?? engineering?.area} cm²
-                        </td>
-                    </tr>
 
-                    <tr>
-                        <td><b>Reactor Volume</b></td>
-                        <td>
-                            {engineering?.reactorVolume?.toFixed?.(3) ?? engineering?.reactorVolume} L
-                        </td>
-                    </tr>
+return Number(value).toFixed(digits);
 
-                    <tr>
-                        <td><b>EBCT</b></td>
-                        <td>
-                            {engineering?.ebct?.toFixed?.(2) ?? engineering?.ebct} min
-                        </td>
-                    </tr>
 
-                    <tr>
-                        <td><b>Status</b></td>
-                        <td style={{color:"green"}}>
-                            ✔ Design Feasible
-                        </td>
-                    </tr>
+};
 
-                </tbody>
 
-            </table>
 
-        </div>
 
-    );
+
+
+
+
+if(
+!simulation
+){
+
+
+return(
+
+
+<div className="panel">
+
+
+<h2>
+Engineering Design Report
+</h2>
+
+
+<p>
+No design generated.
+</p>
+
+
+</div>
+
+
+);
+
+
+}
+
+
+
+
+
+
+
+
+return(
+
+
+<div className="panel">
+
+
+
+<h2>
+Engineering Design Report
+</h2>
+
+
+<hr/>
+
+
+
+
+
+<table className="engineering-table">
+
+
+<tbody>
+
+
+
+
+
+<tr>
+
+<td>
+Technology
+</td>
+
+
+<td>
+
+{
+selectedDesign ??
+"-"
+}
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Feed TDS
+</td>
+
+
+<td>
+
+{
+feedWater?.tds ??
+"-"
+}
+
+ ppm
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Target TDS
+</td>
+
+
+<td>
+
+{
+feedWater?.targetTds ??
+"-"
+}
+
+ ppm
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Predicted Outlet TDS
+</td>
+
+
+<td>
+
+{
+format(
+simulation.outputTDS
+)
+}
+
+ ppm
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Salt Removed
+</td>
+
+
+<td>
+
+{
+format(
+simulation.saltRemoval
+)
+}
+
+ ppm
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Removal Efficiency
+</td>
+
+
+<td>
+
+{
+format(
+simulation.removalEfficiency
+)
+}
+
+ %
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Adsorption Time
+</td>
+
+
+<td>
+
+{
+format(
+simulation.adsorptionTime
+)
+}
+
+ min
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Desorption Time
+</td>
+
+
+<td>
+
+{
+format(
+simulation.desorptionTime
+)
+}
+
+ min
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Electrode Area
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.electrodeArea
+)
+}
+
+ cm²
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Reactor Volume
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.reactorVolume,
+3
+)
+}
+
+ L
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Residence Time
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.residenceTime
+)
+}
+
+ min
+
+</td>
+
+
+</tr>
+
+
+
+
+
+
+<tr>
+
+<td>
+Status
+</td>
+
+
+<td style={{
+color:"green",
+fontWeight:"bold"
+}}>
+
+✔ Design Feasible
+
+</td>
+
+
+</tr>
+
+
+
+
+
+</tbody>
+
+
+</table>
+
+
+
+
+
+
+</div>
+
+
+);
+
 
 }

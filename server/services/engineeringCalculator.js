@@ -1,55 +1,116 @@
 function engineeringCalculator(feedWater, designParameters, technology) {
 
-    let voltage = designParameters.voltage;
+    //-----------------------------------------
+    // INPUTS
+    //-----------------------------------------
 
-    let current = feedWater.flowRate * 0.5;
+    const inputTDS = Number(feedWater.tds || 500);
+    const targetTDS = Number(feedWater.targetTDS || 50);
+    const flowRate = Number(feedWater.flowRate || 10);
 
-    let electrodeArea = 250;
+    //-----------------------------------------
+    // REQUIRED REMOVAL
+    //-----------------------------------------
+
+    const requiredRemoval = Math.max(
+        0,
+        inputTDS - targetTDS
+    );
+
+    const removalFraction =
+        requiredRemoval / Math.max(inputTDS, 1);
+
+    //-----------------------------------------
+    // TECHNOLOGY LIMITS
+    //-----------------------------------------
+
+    let voltage = designParameters.voltage || 1.2;
+    let currentDensity = designParameters.currentDensity || 20;
 
     switch (technology) {
 
-        case "MCDI":
+        case "CDI":
+            voltage = 1.2;
+            currentDensity = 20;
+            break;
 
+        case "MCDI":
             voltage = 1.4;
-            electrodeArea = 220;
+            currentDensity = 18;
             break;
 
         case "FCDI":
-
-            voltage = 1.8;
-            electrodeArea = 300;
+            voltage = 1.5;
+            currentDensity = 25;
             break;
 
         case "EDI":
-
-            voltage = 15;
-            electrodeArea = 500;
+            voltage = 2.0;
+            currentDensity = 35;
             break;
-
-        default:
-
-            voltage = 1.2;
-            electrodeArea = 250;
 
     }
 
-    const currentDensity =
-        current / electrodeArea;
+    //-----------------------------------------
+    // CURRENT
+    //-----------------------------------------
+
+    const current =
+        Math.max(
+            2,
+            flowRate * 0.5
+        );
+
+    //-----------------------------------------
+    // POWER
+    //-----------------------------------------
 
     const power =
         voltage * current;
 
-    const reactorVolume =
-        (feedWater.flowRate * 5) / 1000;
+    //-----------------------------------------
+    // ELECTRODE AREA
+    //-----------------------------------------
 
-    const ebct =
-        reactorVolume /
-        (feedWater.flowRate / 1000);
+    const electrodeArea =
+        Math.max(
+            150,
+            flowRate * 25
+        );
 
-    const sac =
-        (feedWater.tds - feedWater.targetTds) / 20;
+    //-----------------------------------------
+    // CELL PAIRS
+    //-----------------------------------------
+
+    const cellPairs =
+        Math.max(
+            5,
+            Math.round(
+                removalFraction * 40
+            )
+        );
+
+    //-----------------------------------------
+    // HYDRAULICS
+    //-----------------------------------------
+
+    const flowVelocity =
+        0.10 +
+        flowRate * 0.005;
+
+    const residenceTime =
+        Math.max(
+            2,
+            100 / flowRate
+        );
+
+    //-----------------------------------------
+    // RETURN
+    //-----------------------------------------
 
     return {
+
+        technology,
 
         voltage,
 
@@ -57,19 +118,22 @@ function engineeringCalculator(feedWater, designParameters, technology) {
 
         power,
 
+        currentDensity,
+
         electrodeArea,
 
-        currentDensity:
-            Number(currentDensity.toFixed(4)),
+        cellPairs,
 
-        reactorVolume:
-            Number(reactorVolume.toFixed(3)),
+        flowVelocity,
 
-        ebct:
-            Number(ebct.toFixed(2)),
+        residenceTime,
 
-        sac:
-            Number(sac.toFixed(2))
+        requiredRemoval,
+
+        predictedRemoval:
+            Number(
+                (removalFraction * 100).toFixed(2)
+            )
 
     };
 

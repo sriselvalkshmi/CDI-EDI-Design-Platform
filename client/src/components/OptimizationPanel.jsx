@@ -1,60 +1,426 @@
 import React from "react";
 import { useApp } from "../context/AppContext";
 
-export default function OptimizationPanel() {
 
-    const { optimization } = useApp();
+export default function OptimizationPanel(){
 
-    if (!optimization) {
-        return null;
-    }
 
-    return (
-        <div className="panel">
+const {
 
-            <h2>Design Optimization</h2>
+optimization,
+engineering,
+simulation,
+selectedDesign
 
-            <table>
-                <tbody>
+}=useApp();
 
-                    <tr>
-                        <td>Optimized Voltage</td>
-                        <td>{optimization.optimizedVoltage} V</td>
-                    </tr>
 
-                    <tr>
-                        <td>Flow Rate</td>
-                        <td>{optimization.optimizedFlowRate} L/min</td>
-                    </tr>
 
-                    <tr>
-                        <td>Adsorption Time</td>
-                        <td>{optimization.adsorptionTime} min</td>
-                    </tr>
 
-                    <tr>
-                        <td>Desorption Time</td>
-                        <td>{optimization.desorptionTime} min</td>
-                    </tr>
 
-                    <tr>
-                        <td>Predicted Removal</td>
-                        <td>{optimization.predictedRemoval}%</td>
-                    </tr>
+const format=(value,digits=2)=>{
 
-                    <tr>
-                        <td>Recovery</td>
-                        <td>{optimization.recovery}%</td>
-                    </tr>
 
-                    <tr>
-                        <td>Energy</td>
-                        <td>{optimization.energy} kWh</td>
-                    </tr>
+if(
+value===undefined ||
+value===null ||
+isNaN(value)
+){
 
-                </tbody>
-            </table>
+return "-";
 
-        </div>
-    );
+}
+
+
+return Number(value).toFixed(digits);
+
+
+};
+
+
+
+
+
+
+
+if(!optimization){
+
+
+return(
+
+
+<div className="panel">
+
+
+<h2>
+AI Optimization
+</h2>
+
+
+<hr/>
+
+
+<p>
+Generate a design to calculate AI optimization.
+</p>
+
+
+</div>
+
+
+);
+
+
+}
+
+
+
+
+
+
+
+return(
+
+
+<div className="panel">
+
+
+<h2>
+AI Optimization
+</h2>
+
+
+<hr/>
+
+
+
+
+
+<h3>
+Optimization Result
+</h3>
+
+
+
+<table>
+
+
+<tbody>
+
+
+
+<tr>
+
+<td>
+Technology
+</td>
+
+
+<td>
+
+{
+selectedDesign ?? "-"
+}
+
+</td>
+
+</tr>
+
+
+
+
+
+
+<tr>
+
+<td>
+Optimization Score
+</td>
+
+
+<td>
+
+{
+format(
+optimization.score ??
+simulation?.optimizationScore
+)
+}
+
+ %
+
+</td>
+
+</tr>
+
+
+
+
+
+
+<tr>
+
+<td>
+Confidence
+</td>
+
+
+<td>
+
+{
+format(
+optimization.confidence ?? 95
+)
+}
+
+ %
+
+</td>
+
+</tr>
+
+
+
+
+
+
+</tbody>
+
+
+</table>
+
+
+
+
+
+
+
+
+
+<hr/>
+
+
+
+
+
+
+
+
+<h3>
+Optimized Operating Conditions
+</h3>
+
+
+
+
+
+<table>
+
+
+<tbody>
+
+
+
+
+
+
+<tr>
+
+<td>
+Voltage
+</td>
+
+
+<td>
+
+{
+format(
+optimization.optimizedVoltage ??
+engineering?.voltage
+)
+}
+
+ V
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Flow Rate
+</td>
+
+
+<td>
+
+{
+format(
+optimization.optimizedFlowRate
+)
+}
+
+ L/min
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Residence Time
+</td>
+
+
+<td>
+
+{
+format(
+engineering?.residenceTime
+)
+}
+
+ min
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Flow Velocity
+</td>
+
+
+<td>
+
+{
+format(
+simulation?.averageVelocity
+)
+}
+
+ m/s
+
+</td>
+
+</tr>
+
+
+
+
+
+
+
+<tr>
+
+<td>
+Specific Energy
+</td>
+
+
+<td>
+
+{
+format(
+simulation?.specificEnergy,
+4
+)
+}
+
+ kWh/m³
+
+</td>
+
+</tr>
+
+
+
+
+
+</tbody>
+
+
+</table>
+
+
+
+
+
+
+
+
+
+<hr/>
+
+
+
+
+
+
+
+
+<h3>
+AI Design Suggestions
+</h3>
+
+
+
+<ul>
+
+
+<li>
+Maintain voltage below water splitting limit.
+</li>
+
+
+<li>
+Optimize residence time for ion transport.
+</li>
+
+
+<li>
+Reduce spacer thickness if pressure drop increases.
+</li>
+
+
+<li>
+Improve electrode utilization efficiency.
+</li>
+
+
+</ul>
+
+
+
+
+
+
+</div>
+
+
+);
+
+
 }

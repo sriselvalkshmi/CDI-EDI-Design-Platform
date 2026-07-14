@@ -5,23 +5,13 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
 
     const [technology, setTechnology] = useState("CDI");
-
+     
+    const [performance,setPerformance]=useState(null);
+    const [optimization, setOptimization] = useState(null);
+    const [electrode,setElectrode]=useState(null);
     const [selectedDesign, setSelectedDesign] = useState("CDI");
-          
-    const [feedWater, setFeedWater] = useState({
-        tds: 500,
-        conductivity: 300,
-        hardness: 150,
-        ph: 7,
-        temperature: 25,
-        flowRate: 10,
-        pressure: 1,
-        targetTds: 50
-    });
 
-    const [loading, setLoading] = useState(false);
-
-    const [aiResult, setAiResult] = useState(null);
+    const [simulation, setSimulation] = useState(null);
 
     const [designParameters, setDesignParameters] = useState(null);
 
@@ -29,23 +19,36 @@ export function AppProvider({ children }) {
 
     const [componentSizing, setComponentSizing] = useState(null);
 
-    const [simulation, setSimulation] = useState(null);
-
-    const [optimization, setOptimization] = useState(null);
-
-    const [performance, setPerformance] = useState(null);
-
-    const [stack, setStack] = useState(null);
-
     const [selectedComponent, setSelectedComponent] = useState(null);
-    
-    const [layout, setLayout] = useState(null);
 
-    const [electrode, setElectrode] = useState(null);
+    const [loading, setLoading] = useState(false);
 
-    const [selectedEquipment, setSelectedEquipment] = useState(null);
+    const [selectedEquipment,setSelectedEquipment]=useState(null);
+
+    const [aiResult, setAiResult] = useState(null);
+
+    const [feedWater, setFeedWater] = useState({
+
+        tds: 500,
+
+        conductivity: 300,
+
+        hardness: 150,
+
+        ph: 7,
+
+        temperature: 25,
+
+        flowRate: 10,
+
+        pressure: 1,
+
+        targetTds: 50
+
+    });
 
     const [designComponents, setDesignComponents] = useState([
+
         {
             id: 1,
             type: "Electrode",
@@ -54,6 +57,7 @@ export function AppProvider({ children }) {
             thickness: 0.5,
             material: "Activated Carbon"
         },
+
         {
             id: 2,
             type: "Spacer",
@@ -61,6 +65,7 @@ export function AppProvider({ children }) {
             height: 1,
             flowRate: 10
         },
+
         {
             id: 3,
             type: "Electrode",
@@ -69,11 +74,13 @@ export function AppProvider({ children }) {
             thickness: 0.5,
             material: "Activated Carbon"
         }
+
     ]);
 
     return (
 
         <AppContext.Provider
+
             value={{
 
                 technology,
@@ -85,14 +92,14 @@ export function AppProvider({ children }) {
                 feedWater,
                 setFeedWater,
 
-                loading,
-                setLoading,
-
                 aiResult,
                 setAiResult,
 
                 designParameters,
                 setDesignParameters,
+
+                simulation,
+                setSimulation,
 
                 engineering,
                 setEngineering,
@@ -100,34 +107,29 @@ export function AppProvider({ children }) {
                 componentSizing,
                 setComponentSizing,
 
-                simulation,
-                setSimulation,
-
-                optimization,
-                setOptimization,
-
-                performance,
-                setPerformance,
-
-                stack,
-                setStack,
+                designComponents,
+                setDesignComponents,
 
                 selectedComponent,
                 setSelectedComponent,
 
-                designComponents,
-                setDesignComponents,
+                performance,
+                setPerformance,
 
-                selectedEquipment,
-                setSelectedEquipment,
+                optimization,
+                setOptimization,
 
                 electrode,
                 setElectrode,
 
-                layout,
-                setLayout
+                selectedEquipment,
+                setSelectedEquipment,
+
+                loading,
+                setLoading
 
             }}
+
         >
 
             {children}

@@ -1,80 +1,157 @@
-class ComponentSizing {
+function calculate(feedWater, technology) {
 
-    static calculate(input, technology) {
+    //--------------------------------------------------
+    // INPUTS
+    //--------------------------------------------------
 
-        const flow = Number(input.flowRate);
-        const tds = Number(input.tds);
+    const flowRate =
+        Number(feedWater.flowRate || 10);
 
-        let sizing = {};
+    const inputTDS =
+        Number(feedWater.tds || 500);
 
-        switch (technology) {
+    //--------------------------------------------------
+    // TECHNOLOGY FACTOR
+    //--------------------------------------------------
 
-            case "CDI":
+    let factor = 1.0;
 
-                sizing = {
-                    reactorDiameter: (0.15 + flow * 0.006).toFixed(3),
-                    reactorHeight: (0.50 + flow * 0.03).toFixed(3),
-                    electrodeLength: (25 + flow).toFixed(1),
-                    electrodeWidth: 15,
-                    electrodeThickness: 0.6,
-                    spacerThickness: 0.5,
-                    collectorThickness: 1.5,
-                    inletDiameter: 25,
-                    outletDiameter: 25,
-                    cellPairs: Math.ceil(tds / 120)
-                };
+    switch (technology) {
 
-                break;
+        case "CDI":
+            factor = 1.0;
+            break;
 
-            case "MCDI":
+        case "MCDI":
+            factor = 1.15;
+            break;
 
-                sizing = {
-                    reactorDiameter: (0.18 + flow * 0.006).toFixed(3),
-                    reactorHeight: (0.60 + flow * 0.03).toFixed(3),
-                    membraneArea: (flow * 30).toFixed(1),
-                    membraneThickness: 0.15,
-                    electrodeLength: (28 + flow).toFixed(1),
-                    spacerThickness: 0.4,
-                    inletDiameter: 32,
-                    outletDiameter: 32,
-                    cellPairs: Math.ceil(tds / 100)
-                };
+        case "FCDI":
+            factor = 1.30;
+            break;
 
-                break;
+        case "EDI":
+            factor = 1.50;
+            break;
 
-            case "FCDI":
-
-                sizing = {
-                    reactorDiameter: (0.30 + flow * 0.01).toFixed(3),
-                    reactorHeight: (1.00 + flow * 0.04).toFixed(3),
-                    slurryTank: (flow * 5).toFixed(1),
-                    slurryFlow: (flow * 2).toFixed(1),
-                    membraneArea: (flow * 35).toFixed(1)
-                };
-
-                break;
-
-            case "EDI":
-
-                sizing = {
-                    stackHeight: (0.80 + flow * 0.04).toFixed(3),
-                    stackWidth: 0.30,
-                    membranePairs: Math.ceil(tds / 150),
-                    resinVolume: (flow * 2).toFixed(1),
-                    electrodeArea: (flow * 25).toFixed(1)
-                };
-
-                break;
-
-            default:
-
-                sizing = {};
-
-        }
-
-        return sizing;
     }
+
+    //--------------------------------------------------
+    // ELECTRODE SIZE
+    //--------------------------------------------------
+
+    const electrodeLength =
+        Math.max(
+            200,
+            flowRate * 20
+        );
+
+    const electrodeWidth =
+        Math.max(
+            100,
+            flowRate * 10
+        );
+
+    const electrodeThickness = 0.6;
+
+    const spacerThickness = 0.5;
+
+    //--------------------------------------------------
+    // CELL PAIRS
+    //--------------------------------------------------
+
+    const cellPairs =
+        Math.max(
+            5,
+            Math.round(inputTDS / 100)
+        );
+
+    //--------------------------------------------------
+    // STACK DIMENSIONS
+    //--------------------------------------------------
+
+    const stackLength =
+        electrodeLength;
+
+    const stackWidth =
+        electrodeWidth;
+
+    const stackHeight =
+        cellPairs *
+        (
+            electrodeThickness +
+            spacerThickness
+        );
+
+    //--------------------------------------------------
+    // REACTOR SIZE
+    //--------------------------------------------------
+
+    const reactorDiameter =
+        Number(
+            (
+                stackWidth * 1.4
+            ).toFixed(1)
+        );
+
+    const reactorHeight =
+        Number(
+            (
+                stackHeight * 1.5
+            ).toFixed(1)
+        );
+
+    //--------------------------------------------------
+    // ELECTRODE AREA
+    //--------------------------------------------------
+
+    const electrodeArea =
+        Number(
+            (
+                electrodeLength *
+                electrodeWidth /
+                100
+            ).toFixed(1)
+        );
+
+    //--------------------------------------------------
+    // RETURN
+    //--------------------------------------------------
+
+    return {
+
+        technology,
+
+        reactorDiameter,
+
+        reactorHeight,
+
+        stackLength,
+
+        stackWidth,
+
+        stackHeight,
+
+        electrodeLength,
+
+        electrodeWidth,
+
+        electrodeArea,
+
+        electrodeThickness,
+
+        spacerThickness,
+
+        collectorThickness: 1.5,
+
+        inletDiameter: 25,
+
+        outletDiameter: 25,
+
+        cellPairs
+
+    };
 
 }
 
-module.exports = ComponentSizing;
+module.exports = { calculate };

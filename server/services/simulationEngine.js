@@ -1,524 +1,884 @@
 function simulate(technology, feedWater, parameters) {
 
-    //--------------------------------------------------
-    // Feed Water
-    //--------------------------------------------------
-
-    const inputTDS = Number(feedWater.tds || 500);
-    const flowRate = Number(feedWater.flowRate || 10);
-    const hardness = Number(feedWater.hardness || 0);
+    "use strict";
 
     //--------------------------------------------------
-    // Technology Parameters
+    // PHYSICAL CONSTANTS
     //--------------------------------------------------
 
-    let removal = 70;
-    let chargeEfficiency = 0.80;
-    let sacMax = 15;
-
-    switch (technology) {
-
-        case "CDI":
-            removal = 70;
-            chargeEfficiency = 0.80;
-            sacMax = 15;
-            break;
-
-        case "MCDI":
-            removal = 85;
-            chargeEfficiency = 0.90;
-            sacMax = 25;
-            break;
-
-        case "FCDI":
-            removal = 92;
-            chargeEfficiency = 0.95;
-            sacMax = 40;
-            break;
-
-        case "EDI":
-            removal = 98;
-            chargeEfficiency = 0.99;
-            sacMax = 45;
-            break;
-
-        default:
-            removal = 70;
-
-    }
+    const FARADAY = 96485;              // C/mol
+    const NaClMW = 58.44;               // g/mol
+    const WATER_DENSITY = 1000;         // kg/m³
+    const WATER_VISCOSITY = 0.001;      // Pa·s
+    const GRAVITY = 9.81;
 
     //--------------------------------------------------
-    // Cycle Time
+    // FEED WATER
     //--------------------------------------------------
 
-    let adsorptionTime = Math.round(
+    const inputTDS =
+        Number(feedWater.tds || 500);
 
-        10 +
-        inputTDS / 150 +
-        hardness / 100 -
-        flowRate / 5
+    const flowRate =
+        Number(feedWater.flowRate || 10);
 
-    );
+    const hardness =
+        Number(feedWater.hardness || 150);
 
-    adsorptionTime = Math.max(10, adsorptionTime);
+    const conductivityIn =
+        Number(feedWater.conductivity || 800);
+
+    const temperature =
+        Number(feedWater.temperature || 25);
+
+    const pressure =
+        Number(feedWater.pressure || 1);
+
+    const targetTDS =
+        Number(feedWater.targetTds || 50);
+
+    const opt =
+        feedWater.optimization || {};
+
+    //--------------------------------------------------
+    // TECHNOLOGY DATABASE
+    //--------------------------------------------------
+
+    const DATABASE = {
+
+        CDI: {
+            removal: 70,
+            chargeEfficiency: 0.80,
+            SAC: 15,
+            voltage: 1.2
+        },
+
+        MCDI: {
+            removal: 85,
+            chargeEfficiency: 0.90,
+            SAC: 25,
+            voltage: 1.4
+        },
+
+        FCDI: {
+            removal: 92,
+            chargeEfficiency: 0.95,
+            SAC: 40,
+            voltage: 1.6
+        },
+
+        EDI: {
+            removal: 98,
+            chargeEfficiency: 0.99,
+            SAC: 45,
+            voltage: 2.0
+        }
+
+    };
+
+    const tech =
+        DATABASE[technology] ||
+        DATABASE.CDI;
+
+    //--------------------------------------------------
+    // TECHNOLOGY PARAMETERS
+    //--------------------------------------------------
+
+    const removalEfficiency =
+        tech.removal;
+
+    const chargeEfficiency =
+        tech.chargeEfficiency;
+
+    const sacLimit =
+        tech.SAC;
+
+    //--------------------------------------------------
+    // TIME
+    //--------------------------------------------------
+
+    const adsorptionTime =
+        Number(opt.adsorptionTime || 20);
 
     const desorptionTime =
-        Math.round(adsorptionTime * 0.5);
+        Number(opt.desorptionTime || 10);
 
     const totalTime =
-        adsorptionTime + desorptionTime;
+        adsorptionTime +
+        desorptionTime;
 
     //--------------------------------------------------
-    // Electrical Constants
+    // ELECTRICAL PARAMETERS
     //--------------------------------------------------
 
-    const appliedVoltage =
-        Number(parameters.voltage || 1.2);
+    const voltageValue =
+        Number(
+            opt.voltage ||
+            parameters.voltage ||
+            tech.voltage
+        );
 
-    const R = 2.5;          // Ohm
-    const C = 500;          // Farad
-    const tau = R * C;
+    const cellResistance =
+        Number(
+            opt.cellResistance || 2.5
+        );
 
-    const electrodeMass = 200;     // g
+    const capacitance =
+        Number(
+            opt.capacitance || 500
+        );
+
+    const tau =
+        cellResistance *
+        capacitance;
+
+    //--------------------------------------------------
+    // ELECTRODE PARAMETERS
+    //--------------------------------------------------
+
     const electrodeArea =
-        Number(parameters.electrodeArea || 250); // cm²
+        Number(
+            opt.electrodeArea ||
+            parameters.electrodeArea ||
+            250
+        );
+
+    const electrodeMass =
+        Number(
+            opt.electrodeMass || 200
+        );
+
+    const electrodeThickness =
+        Number(
+            opt.electrodeThickness || 0.0006
+        );
+
+    const electrodePorosity =
+        Number(
+            opt.porosity || 0.65
+        );
 
     //--------------------------------------------------
-    // Hydraulic Constants
+    // HYDRAULICS
     //--------------------------------------------------
 
-    const channelWidth = 0.002;
-    const channelHeight = 0.0008;
-    const channelLength = 0.20;
+    const channelWidth =
+        Number(
+            opt.channelWidth || 0.01
+        );
+
+    const channelHeight =
+        Number(
+            opt.channelHeight || 0.001
+        );
+
+    const channelLength =
+        Number(
+            opt.channelLength || 0.20
+        );
+
+    const spacerThickness =
+        Number(
+            opt.spacerThickness || 0.0003
+        );
+
+    const hydraulicArea =
+        channelWidth *
+        channelHeight;
 
     const hydraulicDiameter =
-        2 * channelWidth * channelHeight /
-        (channelWidth + channelHeight);
-
-    const density = 1000;
-    const viscosity = 0.001;
+        (
+            2 *
+            channelWidth *
+            channelHeight
+        ) /
+        (
+            channelWidth +
+            channelHeight
+        );
 
     const pumpEfficiency = 0.70;
 
     //--------------------------------------------------
-    // Arrays
+    // STORAGE ARRAYS
     //--------------------------------------------------
 
     const time = [];
-
     const voltage = [];
     const current = [];
     const tds = [];
-
     const conductivity = [];
     const resistance = [];
     const charge = [];
     const sac = [];
-
     const currentDensity = [];
     const electrodePotential = [];
     const coulombicEfficiency = [];
     const adsorptionRate = [];
-
     const waterRecovery = [];
-
     const flowVelocity = [];
     const reynolds = [];
     const pressureDrop = [];
     const pumpPower = [];
 
     //--------------------------------------------------
-    // Running Variables
+    // RUNNING VARIABLES
     //--------------------------------------------------
 
     let accumulatedCharge = 0;
-    //--------------------------------------------------
-// Simulation Loop
+    let accumulatedEnergy = 0;
+    let accumulatedSalt = 0;
+
+    const flowM3s =
+        flowRate / 1000 / 60;
+//--------------------------------------------------
+// SIMULATION LOOP
 //--------------------------------------------------
 
-for (let t = 0; t <= totalTime; t++) {
+    for (let t = 0; t <= totalTime; t++) {
 
-    time.push(t);
+        time.push(t);
 
-    let V = 0;
-    let I = 0;
-    let outletTDS = inputTDS;
+        let V = 0;
+        let I = 0;
+        let outletTDS = inputTDS;
+        let saltRemoved = 0;
 
-    //--------------------------------------------------
-    // ADSORPTION
-    //--------------------------------------------------
+        //--------------------------------------------------
+        // ADSORPTION
+        //--------------------------------------------------
 
-    if (t <= adsorptionTime) {
+        if (t <= adsorptionTime) {
 
-        const sec = t * 60;
+            const seconds = t * 60;
 
-        // RC Charging
-        V =
-            appliedVoltage *
-            (1 - Math.exp(-sec / tau));
+            // RC charging equation
 
-        I =
-            (appliedVoltage / R) *
-            Math.exp(-sec / tau);
+            V =
+                voltageValue *
+                (
+                    1 -
+                    Math.exp(-seconds / tau)
+                );
 
-        accumulatedCharge += I * 60;
+            I =
+                (
+                    voltageValue /
+                    cellResistance
+                ) *
+                Math.exp(-seconds / tau);
+
+        }
+
+        //--------------------------------------------------
+        // DESORPTION
+        //--------------------------------------------------
+
+        else {
+
+            const seconds =
+                (t - adsorptionTime) * 60;
+
+            V =
+                -voltageValue *
+                Math.exp(-seconds / tau);
+
+            I =
+                -(
+                    voltageValue /
+                    cellResistance
+                ) *
+                Math.exp(-seconds / tau);
+
+        }
+
+        //--------------------------------------------------
+        // CHARGE TRANSFER
+        //--------------------------------------------------
+
+        const dt = 60;
+
+        accumulatedCharge +=
+            Math.abs(I) * dt;
+
+        //--------------------------------------------------
+        // ELECTRICAL ENERGY
+        //--------------------------------------------------
+
+        accumulatedEnergy +=
+            Math.abs(V * I * dt);
+
+        //--------------------------------------------------
+        // FARADAY LAW
+        //--------------------------------------------------
+
+        const dynamicCE =
+            chargeEfficiency *
+            Math.exp(
+                -accumulatedCharge / 15000
+            );
+
+        const chargeStored =
+            accumulatedCharge *
+            dynamicCE;
+
+        const molesRemoved =
+            chargeStored /
+            FARADAY;
+
+        const saltMass =
+            molesRemoved *
+            NaClMW;
+
+        saltRemoved =
+            saltMass * 1000;
+
+        //--------------------------------------------------
+        // MAX REMOVAL
+        //--------------------------------------------------
+
+        const maximumRemoval =
+            inputTDS *
+            (
+                removalEfficiency /
+                100
+            );
+
+        saltRemoved =
+            Math.min(
+                saltRemoved,
+                maximumRemoval
+            );
+
+        accumulatedSalt =
+            saltRemoved;
+
+        //--------------------------------------------------
+        // OUTLET TDS
+        //--------------------------------------------------
 
         outletTDS =
             inputTDS -
-            (inputTDS * removal / 100) *
-            (1 - Math.exp(-3 * t / adsorptionTime));
+            saltRemoved;
 
-    }
-
-    //--------------------------------------------------
-    // DESORPTION
-    //--------------------------------------------------
-
-    else {
-
-        const td =
-            (t - adsorptionTime) * 60;
-
-        // Reverse polarity
-        V =
-            -appliedVoltage *
-            Math.exp(-td / tau);
-
-        I =
-            -(appliedVoltage / R) *
-            Math.exp(-td / tau);
-
-        accumulatedCharge += I * 60;
-
-        const fraction =
-            (t - adsorptionTime) /
-            desorptionTime;
-
-        // Salt released back to concentrate
         outletTDS =
-            inputTDS -
-            (inputTDS * removal / 100) *
-            (1 - fraction);
+            Math.max(
+                outletTDS,
+                inputTDS -
+                maximumRemoval
+            );
+
+        //--------------------------------------------------
+        // CONDUCTIVITY MODEL
+        //--------------------------------------------------
+
+        const temperatureFactor =
+            1 +
+            0.02 *
+            (
+                temperature -
+                25
+            );
+
+        const conductivityFactor =
+            0.64;
+
+        const cond =
+            outletTDS /
+            conductivityFactor *
+            temperatureFactor;
+
+        //--------------------------------------------------
+        // CELL RESISTANCE
+        //--------------------------------------------------
+
+        const electrolyteResistance =
+            1500 /
+            Math.max(cond, 10);
+
+        const membraneResistance =
+            technology === "MCDI"
+                ? 0.40
+                : 0;
+
+        const cellR =
+            cellResistance +
+            electrolyteResistance +
+            membraneResistance;
+
+        //--------------------------------------------------
+        // SAC MODEL
+        //--------------------------------------------------
+
+        const utilization = 0.90;
+
+        const theoreticalSAC =
+            sacLimit *
+            utilization *
+            electrodePorosity;
+
+        const chargeFraction =
+            Math.min(
+                accumulatedCharge /
+                15000,
+                1
+            );
+
+        const sacValue =
+            theoreticalSAC *
+            (
+                1 -
+                Math.exp(
+                    -3 *
+                    chargeFraction
+                )
+            );
+
+        //--------------------------------------------------
+        // CURRENT DENSITY
+        //--------------------------------------------------
+
+        const areaM2 =
+            electrodeArea / 10000;
+
+        const jd =
+            I /
+            Math.max(areaM2, 1e-8);
+
+        //--------------------------------------------------
+        // ELECTRODE POTENTIAL
+        //--------------------------------------------------
+
+        const electrodeV =
+            V / 2;
+
+        //--------------------------------------------------
+        // ADSORPTION RATE
+        //--------------------------------------------------
+
+        const rate =
+            saltRemoved /
+            Math.max(
+                t + 1,
+                1
+            );
+
+        //--------------------------------------------------
+        // WATER RECOVERY
+        //--------------------------------------------------
+
+        const recovery =
+            Math.max(
+                90,
+                95 -
+                0.10 * t
+            );
+
+        //--------------------------------------------------
+        // FLOW VELOCITY
+        //--------------------------------------------------
+
+        const effectiveArea =
+            hydraulicArea *
+            electrodePorosity;
+
+        let velocity =
+            flowM3s /
+            Math.max(
+                effectiveArea,
+                1e-8
+            );
+
+        velocity =
+            Math.min(
+                velocity,
+                0.30
+            );
+
+        //--------------------------------------------------
+        // REYNOLDS NUMBER
+        //--------------------------------------------------
+
+        const Re =
+            WATER_DENSITY *
+            velocity *
+            hydraulicDiameter /
+            WATER_VISCOSITY;
+
+        //--------------------------------------------------
+        // FRICTION FACTOR
+        //--------------------------------------------------
+
+        let friction;
+
+        if (Re < 2300) {
+
+            friction =
+                64 /
+                Math.max(Re, 1);
+
+        }
+
+        else {
+
+            friction =
+                0.3164 /
+                Math.pow(
+                    Re,
+                    0.25
+                );
+
+        }
+
+        //--------------------------------------------------
+        // POROUS MEDIA LOSS
+        //--------------------------------------------------
+
+        const porousLoss =
+            1 +
+            (
+                electrodeThickness /
+                spacerThickness
+            );
+
+        //--------------------------------------------------
+        // PRESSURE DROP
+        //--------------------------------------------------
+
+        let deltaP =
+            friction *
+            (
+                channelLength /
+                hydraulicDiameter
+            ) *
+            (
+                WATER_DENSITY *
+                velocity *
+                velocity /
+                2
+            ) *
+            porousLoss;
+
+        deltaP =
+            Math.max(
+                20,
+                Math.min(
+                    deltaP,
+                    5000
+                )
+            );
+
+        //--------------------------------------------------
+        // PUMP POWER
+        //--------------------------------------------------
+
+        const pump =
+            deltaP *
+            flowM3s /
+            pumpEfficiency;
+
+        //--------------------------------------------------
+        // STORE ARRAYS
+        //--------------------------------------------------
+
+        voltage.push(Number(V.toFixed(3)));
+        current.push(Number(I.toFixed(3)));
+        tds.push(Number(outletTDS.toFixed(2)));
+        conductivity.push(Number(cond.toFixed(2)));
+        resistance.push(Number(cellR.toFixed(3)));
+        charge.push(Number(accumulatedCharge.toFixed(2)));
+        sac.push(Number(sacValue.toFixed(3)));
+        currentDensity.push(Number(jd.toFixed(3)));
+        electrodePotential.push(Number(electrodeV.toFixed(3)));
+        coulombicEfficiency.push(Number(dynamicCE.toFixed(3)));
+        adsorptionRate.push(Number(rate.toFixed(3)));
+        waterRecovery.push(Number(recovery.toFixed(2)));
+        flowVelocity.push(Number(velocity.toFixed(3)));
+        reynolds.push(Number(Re.toFixed(0)));
+        pressureDrop.push(Number(deltaP.toFixed(2)));
+        pumpPower.push(Number(pump.toFixed(4)));
 
     }
+        //--------------------------------------------------
+    // PERFORMANCE CALCULATIONS
+    //--------------------------------------------------
+
+    const averageCurrent =
+        current.reduce((a, b) => a + Math.abs(b), 0) /
+        Math.max(current.length, 1);
+
+    const averageVoltage =
+        voltage.reduce((a, b) => a + Math.abs(b), 0) /
+        Math.max(voltage.length, 1);
 
     //--------------------------------------------------
-    // Water Properties
+    // TOTAL ELECTRICAL ENERGY
     //--------------------------------------------------
 
-    const cond =
-        outletTDS * 2;
+    const electricalEnergyWh =
+        accumulatedEnergy / 3600;
 
-    const cellResistance =
-        R +
-        1000 / Math.max(cond, 1);
+    //--------------------------------------------------
+    // WATER PROCESSED
+    //--------------------------------------------------
 
-    const saltRemoved =
-        inputTDS - outletTDS;
+    const processedVolume =
+        flowRate * totalTime;
 
-    const sacValue =
-        saltRemoved /
+    //--------------------------------------------------
+    // SPECIFIC ENERGY
+    // kWh/m³
+    //--------------------------------------------------
+
+    const specificEnergy =
+        processedVolume > 0
+            ?
+            (electricalEnergyWh / 1000) /
+            (processedVolume / 1000)
+            :
+            0;
+
+    //--------------------------------------------------
+    // AVERAGE VALUES
+    //--------------------------------------------------
+
+    const averageResistance =
+        resistance.reduce((a, b) => a + b, 0) /
+        Math.max(resistance.length, 1);
+
+    const averageConductivity =
+        conductivity.reduce((a, b) => a + b, 0) /
+        Math.max(conductivity.length, 1);
+
+    const averageCurrentDensity =
+        currentDensity.reduce((a, b) => a + b, 0) /
+        Math.max(currentDensity.length, 1);
+
+    const averageCE =
+        coulombicEfficiency.reduce((a, b) => a + b, 0) /
+        Math.max(coulombicEfficiency.length, 1);
+
+    const averageVelocity =
+        flowVelocity.reduce((a, b) => a + b, 0) /
+        Math.max(flowVelocity.length, 1);
+
+    const averagePressureDrop =
+        pressureDrop.reduce((a, b) => a + b, 0) /
+        Math.max(pressureDrop.length, 1);
+
+    const averagePumpPower =
+        pumpPower.reduce((a, b) => a + b, 0) /
+        Math.max(pumpPower.length, 1);
+
+    const averageRecovery =
+        waterRecovery.reduce((a, b) => a + b, 0) /
+        Math.max(waterRecovery.length, 1);
+
+    //--------------------------------------------------
+    // FINAL PERFORMANCE
+    //--------------------------------------------------
+
+    const finalOutletTDS =
+        tds[Math.min(
+            adsorptionTime,
+            tds.length - 1
+        )];
+
+    const saltRemoval =
+        inputTDS -
+        finalOutletTDS;
+
+    const removalPercent =
+        (saltRemoval / inputTDS) * 100;
+
+    //--------------------------------------------------
+    // FINAL SAC
+    //--------------------------------------------------
+
+    const finalSAC =
+        accumulatedSalt /
         electrodeMass;
 
     //--------------------------------------------------
-    // Store Main Results
+    // OPTIMIZATION SCORE
     //--------------------------------------------------
 
-    voltage.push(
-        Number(V.toFixed(3))
-    );
+    const optimizationScore =
+        Math.min(
+            100,
 
-    current.push(
-        Number(I.toFixed(3))
-    );
+            removalPercent * 0.60 +
 
-    tds.push(
-        Number(outletTDS.toFixed(1))
-    );
+            averageCE * 100 * 0.20 +
 
-    conductivity.push(
-        Number(cond.toFixed(1))
-    );
+            Math.max(
+                0,
+                10 - specificEnergy
+            ) +
 
-    resistance.push(
-        Number(cellResistance.toFixed(2))
-    );
-
-    charge.push(
-        Number(accumulatedCharge.toFixed(2))
-    );
-
-    sac.push(
-        Number(sacValue.toFixed(3))
-    );
+            averageRecovery * 0.10
+        );
 
     //--------------------------------------------------
-    // Current Density
+    // ENGINEERING SUMMARY
     //--------------------------------------------------
 
-    const jd =
-        I /
-        (electrodeArea / 10000);
+    const engineeringSummary = {
 
-    currentDensity.push(
-        Number(jd.toFixed(2))
-    );
+        voltage:
+            Number(averageVoltage.toFixed(3)),
 
-    //--------------------------------------------------
-    // Electrode Potential
-    //--------------------------------------------------
+        current:
+            Number(averageCurrent.toFixed(3)),
 
-    electrodePotential.push(
-        Number((V / 2).toFixed(3))
-    );
+        conductivity:
+            Number(averageConductivity.toFixed(2)),
 
-    //--------------------------------------------------
-    // Coulombic Efficiency
-    //--------------------------------------------------
+        resistance:
+            Number(averageResistance.toFixed(3)),
 
-    const lambda =
-        chargeEfficiency *
-        Math.exp(-0.02 * t);
+        currentDensity:
+            Number(averageCurrentDensity.toFixed(3)),
 
-    coulombicEfficiency.push(
-        Number(lambda.toFixed(3))
-    );
+        flowVelocity:
+            Number(averageVelocity.toFixed(3)),
 
-    //--------------------------------------------------
-    // Adsorption Rate
-    //--------------------------------------------------
+        pressureDrop:
+            Number(averagePressureDrop.toFixed(2)),
 
-    adsorptionRate.push(
-        Number(
-            (
-                saltRemoved /
-                Math.max(t + 1, 1)
-            ).toFixed(3)
-        )
-    );
+        pumpPower:
+            Number(averagePumpPower.toFixed(4)),
 
-    //--------------------------------------------------
-    // Water Recovery
+        chargeEfficiency:
+            Number(averageCE.toFixed(3)),
+
+        specificEnergy:
+            Number(specificEnergy.toFixed(4)),
+
+        waterRecovery:
+            Number(averageRecovery.toFixed(2))
+    };
+        //--------------------------------------------------
+    // RETURN RESULTS
     //--------------------------------------------------
 
-    waterRecovery.push(
-        Number(
-            (
-                95 -
-                0.02 * t
-            ).toFixed(2)
-        )
-    );
+    return {
 
-    //--------------------------------------------------
-    // Hydraulic Model
-    //--------------------------------------------------
+        //--------------------------------------------------
+        // BASIC RESULTS
+        //--------------------------------------------------
 
-    const flowRateM3s =
-        flowRate / 1000 / 60;
+        technology,
 
-    const area =
-        channelWidth *
-        channelHeight;
+        inputTDS,
 
-    const velocity =
-        flowRateM3s / area;
+        outputTDS: Number(finalOutletTDS.toFixed(2)),
 
-    const Re =
-        density *
-        velocity *
-        hydraulicDiameter /
-        viscosity;
+        saltRemoval: Number(saltRemoval.toFixed(2)),
 
-    const friction =
-        Re < 2300
-            ? 64 / Re
-            : 0.316 / Math.pow(Re, 0.25);
+        removal: Number(removalPercent.toFixed(2)),
 
-    const deltaP =
-        friction *
-        (channelLength / hydraulicDiameter) *
-        density *
-        velocity *
-        velocity / 2;
+        removalEfficiency: Number(removalPercent.toFixed(2)),
 
-    const pump =
-        deltaP *
-        flowRateM3s /
-        pumpEfficiency;
+        adsorptionTime,
 
-    flowVelocity.push(
-        Number(velocity.toFixed(3))
-    );
+        desorptionTime,
 
-    reynolds.push(
-        Number(Re.toFixed(0))
-    );
+        //--------------------------------------------------
+        // ELECTRICAL PERFORMANCE
+        //--------------------------------------------------
 
-    pressureDrop.push(
-        Number(deltaP.toFixed(2))
-    );
+        energy: Number(electricalEnergyWh.toFixed(3)),
 
-    pumpPower.push(
-        Number(pump.toFixed(3))
-    );
+        specificEnergy: Number(specificEnergy.toFixed(4)),
 
-}
-//--------------------------------------------------
-// Performance Calculations
-//--------------------------------------------------
+        averageVoltage: Number(averageVoltage.toFixed(3)),
 
-const averageCurrent =
-    current.reduce(
-        (sum, value) => sum + Math.abs(value),
-        0
-    ) / current.length;
+        averageCurrent: Number(averageCurrent.toFixed(3)),
 
-const averageVoltage =
-    voltage.reduce(
-        (sum, value) => sum + Math.abs(value),
-        0
-    ) / voltage.length;
+        averageResistance: Number(averageResistance.toFixed(3)),
 
-// Electrical Energy (Wh)
-const energyWh =
-    averageVoltage *
-    averageCurrent *
-    totalTime /
-    60;
+        chargeEfficiency: Number(averageCE.toFixed(3)),
 
-// Water processed (L)
-const processedVolume =
-    flowRate *
-    totalTime;
+        //--------------------------------------------------
+        // ELECTRODE PERFORMANCE
+        //--------------------------------------------------
 
-// Specific Energy (kWh/m³)
-const specificEnergy =
-    processedVolume > 0
-        ? (energyWh / 1000) /
-          (processedVolume / 1000)
-        : 0;
+        sac: Number(finalSAC.toFixed(3)),
 
-// Average Pump Power
-const averagePumpPower =
-    pumpPower.reduce(
-        (sum, value) => sum + value,
-        0
-    ) / pumpPower.length;
+        sacLimit,
 
-// Total Pump Energy (Wh)
-const pumpEnergy =
-    averagePumpPower *
-    totalTime /
-    60;
+        averageCurrentDensity:
+            Number(averageCurrentDensity.toFixed(3)),
 
-// Total System Energy
-const totalEnergy =
-    energyWh + pumpEnergy;
+        //--------------------------------------------------
+        // HYDRAULICS
+        //--------------------------------------------------
 
-// Salt Adsorption Capacity (mg/g)
-const finalSAC =
-    sac[sac.length - 1];
+        averageVelocity:
+            Number(averageVelocity.toFixed(3)),
 
-// Final Water Recovery
-const finalRecovery =
-    waterRecovery[waterRecovery.length - 1];
+        pressureDrop:
+            Number(averagePressureDrop.toFixed(2)),
 
-// Average Conductivity
-const averageConductivity =
-    conductivity.reduce(
-        (sum, value) => sum + value,
-        0
-    ) / conductivity.length;
+        pumpPower:
+            Number(averagePumpPower.toFixed(4)),
 
-// Average Resistance
-const averageResistance =
-    resistance.reduce(
-        (sum, value) => sum + value,
-        0
-    ) / resistance.length;
+        waterRecovery:
+            Number(averageRecovery.toFixed(2)),
 
-// Average Current Density
-const averageCurrentDensity =
-    currentDensity.reduce(
-        (sum, value) => sum + value,
-        0
-    ) / currentDensity.length;
+        //--------------------------------------------------
+        // ENGINEERING SUMMARY
+        //--------------------------------------------------
 
-// Average Coulombic Efficiency
-const averageCE =
-    coulombicEfficiency.reduce(
-        (sum, value) => sum + value,
-        0
-    ) / coulombicEfficiency.length;
-    //--------------------------------------------------
-// Return Results
-//--------------------------------------------------
+        engineeringSummary,
 
-return {
+        //--------------------------------------------------
+        // AI SCORE
+        //--------------------------------------------------
 
-    inputTDS,
+        optimizationScore:
+            Number(optimizationScore.toFixed(2)),
 
-    outputTDS:
-        tds[adsorptionTime],
+        //--------------------------------------------------
+        // CHART DATA
+        //--------------------------------------------------
 
-    removal,
+        time,
 
-    adsorptionTime,
+        voltage,
 
-    desorptionTime,
+        current,
 
-    energy:
-        Number(energyWh.toFixed(3)),
+        tds,
 
-    pumpEnergy:
-        Number(pumpEnergy.toFixed(3)),
+        conductivity,
 
-    totalEnergy:
-        Number(totalEnergy.toFixed(3)),
+        resistance,
 
-    specificEnergy:
-        Number(specificEnergy.toFixed(3)),
+        charge,
 
-    recovery:
-        Number(finalRecovery.toFixed(2)),
+        sac,
 
-    chargeEfficiency:
-        Number(averageCE.toFixed(3)),
+        currentDensity,
 
-    sacMax,
+        electrodePotential,
 
-    finalSAC:
-        Number(finalSAC.toFixed(3)),
+        coulombicEfficiency,
 
-    averageConductivity:
-        Number(averageConductivity.toFixed(2)),
+        adsorptionRate,
 
-    averageResistance:
-        Number(averageResistance.toFixed(2)),
+        waterRecovery,
 
-    averageCurrentDensity:
-        Number(averageCurrentDensity.toFixed(2)),
+        flowVelocity,
 
-    voltage,
-    current,
-    tds,
-    conductivity,
-    resistance,
-    charge,
-    sac,
-    currentDensity,
-    coulombicEfficiency,
-    electrodePotential,
-    adsorptionRate,
-    waterRecovery,
-    flowVelocity,
-    reynolds,
-    pressureDrop,
-    pumpPower,
-    time
+        reynolds,
 
-};
+        pressureDrop,
+
+        pumpPower
+
+    };
 
 }
 

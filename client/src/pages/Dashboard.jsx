@@ -1,85 +1,179 @@
 import React from "react";
 
+
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 
-import ComponentLibrary from "../components/ComponentLibrary";
-import ProcessFlow from "../components/ProcessFlow";
-import DesignBuilder from "../components/DesignBuilder";
 import PIDDiagram from "../components/PIDDiagram";
 
-import RecommendationPanel from "../components/RecommendationPanel";
-import ParameterPanel from "../components/ParameterPanel";
-import ComponentSizing from "../components/ComponentSizing";
-import EngineeringPanel from "../components/EngineeringPanel";
-import DesignSummary from "../components/DesignSummary";
-import ResultPanel from "../components/ResultPanel";
-import KPIDashboard from "../components/KPIDashboard";
-import SimulationGraphs from "../components/SimulationGraphs";
-import OptimizationPanel from "../components/OptimizationPanel";
-import CDIPerformancePanel from "../components/CDIPerformancePanel";
-import StackDesignPanel from "../components/StackDesignPanel";
 import EquipmentPanel from "../components/EquipmentPanel";
+import SimulationGraphs from "../components/SimulationGraphs";
+import RecommendationPanel from "../components/RecommendationPanel";
 
-export default function Dashboard() {
-
-    return (
-
-        <div className="dashboard">
-
-            <Navbar />
-
-            <div className="workspace">
-
-                {/* LEFT PANEL */}
-
-                <div className="sidebar-area">
-
-                    <Sidebar />
-
-                </div>
-
-                {/* CENTER */}
-
-                <div className="canvas-area">
-
-    
-
-                    <PIDDiagram />
-
-                     <EquipmentPanel />
-
-                     <SimulationGraphs />
-                     < RecommendationPanel/>
-
-                </div>
-
-                {/* RIGHT PANEL */}
-
-                <div className="right-area">
-
-                   
-
-                    <KPIDashboard />
+import KPIDashboard from "../components/KPIDashboard";
+import EngineeringPanel from "../components/EngineeringPanel";
+import OptimizationPanel from "../components/OptimizationPanel";
+import ResultPanel from "../components/ResultPanel";
 
 
-                    <ParameterPanel />
-
-                    <ComponentSizing />
 
 
-                    <OptimizationPanel />
 
-                    <StackDesignPanel />
+export default function Dashboard(){
 
-                    <ResultPanel />
 
-                </div>
 
-            </div>
+return(
 
-        </div>
 
-    );
+
+<div className="dashboard">
+
+
+
+<Navbar />
+
+
+
+
+
+
+<div className="workspace">
+
+
+
+
+
+
+{/* LEFT CONTROL PANEL */}
+
+
+
+<div className="sidebar-area">
+
+
+<Sidebar />
+
+
+</div>
+
+
+
+
+
+
+
+
+{/* MAIN DESIGN WORKSPACE */}
+
+
+
+<div className="canvas-area">
+
+
+
+
+
+{/* PROCESS FLOW */}
+
+<PIDDiagram />
+
+
+
+
+
+
+{/* SELECTED EQUIPMENT */}
+
+<EquipmentPanel />
+
+
+
+
+
+
+{/* CDI DYNAMIC SIMULATION */}
+
+<SimulationGraphs />
+
+
+
+
+
+
+{/* AI DECISION */}
+
+<RecommendationPanel />
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+{/* ENGINEERING ANALYSIS PANEL */}
+
+
+
+<div className="right-area">
+
+
+
+
+
+<KPIDashboard />
+
+
+
+
+
+<EngineeringPanel />
+
+
+
+
+
+<OptimizationPanel />
+
+
+
+
+
+<ResultPanel />
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+</div>
+
+
+
+);
+
 
 }

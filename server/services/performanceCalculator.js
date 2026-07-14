@@ -1,75 +1,118 @@
-function calculatePerformance(feedWater, simulation, engineering, cellDesign) {
+function performanceCalculator(
+    feedWater,
+    simulation,
+    engineering,
+    cellDesign
+) {
 
-    const inletTDS = feedWater.tds;
-    const outletTDS = simulation.outputTDS;
+    //--------------------------------------------------
+    // Inputs
+    //--------------------------------------------------
+
+    const inputTDS =
+        Number(feedWater.tds || 500);
+
+    const outputTDS =
+        Number(simulation.outputTDS || inputTDS);
+
+    const voltage =
+        Number(engineering.voltage || 1.2);
+
+    const current =
+        Number(engineering.current || 5);
+
+    const power =
+        Number(engineering.power || voltage * current);
+
+    const flowRate =
+        Number(feedWater.flowRate || 10);
+
+    //--------------------------------------------------
+    // Salt Removal
+    //--------------------------------------------------
+
+    const saltRemoval =
+        inputTDS - outputTDS;
 
     const removalEfficiency =
-        ((inletTDS - outletTDS) / inletTDS) * 100;
+        inputTDS > 0
+            ? (saltRemoval / inputTDS) * 100
+            : 0;
 
-    const waterRecovery = 90;
-
-    const energyConsumption =
-        (
-            engineering.voltage *
-            engineering.current *
-            simulation.adsorptionTime
-        ) / 60000;
-
-    const saltRemoved =
-        inletTDS - outletTDS;
+    //--------------------------------------------------
+    // Energy
+    //--------------------------------------------------
 
     const specificEnergy =
-        energyConsumption /
-        (feedWater.flowRate / 1000);
+        Number(simulation.specificEnergy || 0);
 
-    // -------- CDI Performance --------
+    //--------------------------------------------------
+    // Cell Design
+    //--------------------------------------------------
 
-    const electrodeMass =
-        Number(cellDesign?.electrodeMass || 100);
+    const cellPairs =
+        Number(
+            engineering.cellPairs ||
+            cellDesign.cellPairs ||
+            5
+        );
 
-    const adsorptionTime =
-        simulation.adsorptionTime || 20;
+    //--------------------------------------------------
+    // Optimization Score
+    //--------------------------------------------------
 
-    const SAC =
-        saltRemoved / electrodeMass;
+    const optimizationScore =
+        Number(
+            simulation.optimizationScore ||
+            removalEfficiency * 0.75
+        );
 
-    const ASAR =
-        SAC / adsorptionTime;
-
-    const chargeEfficiency = 85;
+    //--------------------------------------------------
+    // Return
+    //--------------------------------------------------
 
     return {
 
-        inletTDS,
+        technology: engineering.technology || "CDI",
 
-        outletTDS,
+        inputTDS,
 
-        removalEfficiency:
-            removalEfficiency.toFixed(2),
+        outputTDS,
 
-        waterRecovery:
-            waterRecovery.toFixed(1),
+        outletTDS: outputTDS,
 
-        energyConsumption:
-            energyConsumption.toFixed(4),
+        saltRemoval,
 
-        specificEnergy:
-            specificEnergy.toFixed(3),
+        removalEfficiency,
 
-        saltRemoved:
-            saltRemoved.toFixed(1),
+        voltage,
 
-        SAC:
-            SAC.toFixed(2),
+        current,
 
-        ASAR:
-            ASAR.toFixed(2),
+        power,
+
+        flowRate,
+
+        cellPairs,
+
+        specificEnergy,
+
+        optimizationScore,
 
         chargeEfficiency:
-            chargeEfficiency.toFixed(1)
+            simulation.chargeEfficiency || 0.8,
+
+        sac:
+            simulation.sac || 15,
+
+        pressureDrop:
+            simulation.pressureDrop || 0,
+
+        waterRecovery:
+            simulation.recovery || 95
 
     };
 
 }
 
-module.exports = calculatePerformance;
+module.exports = performanceCalculator;
