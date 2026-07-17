@@ -1,0 +1,293 @@
+[
+  {
+    "id": "power",
+    "name": "Power",
+    "description": "Calculates the electrical power consumed by the cell stack.",
+    "formula": "V * I",
+    "variables": [
+      "V",
+      "I"
+    ],
+    "units": "W",
+    "category": "Electrical",
+    "enabled": true,
+    "reference": {
+      "title": "Review of Capacitive Deionization",
+      "description": "Fundamental relation of power consumption in electrochemical systems.",
+      "literatureReference": "Review of Capacitive Deionization",
+      "publication": "Water Research",
+      "doi": "10.1016/j.watres.2012.11.001",
+      "year": 2013
+    },
+    "example": "V = 1.2 V, I = 5 A => P = 6 W"
+  },
+  {
+    "id": "current_density",
+    "name": "Current Density",
+    "description": "Electrical current per unit area of electrode.",
+    "formula": "I / Area",
+    "variables": [
+      "I",
+      "Area"
+    ],
+    "units": "A/cm²",
+    "category": "Electrical",
+    "enabled": true,
+    "reference": {
+      "title": "Electrochemical System Engineering",
+      "description": "Standard definitions for current density in porous electrodes.",
+      "literatureReference": "Electrode Kinetics and Cell Currents",
+      "publication": "Journal of Membrane Science",
+      "doi": "10.1016/j.memsci.2015.02.012",
+      "year": 2015
+    },
+    "example": "I = 5 A, Area = 250 cm² => J = 0.02 A/cm²"
+  },
+  {
+    "id": "residence_time",
+    "name": "Residence Time",
+    "description": "Average time fluid stays inside the cell reactor channel.",
+    "formula": "ReactorVolume / FlowRate",
+    "variables": [
+      "ReactorVolume",
+      "FlowRate"
+    ],
+    "units": "min",
+    "category": "Hydraulic",
+    "enabled": true,
+    "reference": {
+      "title": "Chemical Reaction Engineering Principles",
+      "description": "Calculates hydraulic retention time for continuous reactors.",
+      "literatureReference": "Chemical Reaction Engineering (3rd Ed)",
+      "publication": "John Wiley & Sons",
+      "doi": "10.1016/0009-2509(73)80053-0",
+      "year": 1999
+    },
+    "example": "ReactorVolume = 2 L, FlowRate = 10 L/min => t = 0.2 min"
+  },
+  {
+    "id": "flow_velocity",
+    "name": "Flow Velocity",
+    "description": "Linear flow velocity through the spacer channel.",
+    "formula": "FlowRate / ChannelArea",
+    "variables": [
+      "FlowRate",
+      "ChannelArea"
+    ],
+    "units": "m/s",
+    "category": "Hydraulic",
+    "enabled": true,
+    "reference": {
+      "title": "Spacer Channel Hydraulics",
+      "description": "Flow modeling in thin spacer filled channels for CDI stacks.",
+      "literatureReference": "Modeling of flow structures in spacer filled channels",
+      "publication": "Desalination",
+      "doi": "10.1016/j.desal.2016.05.008",
+      "year": 2016
+    },
+    "example": "FlowRate = 10 L/min, ChannelArea = 1.1 cm² => v = 1.51 m/s"
+  },
+  {
+    "id": "hydraulic_diameter",
+    "name": "Hydraulic Diameter",
+    "description": "Equivalent hydraulic diameter for rectangular flow channels.",
+    "formula": "(2 * Width * Height) / (Width + Height)",
+    "variables": [
+      "Width",
+      "Height"
+    ],
+    "units": "mm",
+    "category": "Hydraulic",
+    "enabled": true,
+    "reference": {
+      "title": "Fluid Mechanics for Rectangular Ducts",
+      "description": "Definition of hydraulic diameter for non-circular pipes.",
+      "literatureReference": "Hydraulics in rectangular channels",
+      "publication": "Journal of Fluid Mechanics",
+      "doi": "10.1017/jfm.2011.14",
+      "year": 2011
+    },
+    "example": "Width = 100 mm, Height = 0.5 mm => Dh = 0.995 mm"
+  },
+  {
+    "id": "pressure_drop",
+    "name": "Pressure Drop",
+    "description": "Frictional pressure loss along the flow spacer channel length.",
+    "formula": "f * (Length / Dh) * (Density * Velocity^2 / 2)",
+    "variables": [
+      "f",
+      "Length",
+      "Dh",
+      "Density",
+      "Velocity"
+    ],
+    "units": "Pa",
+    "category": "Hydraulic",
+    "enabled": true,
+    "reference": {
+      "title": "Darcy-Weisbach Channel Friction",
+      "description": "Calculation of frictional pressure drop in spacer channels.",
+      "literatureReference": "Pressure loss in spacer-filled membrane modules",
+      "publication": "Journal of Membrane Science",
+      "doi": "10.1016/0376-7388(94)00214-E",
+      "year": 1995
+    },
+    "example": "f=0.03, Length=200mm, Dh=1mm, Density=1000kg/m³, Velocity=0.15m/s => DeltaP=67.5 Pa"
+  },
+  {
+    "id": "pump_power",
+    "name": "Pump Power",
+    "description": "Theoretical electrical power required by the circulation pump.",
+    "formula": "(FlowRate * DeltaP) / PumpEfficiency",
+    "variables": [
+      "FlowRate",
+      "DeltaP",
+      "PumpEfficiency"
+    ],
+    "units": "W",
+    "category": "Hydraulic",
+    "enabled": true,
+    "reference": {
+      "title": "Pumping System Efficiency",
+      "description": "Standard energy requirements for fluid circulation in CDI setups.",
+      "literatureReference": "Pump power optimization in desalination",
+      "publication": "Energy Conversion and Management",
+      "doi": "10.1016/j.enconman.2014.07.031",
+      "year": 2014
+    },
+    "example": "FlowRate=10 L/min (1.66e-4 m³/s), DeltaP=180 Pa, PumpEfficiency=75% => PumpPower=0.04 W"
+  },
+  {
+    "id": "sec",
+    "name": "Specific Energy Consumption",
+    "description": "Energy spent per unit volume of desalinated water produced.",
+    "formula": "Power / WaterProduced",
+    "variables": [
+      "Power",
+      "WaterProduced"
+    ],
+    "units": "kWh/m³",
+    "category": "Energy",
+    "enabled": true,
+    "reference": {
+      "title": "Energy Consumption in Capacitive Deionization",
+      "description": "Metrics for comparing thermodynamic efficiency in CDI/EDI.",
+      "literatureReference": "Thermodynamics and energy in CDI",
+      "publication": "Environmental Science & Technology",
+      "doi": "10.1021/es505111a",
+      "year": 2015
+    },
+    "example": "Power = 6 W, WaterProduced = 10 L/min (0.6 m³/h) => SEC = 0.01 kWh/m³"
+  },
+  {
+    "id": "salt_removal",
+    "name": "Salt Removal",
+    "description": "Difference in total dissolved solids (TDS) between inlet feed and product outlet.",
+    "formula": "FeedTDS - OutletTDS",
+    "variables": [
+      "FeedTDS",
+      "OutletTDS"
+    ],
+    "units": "ppm",
+    "category": "Mass Transfer",
+    "enabled": true,
+    "reference": {
+      "title": "TDS Profiles in CDI Desalination",
+      "description": "Basic mass transfer metrics for desalinating cells.",
+      "literatureReference": "Salt transport in capacitive deionization",
+      "publication": "Chemical Engineering Journal",
+      "doi": "10.1016/j.cej.2017.03.119",
+      "year": 2017
+    },
+    "example": "FeedTDS = 500 ppm, OutletTDS = 50 ppm => SaltRemoval = 450 ppm"
+  },
+  {
+    "id": "removal_efficiency",
+    "name": "Removal Efficiency",
+    "description": "Percentage of salt removed relative to the feed salinity.",
+    "formula": "((FeedTDS - OutletTDS) / FeedTDS) * 100",
+    "variables": [
+      "FeedTDS",
+      "OutletTDS"
+    ],
+    "units": "%",
+    "category": "Performance",
+    "enabled": true,
+    "reference": {
+      "title": "Desalination Efficiency Metrics",
+      "description": "Percentage indicators for performance reporting in CDI.",
+      "literatureReference": "Performance metrics for capacitive deionization",
+      "publication": "Water Research",
+      "doi": "10.1016/j.watres.2019.04.015",
+      "year": 2019
+    },
+    "example": "FeedTDS = 500 ppm, OutletTDS = 50 ppm => RemovalEfficiency = 90%"
+  },
+  {
+    "id": "electrode_mass",
+    "name": "Electrode Mass",
+    "description": "Total mass of active electrode material in the cell.",
+    "formula": "Area * Thickness * Density",
+    "variables": [
+      "Area",
+      "Thickness",
+      "Density"
+    ],
+    "units": "g",
+    "category": "Performance",
+    "enabled": true,
+    "reference": {
+      "title": "Carbon Electrode Engineering",
+      "description": "Determination of electrode mass from geometry and bulk material density.",
+      "literatureReference": "Porous carbon electrodes for CDI modules",
+      "publication": "Carbon",
+      "doi": "10.1016/j.carbon.2014.10.021",
+      "year": 2014
+    },
+    "example": "Area = 250 cm², Thickness = 0.6 mm (0.06 cm), Density = 0.45 g/cm³ => Mass = 6.75 g"
+  },
+  {
+    "id": "sac",
+    "name": "Salt Adsorption Capacity",
+    "description": "Mass of salt adsorbed per unit mass of active electrode material.",
+    "formula": "SaltRemoved / ElectrodeMass",
+    "variables": [
+      "SaltRemoved",
+      "ElectrodeMass"
+    ],
+    "units": "mg/g",
+    "category": "Optimization",
+    "enabled": true,
+    "reference": {
+      "title": "SAC in Capacitive Deionization",
+      "description": "Crucial optimization indicator representing charge storage capacity.",
+      "literatureReference": "Salt adsorption capacity of porous carbon electrodes",
+      "publication": "Environmental Science & Technology",
+      "doi": "10.1021/es305215y",
+      "year": 2013
+    },
+    "example": "SaltRemoved = 135 mg, ElectrodeMass = 6.75 g => SAC = 20 mg/g"
+  },
+  {
+    "id": "charge_efficiency",
+    "name": "Charge Efficiency",
+    "description": "Ratio of salt removed to electrical charge supplied during adsorption.",
+    "formula": "RemovedCharge / SuppliedCharge",
+    "variables": [
+      "RemovedCharge",
+      "SuppliedCharge"
+    ],
+    "units": "%",
+    "category": "Electrochemical",
+    "enabled": true,
+    "reference": {
+      "title": "Electrochemical Charge Efficiency in CDI",
+      "description": "Indicator of co-ion repulsion efficiency in electrical double layers.",
+      "literatureReference": "Charge efficiency in capacitive deionization",
+      "publication": "Journal of Colloid and Interface Science",
+      "doi": "10.1016/j.jcis.2010.08.019",
+      "year": 2010
+    },
+    "example": "RemovedCharge = 85 C, SuppliedCharge = 100 C => Lambda = 0.85 (85%)"
+  }
+]

@@ -2,796 +2,713 @@ import React from "react";
 import { useApp } from "../context/AppContext";
 
 
-export default function EngineeringPanel(){
+export default function EngineeringPanel() {
 
 
-const {
+    const {
 
-engineering,
-electrode,
-componentSizing,
-feedWater,
-selectedDesign,
-simulation
+        engineering,
+        electrode,
+        componentSizing,
+        feedWater,
+        selectedDesign,
+        simulation,
+        performance
 
-}=useApp();
+    } = useApp();
 
 
 
+    //--------------------------------------------------
+    // FORMAT
+    //--------------------------------------------------
 
+    const format = (value, digits = 2) => {
 
-const format=(value,digits=2)=>{
 
+        if (
 
-if(
-value===undefined ||
-value===null ||
-isNaN(value)
-){
+            value === undefined ||
+            value === null ||
+            isNaN(value)
 
-return "-";
+        ) {
 
-}
+            return "-";
 
+        }
 
-return Number(value).toFixed(digits);
 
+        return Number(value).toFixed(digits);
 
-};
 
+    };
 
 
 
 
 
-return(
+    //--------------------------------------------------
+    // NO DESIGN
+    //--------------------------------------------------
 
 
-<div className="panel">
+    if(!engineering){
 
 
-<h2>
-Engineering Design Summary
-</h2>
+        return(
 
+            <div className="panel">
 
-<hr />
+                <h2>
+                    Engineering Design Summary
+                </h2>
 
 
+                <p>
+                    Generate a design to view engineering calculations.
+                </p>
 
 
+            </div>
 
-<h3>
-System Design
-</h3>
+        );
 
 
+    }
 
-<table>
 
-<tbody>
 
 
-<tr>
 
-<td>
-Technology
-</td>
 
-<td>
-{selectedDesign ?? "-"}
-</td>
+    return(
 
-</tr>
 
+    <div className="panel">
 
 
+        <h2>
+            Engineering Design Summary
+        </h2>
 
-<tr>
 
-<td>
-Feed TDS
-</td>
 
-<td>
-{feedWater?.tds ?? "-"} ppm
-</td>
 
-</tr>
 
+        {/* SYSTEM DESIGN */}
 
+        <h3>
+            System Design
+        </h3>
 
 
+        <table>
 
-<tr>
+        <tbody>
 
-<td>
-Target TDS
-</td>
 
-<td>
-{feedWater?.targetTds ?? "-"} ppm
-</td>
+        <tr>
 
-</tr>
+            <td>
+                Technology
+            </td>
 
+            <td>
+                {selectedDesign || "-"}
+            </td>
 
+        </tr>
 
 
 
-<tr>
+        <tr>
 
-<td>
-Flow Rate
-</td>
+            <td>
+                Feed TDS
+            </td>
 
-<td>
-{feedWater?.flowRate ?? "-"} L/min
-</td>
+            <td>
+                {feedWater?.tds || "-"} ppm
+            </td>
 
-</tr>
+        </tr>
 
 
 
-</tbody>
 
+        <tr>
 
-</table>
+            <td>
+                Target TDS
+            </td>
 
+            <td>
+                {feedWater?.targetTds || "-"} ppm
+            </td>
 
+        </tr>
 
 
 
 
 
-<hr />
+        <tr>
 
+            <td>
+                Flow Rate
+            </td>
 
+            <td>
+                {feedWater?.flowRate || "-"} L/min
+            </td>
 
+        </tr>
 
 
 
+        </tbody>
 
-<h3>
-Electrical Design
-</h3>
+        </table>
 
 
 
 
-<table>
 
-<tbody>
+        {/* ELECTRICAL */}
 
 
+        <h3>
+            Electrical Design
+        </h3>
 
 
-<tr>
+        <table>
 
-<td>
-Operating Voltage
-</td>
+        <tbody>
 
 
-<td>
+        <tr>
 
-{
-format(
-engineering?.voltage
-)
-}
+        <td>
+            Operating Voltage
+        </td>
 
- V
+        <td>
+            {format(engineering.voltage)} V
+        </td>
 
-</td>
+        </tr>
 
-</tr>
 
 
 
+        <tr>
 
+        <td>
+            Current
+        </td>
 
+        <td>
+            {format(engineering.current)} A
+        </td>
 
-<tr>
+        </tr>
 
-<td>
-Current
-</td>
 
 
-<td>
 
-{
-format(
-engineering?.current
-)
-}
+        <tr>
 
- A
+        <td>
+            Power
+        </td>
 
-</td>
+        <td>
+            {format(engineering.power)} W
+        </td>
 
-</tr>
+        </tr>
 
 
 
 
+        <tr>
 
+        <td>
+            Current Density
+        </td>
 
 
-<tr>
+        <td>
 
-<td>
-Power
-</td>
+        {
+        format(
+            engineering.currentDensity ??
+            electrode?.currentDensity
+        )
+        }
 
+        A/m²
 
-<td>
+        </td>
 
-{
-format(
-engineering?.power
-)
-}
 
- W
+        </tr>
 
-</td>
 
-</tr>
 
+        </tbody>
 
+        </table>
 
 
 
 
 
-<tr>
 
-<td>
-Current Density
-</td>
 
 
-<td>
+        {/* STACK DESIGN */}
 
-{
-format(
-engineering?.currentDensity
-)
-}
 
- A/m²
+        <h3>
+            Stack Design
+        </h3>
 
-</td>
 
-</tr>
+        <table>
 
+        <tbody>
 
 
+        <tr>
 
-</tbody>
+        <td>
+            Electrode Area
+        </td>
 
+        <td>
+        {
+        format(
+        engineering.electrodeArea
+        )
+        }
 
-</table>
+        cm²
 
+        </td>
 
+        </tr>
 
 
 
 
 
+        <tr>
 
+        <td>
+            Cell Pairs
+        </td>
 
-<hr />
+        <td>
+        {
+        engineering.cellPairs || "-"
+        }
 
+        </td>
 
+        </tr>
 
 
 
 
+        <tr>
 
+        <td>
+            Residence Time
+        </td>
 
-<h3>
-Stack Design
-</h3>
+        <td>
+        {
+        format(
+        engineering.residenceTime
+        )
+        }
 
+        min
 
+        </td>
 
+        </tr>
 
 
-<table>
 
-<tbody>
 
 
+        <tr>
 
+        <td>
+            Stack Length
+        </td>
 
-<tr>
 
-<td>
-Electrode Area
-</td>
+        <td>
 
+        {
+        componentSizing?.stackLength ??
+        engineering.stackLength ??
+        "-"
+        }
 
-<td>
+        mm
 
-{
-format(
-engineering?.electrodeArea
-)
-}
+        </td>
 
- cm²
 
-</td>
+        </tr>
 
-</tr>
 
 
 
 
+        <tr>
 
+        <td>
+            Stack Width
+        </td>
 
 
-<tr>
+        <td>
 
-<td>
-Cell Pairs
-</td>
+        {
+        componentSizing?.stackWidth ??
+        engineering.stackWidth ??
+        "-"
+        }
 
+        mm
 
-<td>
+        </td>
 
-{
-engineering?.cellPairs ?? "-"
-}
 
-</td>
+        </tr>
 
-</tr>
 
 
 
 
+        <tr>
 
+        <td>
+            Stack Height
+        </td>
 
 
-<tr>
+        <td>
 
-<td>
-Residence Time
-</td>
+        {
+        componentSizing?.stackHeight ??
+        engineering.stackHeight ??
+        "-"
+        }
 
+        mm
 
-<td>
+        </td>
 
-{
-format(
-engineering?.residenceTime
-)
-}
 
- min
+        </tr>
 
-</td>
 
-</tr>
 
+        </tbody>
 
+        </table>
 
 
 
 
 
-<tr>
 
-<td>
-Stack Length
-</td>
 
 
-<td>
 
-{
-componentSizing?.stackLength ?? "-"
-}
+        {/* ELECTRODE */}
 
- mm
 
-</td>
 
-</tr>
+        <h3>
+            Electrode Properties
+        </h3>
 
 
+        <table>
 
 
+        <tbody>
 
 
 
-<tr>
+        <tr>
 
-<td>
-Stack Width
-</td>
+        <td>
+            SAC
+        </td>
 
+        <td>
 
-<td>
+        {
+        format(
 
-{
-componentSizing?.stackWidth ?? "-"
-}
+            electrode?.SAC ??
+            performance?.SAC ??
+            engineering?.SAC
 
- mm
+        )
 
-</td>
+        }
 
-</tr>
+        mg/g
 
+        </td>
 
 
+        </tr>
 
 
 
 
-<tr>
 
-<td>
-Stack Height
-</td>
 
+        <tr>
 
-<td>
+        <td>
+            Electrode Mass
+        </td>
 
-{
-componentSizing?.stackHeight ?? "-"
-}
+        <td>
 
- mm
+        {
+        format(
 
-</td>
+            electrode?.electrodeMass ??
+            engineering?.electrodeMass
 
-</tr>
+        )
 
+        }
 
+        g
 
+        </td>
 
 
+        </tr>
 
 
-<tr>
 
-<td>
-Electrode Thickness
-</td>
 
 
-<td>
 
-{
-componentSizing?.electrodeThickness ?? "-"
-}
+        <tr>
 
- mm
+        <td>
+            Capacitance
+        </td>
 
-</td>
 
-</tr>
+        <td>
 
+        {
+        format(
 
+            electrode?.capacitance ??
+            engineering?.capacitance
 
+        )
 
+        }
 
+        F
 
+        </td>
 
-<tr>
 
-<td>
-Spacer Thickness
-</td>
+        </tr>
 
 
-<td>
 
-{
-componentSizing?.spacerThickness ?? "-"
-}
 
- mm
+        </tbody>
 
-</td>
 
-</tr>
+        </table>
 
 
 
 
 
-</tbody>
 
 
-</table>
 
 
+        {/* HYDRAULICS */}
 
 
 
+        <h3>
+            Hydraulic Design
+        </h3>
 
 
+        <table>
 
 
-<hr />
+        <tbody>
 
 
 
+        <tr>
 
+        <td>
+            Flow Velocity
+        </td>
 
 
+        <td>
 
+        {
+        format(
 
-<h3>
-Electrode Properties
-</h3>
+            engineering?.flowVelocity ??
+            simulation?.flowVelocity
 
+        )
 
+        }
 
+        m/s
 
+        </td>
 
-<table>
 
-<tbody>
+        </tr>
 
 
 
 
-<tr>
 
-<td>
-SAC
-</td>
 
 
-<td>
+        <tr>
 
-{
-format(
-electrode?.SAC
-)
-}
+        <td>
+            Pressure Drop
+        </td>
 
- mg/g
 
-</td>
+        <td>
 
-</tr>
+        {
+        format(
 
+            engineering?.pressureDrop ??
+            simulation?.pressureDrop,
 
+            2
 
+        )
 
+        }
 
+        Pa
 
+        </td>
 
-<tr>
 
-<td>
-Electrode Mass
-</td>
+        </tr>
 
 
-<td>
 
-{
-format(
-electrode?.electrodeMass
-)
-}
 
- g
 
-</td>
 
-</tr>
+        <tr>
 
+        <td>
+            Pump Power
+        </td>
 
 
+        <td>
 
+        {
+        format(
 
+            engineering?.pumpPower ??
+            simulation?.pumpPower,
 
+            4
 
-<tr>
+        )
 
-<td>
-Capacitance
-</td>
+        }
 
+        W
 
-<td>
+        </td>
 
-{
-format(
-electrode?.capacitance
-)
-}
 
- F
+        </tr>
 
-</td>
 
-</tr>
 
 
 
 
 
-</tbody>
+        <tr>
 
+        <td>
+            Water Recovery
+        </td>
 
-</table>
 
+        <td>
 
+        {
+        format(
 
+            performance?.waterRecovery ??
+            simulation?.waterRecovery
 
+        )
 
+        }
 
+        %
 
+        </td>
 
 
-<hr />
+        </tr>
 
 
 
 
+        </tbody>
 
 
+        </table>
 
 
-<h3>
-Hydraulic Design
-</h3>
 
 
+    </div>
 
 
-
-
-<table>
-
-<tbody>
-
-
-
-
-
-<tr>
-
-<td>
-Flow Velocity
-</td>
-
-
-<td>
-
-{
-format(
-engineering?.flowVelocity ??
-simulation?.averageVelocity
-)
-}
-
- m/s
-
-</td>
-
-</tr>
-
-
-
-
-
-
-
-<tr>
-
-<td>
-Pressure Drop
-</td>
-
-
-<td>
-
-
-{
-format(
-simulation?.pressureDrop,
-1
-)
-}
-
- Pa
-
-
-</td>
-
-</tr>
-
-
-
-
-
-
-
-<tr>
-
-<td>
-Pump Power
-</td>
-
-
-<td>
-
-
-{
-format(
-simulation?.pumpPower,
-3
-)
-}
-
- W
-
-
-</td>
-
-</tr>
-
-
-
-
-
-
-
-<tr>
-
-<td>
-Water Recovery
-</td>
-
-
-<td>
-
-
-{
-format(
-simulation?.waterRecovery
-)
-}
-
- %
-
-
-</td>
-
-</tr>
-
-
-
-
-
-
-</tbody>
-
-
-</table>
-
-
-
-
-
-
-</div>
-
-
-);
+    );
 
 
 }

@@ -3,16 +3,16 @@ import { useApp } from "../context/AppContext";
 import "../styles/pid.css";
 
 export default function PIDDiagram() {
-
     const {
         feedWater,
         engineering,
         simulation,
         selectedDesign,
+        layout,
         setSelectedEquipment
     } = useApp();
 
-    if (!engineering || !simulation) {
+    if (!engineering || !simulation || !layout) {
         return (
             <div className="panel">
                 <h2>P&amp;ID Diagram</h2>
@@ -22,326 +22,224 @@ export default function PIDDiagram() {
     }
 
     const reactorColor = {
-        CDI: "#FFE699",
+        CDI: "#99ffcc",
         MCDI: "#D9EAD3",
         FCDI: "#CFE2F3",
         EDI: "#F4CCCC"
     }[selectedDesign] || "#FFE699";
 
+    const { equipment, pipes } = layout;
+
     return (
-
         <div className="panel">
-
             <h2>P&amp;ID Diagram</h2>
-
             <svg width="100%" height="420" viewBox="0 0 1000 420">
+                {/* Render Pipes */}
+                {pipes && pipes.map((pipe) => {
+                    const pointsStr = pipe.points.map(p => p.join(",")).join(" ");
+                    return (
+                        <g key={pipe.id}>
+                            <polyline
+                                points={pointsStr}
+                                className="pipe"
+                                fill="none"
+                                stroke="black"
+                                strokeWidth="3"
+                            />
+                            <polyline
+                                points={pointsStr}
+                                className="waterFlow"
+                                fill="none"
+                                stroke="#1976d2"
+                                strokeWidth="2"
+                                strokeDasharray="5,5"
+                            />
+                        </g>
+                    );
+                })}
 
-                {/* Feed Tank */}
-
-                <rect
-                    x="40"
-                    y="120"
-                    width="120"
-                    height="140"
-                    fill="#d9f0ff"
-                    stroke="black"
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                        setSelectedEquipment({
-                            name: "Feed Tank",
-                            type: "Storage Tank",
-                            material: "HDPE",
-                            TDS: feedWater.tds + " ppm",
-                            FlowRate: feedWater.flowRate + " L/min",
-                            Pressure: feedWater.pressure + " bar",
-                            Temperature: feedWater.temperature + " °C"
-                        })
+                {/* Render Equipment */}
+                {equipment && equipment.map((eq) => {
+                    if (eq.type === "tank") {
+                        const isProduct = eq.id === "PROD_TANK";
+                        return (
+                            <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
+                                if (isProduct) {
+                                    setSelectedEquipment({
+                                        name: "Product Tank",
+                                        type: "Storage Tank",
+                                        OutletTDS: (simulation?.outputTDS ?? eq.data?.outletTDS) + " ppm",
+                                        FlowRate: feedWater.flowRate + " L/min",
+                                        Recovery: (simulation?.waterRecovery ?? eq.data?.recovery) + " %"
+                                    });
+                                } else {
+                                    setSelectedEquipment({
+                                        name: "Feed Tank",
+                                        type: "Storage Tank",
+                                        material: "HDPE",
+                                        TDS: feedWater.tds + " ppm",
+                                        FlowRate: feedWater.flowRate + " L/min",
+                                        Pressure: feedWater.pressure + " bar",
+                                        Temperature: feedWater.temperature + " °C"
+                                    });
+                                }
+                            }}>
+                                <rect
+                                    x={eq.x}
+                                    y={eq.y}
+                                    width={eq.width}
+                                    height={eq.height}
+                                    fill={isProduct ? "#d9ffd9" : "#d9f0ff"}
+                                    stroke="black"
+                                    strokeWidth="2"
+                                    rx="5"
+                                />
+                                <text x={eq.x + 15} y={eq.y + 30} fontWeight="bold" fontSize="13">{eq.name}</text>
+                                <text x={eq.x + 15} y={eq.y + 60} fontSize="11" fill="#555">
+                                    {isProduct ? `${simulation?.outputTDS ?? eq.data?.outletTDS} ppm` : `${feedWater.tds} ppm`}
+                                </text>
+                            </g>
+                        );
                     }
-                />
 
-                <text x="60" y="150">Feed Tank</text>
-
-                <text x="55" y="180">
-                    {feedWater.tds} ppm
-                </text>
-
-                {/* Feed Pipe */}
-
-                <line
-                    className="pipe"
-                    x1="160"
-                    y1="190"
-                    x2="280"
-                    y2="190"
-                />
-
-                <line
-                    className="waterFlow"
-                    x1="160"
-                    y1="190"
-                    x2="280"
-                    y2="190"
-                />
-
-                {/* Flow Meter */}
-
-                <circle
-                    cx="220"
-                    cy="190"
-                    r="18"
-                    fill="white"
-                    stroke="blue"
-                    strokeWidth="3"
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                        setSelectedEquipment({
-                            name: "Flow Meter",
-                            tag: "FT",
-                            FlowRate: feedWater.flowRate + " L/min",
-                            Status: "Running"
-                        })
+                    if (eq.type === "instrument") {
+                        const isPressure = eq.id === "PG";
+                        return (
+                            <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
+                                if (isPressure) {
+                                    setSelectedEquipment({
+                                        name: "Pressure Gauge",
+                                        tag: "PT",
+                                        Pressure: feedWater.pressure + " bar",
+                                        Status: "Normal"
+                                    });
+                                } else {
+                                    setSelectedEquipment({
+                                        name: "Flow Meter",
+                                        tag: "FT",
+                                        FlowRate: feedWater.flowRate + " L/min",
+                                        Status: "Running"
+                                    });
+                                }
+                            }}>
+                                <circle
+                                    cx={eq.x}
+                                    cy={eq.y}
+                                    r={eq.radius}
+                                    fill="white"
+                                    stroke={isPressure ? "red" : "blue"}
+                                    strokeWidth="3"
+                                />
+                                <text x={eq.x - 8} y={eq.y + 4} fontSize="10" fontWeight="bold">
+                                    {isPressure ? "PT" : "FT"}
+                                </text>
+                                <text x={eq.x - 30} y={eq.y - 25} fontSize="12" fill={isPressure ? "red" : "blue"}>
+                                    {isPressure ? `${feedWater.pressure} bar` : `${feedWater.flowRate} L/min`}
+                                </text>
+                            </g>
+                        );
                     }
-                />
 
-                <text
-                    x="208"
-                    y="196"
-                    fontSize="10"
-                >
-                    FT
-                </text>
-
-                <text
-                    x="190"
-                    y="160"
-                    fontSize="12"
-                    fill="blue"
-                >
-                    {feedWater.flowRate} L/min
-                </text>
-
-                {/* Pump */}
-
-                <circle
-                    cx="340"
-                    cy="190"
-                    r="30"
-                    fill="#98fb98"
-                    stroke="black"
-                    strokeWidth="3"
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                        setSelectedEquipment({
-                            name: "Pump",
-                            type: "Centrifugal Pump",
-                            FlowRate: feedWater.flowRate + " L/min",
-                            Pressure: feedWater.pressure + " bar",
-                            Power: engineering.power + " W"
-                        })
+                    if (eq.type === "pump") {
+                        const isSlurry = eq.id === "SPUMP";
+                        return (
+                            <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
+                                setSelectedEquipment({
+                                    name: isSlurry ? "Slurry Pump" : "Feed Pump",
+                                    type: "Centrifugal Pump",
+                                    FlowRate: feedWater.flowRate + " L/min",
+                                    Pressure: feedWater.pressure + " bar",
+                                    Power: engineering.power + " W"
+                                });
+                            }}>
+                                <circle
+                                    cx={eq.x}
+                                    cy={eq.y}
+                                    r={eq.radius}
+                                    fill={isSlurry ? "#ffe599" : "#98fb98"}
+                                    stroke="black"
+                                    strokeWidth="3"
+                                />
+                                <text x={eq.x - 18} y={eq.y + 5} fontSize="11" fontWeight="bold">
+                                    {isSlurry ? "Slurry" : "Pump"}
+                                </text>
+                            </g>
+                        );
                     }
-                />
 
-                <text
-                    x="317"
-                    y="196"
-                >
-                    Pump
-                </text>
+                    if (eq.type === "reactor") {
+                        const condSensorX = eq.x + eq.width + 60;
+                        return (
+                            <g key={eq.id}>
+                                {/* Reactor block */}
+                                <g style={{ cursor: "pointer" }} onClick={() => {
+                                    setSelectedEquipment({
+                                        name: selectedDesign + " Reactor",
+                                        Technology: selectedDesign,
+                                        Voltage: engineering.voltage + " V",
+                                        Current: engineering.current + " A",
+                                        Power: engineering.power + " W",
+                                        CurrentDensity: engineering.currentDensity + " A/cm²",
+                                        ElectrodeArea: engineering.electrodeArea + " cm²"
+                                    });
+                                }}>
+                                    <rect
+                                        x={eq.x}
+                                        y={eq.y}
+                                        width={eq.width}
+                                        height={eq.height}
+                                        fill={reactorColor}
+                                        stroke="black"
+                                        strokeWidth="2.5"
+                                        rx="8"
+                                    />
+                                    <text x={eq.x + eq.width/2 - 25} y={eq.y + 35} fontWeight="bold" fontSize="16">{selectedDesign}</text>
+                                    <text x={eq.x + 15} y={eq.y + 65} fontSize="13">Voltage: {engineering.voltage} V</text>
+                                    <text x={eq.x + 15} y={eq.y + 95} fontSize="13">Current: {engineering.current} A</text>
+                                    <text x={eq.x + 15} y={eq.y + 125} fontSize="11" fill="#444">Pairs: {engineering.cellPairs}</text>
+                                </g>
 
-                {/* Pressure Gauge */}
-
-                <circle
-                    cx="340"
-                    cy="110"
-                    r="18"
-                    fill="white"
-                    stroke="red"
-                    strokeWidth="3"
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                        setSelectedEquipment({
-                            name: "Pressure Gauge",
-                            tag: "PT",
-                            Pressure: feedWater.pressure + " bar",
-                            Status: "Normal"
-                        })
+                                {/* Conductivity Sensor (CT) */}
+                                <g style={{ cursor: "pointer" }} onClick={() => {
+                                    setSelectedEquipment({
+                                        name: "Conductivity Sensor",
+                                        tag: "CT",
+                                        Conductivity: feedWater.conductivity + " µS/cm",
+                                        OutletTDS: simulation.outputTDS + " ppm"
+                                    });
+                                }}>
+                                    <circle
+                                        cx={condSensorX}
+                                        cy="190"
+                                        r="18"
+                                        fill="white"
+                                        stroke="green"
+                                        strokeWidth="3"
+                                    />
+                                    <text x={condSensorX - 7} y="194" fontSize="10" fontWeight="bold">CT</text>
+                                </g>
+                            </g>
+                        );
                     }
-                />
 
-                <text
-                    x="330"
-                    y="116"
-                    fontSize="10"
-                >
-                    PT
-                </text>
-
-                <text
-                    x="300"
-                    y="75"
-                    fill="red"
-                    fontSize="12"
-                >
-                    {feedWater.pressure} bar
-                </text>
-
-                {/* Pipe */}
-
-                <line
-                    className="pipe"
-                    x1="375"
-                    y1="190"
-                    x2="520"
-                    y2="190"
-                />
-
-                <line
-                    className="waterFlow"
-                    x1="375"
-                    y1="190"
-                    x2="520"
-                    y2="190"
-                />
-
-                {/* Reactor */}
-
-                <rect
-                    x="520"
-                    y="110"
-                    width="180"
-                    height="160"
-                    fill={reactorColor}
-                    stroke="black"
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                        setSelectedEquipment({
-                            name: selectedDesign + " Reactor",
-                            Technology: selectedDesign,
-                            Voltage: engineering.voltage + " V",
-                            Current: engineering.current + " A",
-                            Power: engineering.power + " W",
-                            CurrentDensity:
-                                engineering.currentDensity + " A/cm²",
-                            ElectrodeArea:
-                                engineering.electrodeArea + " cm²"
-                        })
+                    if (eq.type === "electrode") {
+                        return (
+                            <rect
+                                key={eq.id}
+                                x={eq.x}
+                                y={eq.y}
+                                width={eq.width}
+                                height={eq.height}
+                                fill="#888"
+                                stroke="black"
+                                opacity="0.4"
+                            />
+                        );
                     }
-                />
 
-                <text
-                    x="565"
-                    y="145"
-                    fontWeight="bold"
-                >
-                    {selectedDesign}
-                </text>
-
-                <text x="545" y="175">
-                    Voltage
-                </text>
-
-                <text x="620" y="175">
-                    {engineering.voltage} V
-                </text>
-
-                <text x="545" y="205">
-                    Current
-                </text>
-
-                <text x="620" y="205">
-                    {engineering.current} A
-                </text>
-
-                {/* Conductivity Sensor */}
-
-                <circle
-                    cx="610"
-                    cy="85"
-                    r="18"
-                    fill="white"
-                    stroke="green"
-                    strokeWidth="3"
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                        setSelectedEquipment({
-                            name: "Conductivity Sensor",
-                            tag: "CT",
-                            Conductivity:
-                                feedWater.conductivity + " µS/cm",
-                            OutletTDS:
-                                simulation.outputTDS + " ppm"
-                        })
-                    }
-                />
-
-                <text
-                    x="598"
-                    y="90"
-                    fontSize="10"
-                >
-                    CT
-                </text>
-
-                {/* Outlet Pipe */}
-
-                <line
-                    className="pipe"
-                    x1="700"
-                    y1="190"
-                    x2="850"
-                    y2="190"
-                />
-
-                <line
-                    className="waterFlow"
-                    x1="700"
-                    y1="190"
-                    x2="850"
-                    y2="190"
-                />
-
-                {/* Product Tank */}
-
-                <rect
-                    x="850"
-                    y="120"
-                    width="120"
-                    height="140"
-                    fill="#d9ffd9"
-                    stroke="black"
-                    style={{ cursor: "pointer" }}
-                    onClick={() =>
-                        setSelectedEquipment({
-                            name: "Product Tank",
-                            type: "Storage Tank",
-                            OutletTDS:
-                                simulation.outputTDS + " ppm",
-                            FlowRate:
-                                feedWater.flowRate + " L/min",
-                            Recovery:
-                                simulation.recovery + " %"
-                        })
-                    }
-                />
-
-                <text
-                    x="870"
-                    y="150"
-                >
-                    Product
-                </text>
-
-                <text
-                    x="865"
-                    y="180"
-                >
-                    {simulation.outputTDS} ppm
-                </text>
-
+                    return null;
+                })}
             </svg>
-
         </div>
-
     );
-
 }

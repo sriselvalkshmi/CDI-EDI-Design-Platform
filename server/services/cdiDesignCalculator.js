@@ -1,59 +1,72 @@
-function calculateCDIDesign(feedWater, engineering) {
+"use strict";
+
+
+//======================================================
+// CDI PHYSICS OPTIMIZER
+//======================================================
+
+
+function calculateCDIDesign(input){
+
+
 
     //--------------------------------------------------
-    // Feed Water
+    // INPUTS
     //--------------------------------------------------
+
+
+    const tds =
+
+        Number(input.tds || 500);
+
+
+
+    const targetTds =
+
+        Number(input.targetTds || 50);
+
+
 
     const flowRate =
-        Number(feedWater.flowRate);
 
-    const inletTDS =
-        Number(feedWater.tds);
+        Number(input.flowRate || 10);
 
-    const targetTDS =
-        Number(feedWater.targetTds);
 
-    //--------------------------------------------------
-    // Engineering Inputs
-    //--------------------------------------------------
 
-    const voltage =
-        Number(engineering.voltage || 1.2);
+    const conductivity =
 
-    const current =
-        Number(engineering.current || 5);
+        Number(input.conductivity || 300);
 
-    const currentDensity =
-        Number(engineering.currentDensity || 20);
 
-    const electrodeArea =
-        Number(engineering.electrodeArea || 250);
 
-    const electrodeThickness =
-        Number(engineering.electrodeThickness || 0.6);
-
-    const spacerThickness =
-        Number(engineering.spacerThickness || 0.8);
-
-    const residenceTime =
-        Number(engineering.residenceTime || 5);
-
-    const cellPairs =
-        Number(engineering.cellPairs || 30);
 
     //--------------------------------------------------
-    // Material Properties
+    // CDI PARAMETERS
     //--------------------------------------------------
 
-    const carbonDensity = 0.45;      // g/cm³
 
-    const porosity = 0.72;
+    const SAC = 80;   
+    // mg salt / g electrode
 
-    const conductivity = 5.0;        // S/m
+
+    const chargeEfficiency = 0.85;
+
+
+    const Faraday = 96485;
+
+
+
+    const saltMolecularWeight = 58.5;
+
+
+
+
+
 
     //--------------------------------------------------
-    // Salt Removal
+    // SALT REMOVAL REQUIRED
     //--------------------------------------------------
+
 
     const saltRemoval =
 
@@ -61,420 +74,466 @@ function calculateCDIDesign(feedWater, engineering) {
 
             0,
 
-            inletTDS -
-
-            targetTDS
+            tds-targetTds
 
         );
 
-    //--------------------------------------------------
-    // Electrode Geometry
-    //--------------------------------------------------
 
-    const electrodeLength =
 
-        Math.sqrt(
 
-            electrodeArea * 2
 
-        );
-
-    const electrodeWidth =
-
-        electrodeArea /
-
-        electrodeLength;
-
-    const electrodeVolume =
-
-        electrodeArea *
-
-        (electrodeThickness / 10);
-
-    const electrodeMass =
-
-        electrodeVolume *
-
-        carbonDensity;
 
     //--------------------------------------------------
-    // SAC
+    // WATER LOAD
     //--------------------------------------------------
 
-    const SAC =
 
-        saltRemoval /
+    const flow_L_hr =
 
-        Math.max(
+        flowRate * 60;
 
-            electrodeMass,
 
-            1
 
-        );
+    const waterMass =
 
-    //--------------------------------------------------
-    // Carbon Loading
-    //--------------------------------------------------
+        flow_L_hr;
 
-    const carbonLoading =
 
-        electrodeMass /
 
-        electrodeArea;
+    const saltMassRemoved =
 
-    //--------------------------------------------------
-    // Flow Channel
-    //--------------------------------------------------
-
-    const flowChannelHeight =
-
-        spacerThickness / 1000;
-
-    const flowArea =
-
-        electrodeWidth / 100 *
-
-        flowChannelHeight;
-
-    //--------------------------------------------------
-    // Flow Velocity
-    //--------------------------------------------------
-
-    const flowRateM3s =
-
-        flowRate /
-
-        1000 /
-
-        60;
-
-    const flowVelocity =
-
-        flowRateM3s /
-
-        Math.max(
-
-            flowArea,
-
-            1e-8
-
-        );
-
-    //--------------------------------------------------
-    // Hydraulic Diameter
-    //--------------------------------------------------
-
-    const hydraulicDiameter =
-
-        2 *
-
-        (electrodeWidth / 100) *
-
-        flowChannelHeight /
 
         (
 
-            (electrodeWidth / 100)
+            saltRemoval *
 
-            +
+            waterMass
 
-            flowChannelHeight
+        )
+
+        /
+
+        1000000;
+
+
+
+
+
+
+    //--------------------------------------------------
+    // REQUIRED CHARGE
+    //--------------------------------------------------
+
+
+    const molesSalt =
+
+
+        saltMassRemoved /
+
+        saltMolecularWeight;
+
+
+
+    const chargeRequired =
+
+
+        molesSalt *
+
+        Faraday *
+
+        1000;
+
+
+
+    const correctedCharge =
+
+
+        chargeRequired /
+
+        chargeEfficiency;
+
+
+
+
+
+
+
+    //--------------------------------------------------
+    // ELECTRODE MASS
+    //--------------------------------------------------
+
+
+    const electrodeMass =
+
+
+        correctedCharge /
+
+        3600 /
+
+        SAC;
+
+
+
+
+
+
+    //--------------------------------------------------
+    // ELECTRODE AREA
+    //--------------------------------------------------
+
+
+    const area =
+
+
+        electrodeMass *
+
+        100;
+
+
+
+
+
+
+
+    //--------------------------------------------------
+    // CELL PAIRS
+    //--------------------------------------------------
+
+
+    const cellPairs =
+
+
+        Math.ceil(
+
+            area /
+
+            10
 
         );
 
-    //--------------------------------------------------
-    // Reynolds Number
-    //--------------------------------------------------
 
-    const density = 1000;
 
-    const viscosity = 0.001;
 
-    const reynolds =
 
-        density *
-
-        flowVelocity *
-
-        hydraulicDiameter /
-
-        viscosity;
 
     //--------------------------------------------------
-    // Pressure Drop
+    // VOLTAGE OPTIMIZATION
     //--------------------------------------------------
 
-    const friction =
 
-        reynolds < 2300
+    let voltage = 1.2;
 
-            ?
 
-            64 /
 
-            Math.max(reynolds,1)
+    if(tds > 1000)
 
-            :
+        voltage = 1.8;
 
-            0.316 /
 
-            Math.pow(reynolds,0.25);
+    else if(tds > 500)
 
-    const pressureDrop =
+        voltage = 1.6;
 
-        friction *
 
-        0.20 /
+    else
 
-        hydraulicDiameter *
+        voltage = 1.2;
 
-        density *
 
-        flowVelocity *
 
-        flowVelocity /
 
-        2;
+
+
 
     //--------------------------------------------------
-    // Electrical
+    // CURRENT
     //--------------------------------------------------
 
-    const resistance =
 
-        voltage /
+    const current =
 
-        Math.max(
 
-            current,
+        area *
 
-            0.01
+        0.02;
+
+
+
+
+
+
+
+    //--------------------------------------------------
+    // RESIDENCE TIME
+    //--------------------------------------------------
+
+
+    const residenceTime =
+
+
+        (
+
+            cellPairs *
+
+            0.5
+
+        )
+
+        /
+
+        flowRate;
+
+
+
+
+
+
+
+
+    //--------------------------------------------------
+    // PREDICT OUTLET
+    //--------------------------------------------------
+
+
+    const predictedRemoval =
+
+
+        Math.min(
+
+            95,
+
+            (
+
+                electrodeMass *
+
+                SAC *
+
+                chargeEfficiency
+
+            )
+
+            /
+
+            Math.max(
+
+                saltMassRemoved,
+
+                0.001
+
+            )
+
+            *
+
+            100
 
         );
+
+
+
+
+
+
+
+    const outletTDS =
+
+
+        tds *
+
+        (
+
+            1 -
+
+            predictedRemoval/100
+
+        );
+
+
+
+
+
+
+
+    //--------------------------------------------------
+    // ENERGY
+    //--------------------------------------------------
+
 
     const power =
+
 
         voltage *
 
         current;
 
-    //--------------------------------------------------
-    // Charge Efficiency
-    //--------------------------------------------------
 
-    const chargeEfficiency =
 
-        Math.min(
+    const specificEnergy =
 
-            0.99,
-
-            0.75 +
-
-            voltage * 0.08
-
-        );
-
-    //--------------------------------------------------
-    // Utilization
-    //--------------------------------------------------
-
-    const utilization =
-
-        Math.min(
-
-            1,
-
-            SAC / 20
-
-        );
-
-    //--------------------------------------------------
-    // Stack Geometry
-    //--------------------------------------------------
-
-    const stackThickness =
-
-        cellPairs *
 
         (
 
-            2 *
+            power /
 
-            electrodeThickness +
+            1000
 
-            spacerThickness
+        )
+
+        /
+
+        (
+
+            flowRate /
+
+            1000
 
         );
 
-    const stackVolume =
 
-        electrodeArea *
 
-        stackThickness /
 
-        1000;
+
+
+
 
     //--------------------------------------------------
-    // Return
+    // SCORE
     //--------------------------------------------------
+
+
+    const score =
+
+
+        predictedRemoval
+
+        -
+
+        specificEnergy *
+
+        5;
+
+
+
+
+
+
+
+    //--------------------------------------------------
+    // RETURN
+    //--------------------------------------------------
+
 
     return {
 
-        inletTDS,
 
-        targetTDS,
+        technology:
 
-        saltRemoval,
+            "CDI",
 
-        voltage,
 
-        current,
 
-        power,
-
-        resistance:
+        optimizedVoltage:
 
             Number(
-
-                resistance.toFixed(3)
-
+                voltage.toFixed(2)
             ),
 
-        chargeEfficiency:
+
+
+        current:
 
             Number(
-
-                chargeEfficiency.toFixed(3)
-
+                current.toFixed(2)
             ),
 
-        electrodeArea,
 
-        electrodeLength:
+
+        optimizedElectrodeArea:
 
             Number(
-
-                electrodeLength.toFixed(2)
-
+                area.toFixed(2)
             ),
 
-        electrodeWidth:
+
+
+        optimizedCellPairs:
+
+            cellPairs,
+
+
+
+        predictedRemoval:
 
             Number(
-
-                electrodeWidth.toFixed(2)
-
+                predictedRemoval.toFixed(2)
             ),
 
-        electrodeThickness,
 
-        electrodeVolume:
+
+        outletTDS:
 
             Number(
-
-                electrodeVolume.toFixed(2)
-
+                outletTDS.toFixed(2)
             ),
+
+
 
         electrodeMass:
 
             Number(
-
-                electrodeMass.toFixed(2)
-
+                electrodeMass.toFixed(3)
             ),
 
-        carbonLoading:
+
+
+        SAC,
+
+
+
+        chargeEfficiency,
+
+
+
+        residenceTime:
 
             Number(
-
-                carbonLoading.toFixed(3)
-
+                residenceTime.toFixed(2)
             ),
 
-        porosity,
 
-        SAC:
+
+        power:
 
             Number(
-
-                SAC.toFixed(3)
-
+                power.toFixed(2)
             ),
 
-        utilization:
+
+
+        specificEnergy:
 
             Number(
-
-                utilization.toFixed(3)
-
+                specificEnergy.toFixed(4)
             ),
 
-        spacerThickness,
 
-        flowChannelHeight:
+
+        score:
 
             Number(
-
-                flowChannelHeight.toFixed(5)
-
+                score.toFixed(2)
             ),
 
-        residenceTime,
 
-        flowVelocity:
 
-            Number(
+        confidence:95
 
-                flowVelocity.toFixed(3)
-
-            ),
-
-        hydraulicDiameter:
-
-            Number(
-
-                hydraulicDiameter.toFixed(5)
-
-            ),
-
-        reynolds:
-
-            Number(
-
-                reynolds.toFixed(0)
-
-            ),
-
-        pressureDrop:
-
-            Number(
-
-                pressureDrop.toFixed(2)
-
-            ),
-
-        cellPairs,
-
-        stackThickness:
-
-            Number(
-
-                stackThickness.toFixed(2)
-
-            ),
-
-        stackVolume:
-
-            Number(
-
-                stackVolume.toFixed(2)
-
-            )
 
     };
 
+
 }
+
+
+
 
 module.exports = calculateCDIDesign;

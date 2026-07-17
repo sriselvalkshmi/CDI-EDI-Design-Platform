@@ -1,380 +1,567 @@
+"use strict";
+
 const express = require("express");
 const router = express.Router();
 
+const cdiCellDesigner =
+require("../services/cdiCellDesigner");
+//======================================================
+// SAFE FUNCTION LOADER
+//======================================================
 
-// Services
+function loadFunction(path, aliases = []) {
+
+    const module = require(path);
+
+
+    if (typeof module === "function") {
+        return module;
+    }
+
+
+    for (const name of aliases) {
+
+        if (typeof module[name] === "function") {
+            return module[name];
+        }
+
+    }
+
+
+    console.error(
+        "FAILED LOADING:",
+        path,
+        module
+    );
+
+
+    throw new Error(
+        "Function export missing from " + path
+    );
+
+}
+
+
+
+//======================================================
+// SERVICES
+//======================================================
+
 
 const aiRecommendation =
-require("../services/aiRecommendation");
+loadFunction(
+    "../services/aiRecommendation",
+    [
+        "recommend",
+        "aiRecommendation"
+    ]
+);
+
+
 
 const getParameters =
-require("../services/designParameters");
+loadFunction(
+    "../services/designParameters",
+    [
+        "getParameters"
+    ]
+);
+
+
 
 const engineeringCalculator =
-require("../services/engineeringCalculator");
+loadFunction(
+    "../services/engineeringCalculator",
+    [
+        "calculateEngineering"
+    ]
+);
 
-const modelParameters =
-require("../services/modelParameters");
 
-const simulationEngine =
-require("../services/simulationEngine");
-
-const ComponentSizing =
-require("../services/componentSizing");
-
-const optimize =
-require("../services/designOptimizer");
-
-const cdiDesign =
-require("../services/cdiDesignCalculator");
-
-const stackDesigner =
-require("../services/stackDesigner");
-
-const performanceCalculator =
-require("../services/performanceCalculator");
-
-const layoutGenerator =
-require("../services/layoutGenerator");
 
 const electrodeModel =
-require("../services/electrodeModel");
+loadFunction(
+    "../services/electrodeModel",
+    [
+        "calculateElectrode"
+    ]
+);
 
 
 
+const ComponentSizing =
+loadFunction(
+    "../services/componentSizing",
+    [
+        "calculate",
+        "calculateSizing"
+    ]
+);
 
-// ========================================
-// DESIGN GENERATION API
-// ========================================
 
 
-router.post("/design",(req,res)=>{
+const simulationEngine =
+loadFunction(
+    "../services/simulationEngine",
+    [
+        "simulate",
+        "simulationEngine"
+    ]
+);
+
+
+
+const optimize =
+loadFunction(
+    "../services/designOptimizer",
+    [
+        "optimize",
+        "designOptimizer"
+    ]
+);
+
+
+
+const cdiDesign =
+loadFunction(
+    "../services/cdiDesignCalculator",
+    [
+        "calculateCDIDesign"
+    ]
+);
+
+
+
+const stackDesigner =
+loadFunction(
+    "../services/stackDesigner",
+    [
+        "stackDesigner",
+        "designStack"
+    ]
+);
+
+
+
+const layoutGenerator =
+loadFunction(
+    "../services/layoutGenerator",
+    [
+        "generateLayout"
+    ]
+);
+
+
+
+const performanceCalculator =
+loadFunction(
+    "../services/performanceCalculator",
+    [
+        "performanceCalculator",
+        "calculatePerformance"
+    ]
+);
+
+
+
+//======================================================
+// DESIGN API
+// POST /api/design
+//======================================================
+
+
+router.post(
+"/design",
+(req,res)=>{
 
 
 try{
 
 
-console.log("=================================");
-console.log("INPUT FROM FRONTEND");
+console.log("\n====================================");
+console.log("NEW DESIGN REQUEST");
 console.log(req.body);
-console.log("=================================");
+console.log("====================================");
 
 
 
-// ----------------------------------------
-// 1. TECHNOLOGY SELECTION
-// ----------------------------------------
+//------------------------------------------------------
+// FEED WATER
+//------------------------------------------------------
 
 
-// User selected technology
+const feedWater = {
 
-let selectedTechnology;
-
-
-
-if(req.body.technology){
-
-    selectedTechnology =
-    req.body.technology;
-
-}
-
-else{
+    ...req.body,
 
 
-    const ai =
-    aiRecommendation(req.body);
+    tds:
+
+    Number(
+        req.body.tds ?? 500
+    ),
 
 
-    selectedTechnology =
-    ai.technology;
+    conductivity:
 
-}
-
-
-
-console.log(
-"Selected Technology:",
-selectedTechnology
-);
+    Number(
+        req.body.conductivity ?? 300
+    ),
 
 
+    hardness:
 
-// create recommendation object
-
-const recommendation = {
-
-
-    technology:
-    selectedTechnology,
+    Number(
+        req.body.hardness ?? 150
+    ),
 
 
-    confidence:
-    95,
+    ph:
+
+    Number(
+        req.body.ph ?? 7
+    ),
 
 
-    reason:
-    "Technology selected based on feed water properties and target water quality."
+    temperature:
 
+    Number(
+        req.body.temperature ?? 25
+    ),
+
+
+    pressure:
+
+    Number(
+        req.body.pressure ?? 1
+    ),
+
+
+    flowRate:
+
+    Number(
+        req.body.flowRate ?? 10
+    ),
+
+
+    targetTds:
+
+    Number(
+        req.body.targetTds ??
+        req.body.targetTDS ??
+        50
+    )
 
 };
+//------------------------------------------------------
+// AI RECOMMENDATION
+//------------------------------------------------------
+
+const ai = aiRecommendation(feedWater);
+
+console.log("=================================");
+console.log("AI Recommendation");
+console.log(ai);
+console.log("=================================");
+
+//------------------------------------------------------
+// TECHNOLOGY SELECTION
+//------------------------------------------------------
+
+let technology;
+
+// Manual override
+if (
+    feedWater.technology &&
+    feedWater.technology !== "AUTO"
+) {
+
+    technology = feedWater.technology;
+
+    console.log("Manual Technology:", technology);
+
+}
+else {
+
+    technology = ai.technology;
+
+    console.log("AI Selected Technology:", technology);
+
+}
+//------------------------------------------------------
+// PARAMETERS
+//------------------------------------------------------
 
 
-
-
-
-// ----------------------------------------
-// 2. DESIGN PARAMETERS
-// ----------------------------------------
-
+//------------------------------------------------------
+// DESIGN PARAMETERS
+//------------------------------------------------------
 
 const designParameters =
-getParameters(
-selectedTechnology
-);
-
-
+getParameters(technology);
 
 console.log(
-"✓ Design Parameters OK"
+    "Design Parameters:",
+    designParameters
 );
-
-
-
-
-
-// ----------------------------------------
-// 3. ENGINEERING CALCULATION
-// ----------------------------------------
-
+//------------------------------------------------------
+// ENGINEERING
+//------------------------------------------------------
 
 const engineering =
 engineeringCalculator(
 
-req.body,
+    feedWater,
 
-designParameters,
+    designParameters,
 
-selectedTechnology
+    technology
 
 );
 
+engineering.recommendedVoltage =
+ai.recommendedVoltage;
+
+engineering.recommendedCurrent =
+ai.recommendedCurrent;
+
+engineering.expectedRemoval =
+ai.expectedRemoval;
 
 
-console.log(
-"✓ Engineering OK"
-);
 
-
-
-
-
-
-// ----------------------------------------
-// 4. ELECTRODE MODEL
-// ----------------------------------------
+//------------------------------------------------------
+// ELECTRODE
+//------------------------------------------------------
 
 
 const electrode =
 electrodeModel(
 
-req.body,
+    feedWater,
 
-engineering
+    engineering
 
 );
-
 
 
 console.log(
-"✓ Electrode OK"
+"Electrode completed"
 );
 
 
 
 
-
-
-// ----------------------------------------
-// 5. COMPONENT SIZING
-// ----------------------------------------
+//------------------------------------------------------
+// SIZING
+//------------------------------------------------------
 
 
 const sizing =
-ComponentSizing.calculate(
+ComponentSizing(
 
-req.body,
+    engineering,
 
-selectedTechnology
+    technology
 
 );
-
 
 
 console.log(
-"✓ Component Sizing OK"
+"Sizing completed"
 );
 
 
 
 
-
-
-// ----------------------------------------
-// 6. SIMULATION
-// ----------------------------------------
-
-
-const simulationParameters = {
-
-
-...modelParameters,
-
-
-...(req.body.optimizationParameters || {})
-
-
-};
-
+//------------------------------------------------------
+// SIMULATION
+//------------------------------------------------------
 
 
 const simulation =
 simulationEngine(
 
-selectedTechnology,
+    technology,
 
-req.body,
+    feedWater,
 
-simulationParameters
+    {
+
+        engineering,
+
+        electrode
+
+    }
 
 );
-
 
 
 console.log(
-"✓ Simulation OK"
+"Simulation completed"
 );
 
 
 
 
+//------------------------------------------------------
+// CELL DESIGN
+//------------------------------------------------------
 
 
-// ----------------------------------------
-// 7. CELL DESIGN
-// ----------------------------------------
+let cellDesign = null;
 
 
-const cellDesign =
+try{
+
+
+cellDesign =
 cdiDesign(
 
-req.body,
+    feedWater,
 
-engineering
+    engineering
 
 );
 
 
+}
+catch(e){
 
 console.log(
-"✓ Cell Design OK"
+"CDI cell design skipped:",
+e.message
 );
 
+}
 
 
 
 
+//------------------------------------------------------
+// STACK
+//------------------------------------------------------
 
-// ----------------------------------------
-// 8. STACK DESIGN
-// ----------------------------------------
+
+let stack = null;
 
 
-const stack =
+try{
+
+
+stack =
 stackDesigner(
 
-req.body,
+    feedWater,
 
-cellDesign,
+    cellDesign,
 
-engineering
+    engineering
 
 );
 
 
+}
+catch(e){
 
 console.log(
-"✓ Stack Design OK"
+"Stack skipped:",
+e.message
 );
 
+}
 
 
 
 
-
-// ----------------------------------------
-// 9. LAYOUT GENERATION
-// ----------------------------------------
-
-
+//------------------------------------------------------
+// LAYOUT
+//------------------------------------------------------
 const layout =
 layoutGenerator(
 
 stack,
 
-engineering
+engineering,
+
+feedWater,
+
+simulation
 
 );
 
 
 
-console.log(
-"✓ Layout OK"
-);
 
 
-
-
-
-
-// ----------------------------------------
-// 10. PERFORMANCE
-// ----------------------------------------
+//------------------------------------------------------
+// PERFORMANCE
+//------------------------------------------------------
 
 
 const performance =
+
 performanceCalculator(
 
-req.body,
+    feedWater,
 
-simulation,
+    simulation,
 
-engineering,
+    engineering,
 
-cellDesign
+    cellDesign,
+
+    electrode
 
 );
 
 
 
 console.log(
-"✓ Performance OK"
+"Performance calculated"
 );
 
 
 
 
-
-
-// ----------------------------------------
-// 11. OPTIMIZATION
-// ----------------------------------------
+//------------------------------------------------------
+// OPTIMIZATION
+//------------------------------------------------------
 
 
 const optimization =
+
 optimize(
 
-req.body,
+{
+
+    ...feedWater,
+
+    technology,
+
+    engineering,
+
+    simulation,
+
+    sizing,
+
+
+    optimizationInputs:
+
+    req.body.optimizationInputs || {},
+
+
+    lockedParameters:
+
+    req.body.lockedParameters || {},
+
+
+    optimizationMode:
+
+    req.body.optimizationMode || "AI"
+
+
+},
 
 sizing,
 
@@ -385,104 +572,100 @@ engineering
 
 
 console.log(
-"✓ Optimization OK"
+"Optimization completed"
 );
 
+//--------------------------------------------------
+// CDI CELL DESIGN
+//--------------------------------------------------
 
+const cellGeometry =
 
+cdiCellDesigner(
 
+    feedWater,
 
+    optimization,
+
+    engineering
+
+);
 
 
 console.log(
-"✓ ALL CALCULATIONS COMPLETED"
+"CDI Cell Geometry Completed"
 );
 
 
-
-
-// ========================================
+//======================================================
 // RESPONSE
-// ========================================
-
-
+//======================================================
 res.json({
-
 
 success:true,
 
+recommendation: ai,
 
-selectedTechnology,
-
-
-recommendation,
-
+selectedTechnology: technology,
 
 designParameters,
 
-
 engineering,
-
 
 sizing,
 
-
 simulation,
-
 
 optimization,
 
+cellGeometry,
 
 stack,
 
-
 cellDesign,
-
 
 layout,
 
-
 electrode,
-
 
 performance
 
-
-
 });
-
-
 
 
 }
 
 
-
-catch(err){
+catch(error){
 
 
 console.error(
-"SERVER ERROR"
+"=============================="
 );
 
 
-console.error(err);
+console.error(
+"DESIGN API ERROR"
+);
+
+
+console.error(
+error.stack
+);
+
+
+console.error(
+"=============================="
+);
 
 
 
 res.status(500).json({
 
-
 success:false,
 
-
-message:
-err.message,
-
-
-stack:
-err.stack
-
+error:
+error.message
 
 });
 
@@ -490,8 +673,9 @@ err.stack
 }
 
 
-
 });
+
+
 
 
 

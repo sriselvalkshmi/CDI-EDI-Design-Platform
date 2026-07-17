@@ -1,17 +1,20 @@
 import React from "react";
-
 import Dashboard from "./pages/Dashboard";
+import EquationEditorPage from "./pages/EquationEditorPage";
+import { useApp } from "./context/AppContext";
 
-
-function App(){
+function App() {
+    const { page } = useApp();
 
     return (
-
-        <Dashboard />
-
+        <div className="app-container">
+            {page === "DASHBOARD" ? (
+                <Dashboard />
+            ) : (
+                <EquationEditorPage />
+            )}
+        </div>
     );
-
 }
-
 
 export default App;

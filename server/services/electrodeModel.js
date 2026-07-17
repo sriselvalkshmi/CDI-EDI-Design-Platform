@@ -1,204 +1,452 @@
+const EquationEngine = require("./equationEngine");
+
 function electrodeModel(feedWater, engineering) {
 
+
     //--------------------------------------------------
-    // Inputs
+    // INPUT PARAMETERS
     //--------------------------------------------------
+
 
     const area =
-        Number(engineering.electrodeArea || 250);      // cm²
+
+        Number(
+            engineering.electrodeArea || 250
+        );
+
+
 
     const thickness =
-        Number(engineering.electrodeThickness || 0.06); // cm
+
+        Number(
+            engineering.electrodeThickness || 0.6
+        );
+
+
 
     const voltage =
-        Number(engineering.voltage || 1.2);
+
+        Number(
+            engineering.voltage || 1.2
+        );
+
+
 
     const current =
-        Number(engineering.current || 5);
+
+        Number(
+            engineering.current || 5
+        );
+
+
 
     //--------------------------------------------------
-    // Material Properties
+    // THICKNESS CONVERSION
     //--------------------------------------------------
+
+
+    const thicknessCm =
+
+        thickness / 10;
+
+
+
+
+    //--------------------------------------------------
+    // CARBON ELECTRODE PROPERTIES
+    //--------------------------------------------------
+
+
+    const density = 0.45;      
+    // g/cm3
+
 
     const porosity = 0.65;
 
-    const density = 0.45;                 // g/cm³
 
-    const conductivity = 120;             // S/m
+    const conductivity = 120;
+    // S/m
 
-    const specificCapacitance = 75;       // F/g
 
-    const specificSurfaceArea = 1500;     // m²/g
+    const specificCapacitance = 75;
+    // F/g
 
-    const averagePoreDiameter = 2.5;      // nm
+
+    const specificSurfaceArea = 1500;
+    // m2/g
+
+
+    const poreDiameter = 2.5;
+    // nm
+
+
+
 
     //--------------------------------------------------
-    // Geometry
+    // ELECTRODE GEOMETRY
     //--------------------------------------------------
+
 
     const volume =
-        area * thickness;
+
+        area *
+        thicknessCm;
+
+
 
     const solidVolume =
-        volume * (1 - porosity);
+
+        volume *
+        (1 - porosity);
+
+
 
     const poreVolume =
-        volume * porosity;
+
+        volume *
+        porosity;
+
+
 
     //--------------------------------------------------
-    // Mass
+    // ELECTRODE MASS
     //--------------------------------------------------
 
-    const mass =
-        solidVolume * density;
+
+    const electrodeMass =
+
+        EquationEngine.evaluate(
+            'Electrode Mass',
+            { Area: area, Thickness: thickness, Density: density },
+            solidVolume * density
+        );
+
+
+
+
 
     //--------------------------------------------------
-    // Electrical Properties
+    // CAPACITANCE
     //--------------------------------------------------
+
 
     const capacitance =
-        mass * specificCapacitance;
+
+        electrodeMass *
+        specificCapacitance;
+
+
+
+
+    //--------------------------------------------------
+    // ELECTRICAL RESISTANCE
+    //--------------------------------------------------
+
 
     const resistance =
-        thickness /
-        (conductivity * (area / 10000));
+
+        thicknessCm /
+
+        (
+            conductivity *
+            (area / 10000)
+        );
+
+
+
+
+
+    //--------------------------------------------------
+    // ENERGY STORAGE
+    //--------------------------------------------------
+
 
     const storedEnergy =
+
         0.5 *
         capacitance *
         voltage *
         voltage;
 
+
+
+
+
     //--------------------------------------------------
-    // Surface Properties
+    // SURFACE AREA
     //--------------------------------------------------
+
 
     const totalSurfaceArea =
-        mass *
+
+        electrodeMass *
         specificSurfaceArea;
 
+
+
+
     //--------------------------------------------------
-    // Salt Adsorption
+    // SALT REMOVAL
     //--------------------------------------------------
+
+
+    const inletTDS =
+
+        Number(
+            feedWater.tds || 500
+        );
+
+
+
+    const targetTDS =
+
+        Number(
+            feedWater.targetTds || 50
+        );
+
+
 
     const saltRemoved =
+
         Math.max(
+
             0,
-            feedWater.tds -
-            feedWater.targetTds
+
+            inletTDS -
+            targetTDS
+
         );
+
+
+
+
+
+    //--------------------------------------------------
+    // SALT ADSORPTION CAPACITY
+    //--------------------------------------------------
+
 
     const SAC =
-        saltRemoved /
-        Math.max(mass, 1);
+
+        EquationEngine.evaluate(
+            'Salt Adsorption Capacity',
+            { SaltRemoved: saltRemoved, ElectrodeMass: electrodeMass },
+            saltRemoved / Math.max(electrodeMass, 0.001)
+        );
+
+
+
+
+
 
     //--------------------------------------------------
-    // Charge Efficiency
+    // CHARGE EFFICIENCY
     //--------------------------------------------------
+
 
     const chargeEfficiency =
+
         Math.min(
+
             0.99,
+
             0.80 +
             voltage * 0.05
+
         );
 
+
+
+
+
     //--------------------------------------------------
-    // Utilization
+    // ELECTRODE UTILIZATION
     //--------------------------------------------------
+
 
     const utilization =
+
+
         Math.min(
+
             1,
+
             SAC / 20
+
         );
 
+
+
+
+
     //--------------------------------------------------
-    // Current Density
+    // CURRENT DENSITY
     //--------------------------------------------------
+
 
     const currentDensity =
+
+
         current /
+
         (area / 10000);
 
+
+
+
+
     //--------------------------------------------------
-    // Return
+    // RETURN MODEL
     //--------------------------------------------------
+
 
     return {
 
-        //--------------------------------------------------
+
         // Geometry
-        //--------------------------------------------------
 
-        area,
+        electrodeArea:
 
-        thickness,
+            Number(
+                area.toFixed(2)
+            ),
+
+
+        thickness:
+
+            Number(
+                thickness.toFixed(2)
+            ),
+
 
         volume:
-            Number(volume.toFixed(2)),
+
+            Number(
+                volume.toFixed(3)
+            ),
+
 
         solidVolume:
-            Number(solidVolume.toFixed(2)),
+
+            Number(
+                solidVolume.toFixed(3)
+            ),
+
 
         poreVolume:
-            Number(poreVolume.toFixed(2)),
 
-        //--------------------------------------------------
+            Number(
+                poreVolume.toFixed(3)
+            ),
+
+
+
         // Material
-        //--------------------------------------------------
 
         density,
 
+
         porosity,
+
 
         conductivity,
 
-        averagePoreDiameter,
+
+        poreDiameter,
+
 
         specificSurfaceArea,
 
-        //--------------------------------------------------
-        // Mass
-        //--------------------------------------------------
+
+
+        // Electrode properties shown in UI
 
         electrodeMass:
-            Number(mass.toFixed(2)),
 
-        //--------------------------------------------------
-        // Electrical
-        //--------------------------------------------------
+            Number(
+                electrodeMass.toFixed(3)
+            ),
+
+
 
         capacitance:
-            Number(capacitance.toFixed(2)),
 
-        resistance:
-            Number(resistance.toFixed(4)),
+            Number(
+                capacitance.toFixed(3)
+            ),
 
-        storedEnergy:
-            Number(storedEnergy.toFixed(2)),
 
-        currentDensity:
-            Number(currentDensity.toFixed(2)),
-
-        //--------------------------------------------------
-        // Electrochemical
-        //--------------------------------------------------
 
         SAC:
-            Number(SAC.toFixed(3)),
+
+            Number(
+                SAC.toFixed(3)
+            ),
+
+
+
+        // Electrical
+
+        resistance:
+
+            Number(
+                resistance.toFixed(5)
+            ),
+
+
+
+        storedEnergy:
+
+            Number(
+                storedEnergy.toFixed(3)
+            ),
+
+
+
+        currentDensity:
+
+            Number(
+                currentDensity.toFixed(2)
+            ),
+
+
+
+        // Electrochemical
 
         chargeEfficiency:
-            Number(chargeEfficiency.toFixed(3)),
+
+            Number(
+                (
+                    chargeEfficiency *
+                    100
+                )
+                .toFixed(2)
+            ),
+
+
 
         utilization:
-            Number(utilization.toFixed(3)),
+
+            Number(
+                (
+                    utilization *
+                    100
+                )
+                .toFixed(2)
+            ),
+
+
 
         totalSurfaceArea:
-            Number(totalSurfaceArea.toFixed(2))
+
+            Number(
+                totalSurfaceArea.toFixed(2)
+            )
 
     };
 
+
 }
+
 
 module.exports = electrodeModel;

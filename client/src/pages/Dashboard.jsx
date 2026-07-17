@@ -13,8 +13,6 @@ import RecommendationPanel from "../components/RecommendationPanel";
 import KPIDashboard from "../components/KPIDashboard";
 import EngineeringPanel from "../components/EngineeringPanel";
 import OptimizationPanel from "../components/OptimizationPanel";
-import ResultPanel from "../components/ResultPanel";
-
 
 
 
@@ -101,9 +99,6 @@ return(
 
 
 
-{/* AI DECISION */}
-
-<RecommendationPanel />
 
 
 
@@ -147,7 +142,7 @@ return(
 
 
 
-<ResultPanel />
+
 
 
 

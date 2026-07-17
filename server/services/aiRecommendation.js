@@ -1,175 +1,139 @@
-function aiRecommendation(feedWater) {
+"use strict";
 
-    //--------------------------------------------------
-    // Inputs
-    //--------------------------------------------------
+/*
+==========================================================
+AI TECHNOLOGY RECOMMENDATION ENGINE
+Supports:
+- CDI
+- MCDI
+- FCDI
+- EDI
+==========================================================
+*/
 
-    const tds =
-        Number(feedWater.tds || 500);
+function aiRecommendation(feedWater = {}) {
 
-    const conductivity =
-        Number(feedWater.conductivity || 500);
+    //------------------------------------------------------
+    // INPUTS
+    //------------------------------------------------------
 
-    const hardness =
-        Number(feedWater.hardness || 150);
+    const tds = Number(feedWater.tds ?? 500);
+    const conductivity = Number(feedWater.conductivity ?? 300);
+    const hardness = Number(feedWater.hardness ?? 150);
+    const ph = Number(feedWater.ph ?? 7);
+    const temperature = Number(feedWater.temperature ?? 25);
+    const flowRate = Number(feedWater.flowRate ?? 10);
+    const pressure = Number(feedWater.pressure ?? 1);
+    const targetTds = Number(feedWater.targetTds ?? 50);
 
-    const ph =
-        Number(feedWater.ph || 7);
-
-    const temperature =
-        Number(feedWater.temperature || 25);
-
-    const flowRate =
-        Number(feedWater.flowRate || 10);
-
-    const pressure =
-        Number(feedWater.pressure || 1);
-
-    const targetTDS =
-        Number(feedWater.targetTds || 50);
-
-    //--------------------------------------------------
-    // Technology Scores
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // INITIAL SCORES
+    //------------------------------------------------------
 
     const scores = {
-
         CDI: 0,
-
         MCDI: 0,
-
         FCDI: 0,
-
         EDI: 0
-
     };
 
     const reasons = [];
 
-    //--------------------------------------------------
-    // TDS Evaluation
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // TDS
+    //------------------------------------------------------
 
     if (tds < 100) {
 
-        scores.EDI += 50;
-
-        reasons.push(
-            "Very low salinity suitable for EDI."
-        );
+        scores.EDI += 60;
+        scores.MCDI += 20;
+        reasons.push("Very low salinity.");
 
     }
+    else if (tds <= 1000) {
 
-    else if (tds <= 1200) {
-
-        scores.CDI += 40;
-        scores.MCDI += 45;
-
-        reasons.push(
-            "Moderate salinity suitable for CDI/MCDI."
-        );
+        scores.CDI += 50;
+        scores.MCDI += 60;
+        reasons.push("Moderate salinity.");
 
     }
-
     else if (tds <= 5000) {
 
-        scores.FCDI += 55;
-
-        reasons.push(
-            "High salinity favors Flow CDI."
-        );
+        scores.FCDI += 70;
+        scores.MCDI += 20;
+        reasons.push("High salinity.");
 
     }
-
     else {
 
-        scores.FCDI += 70;
-
-        reasons.push(
-            "Very high salinity requires Flow CDI."
-        );
+        scores.FCDI += 100;
+        reasons.push("Very high salinity.");
 
     }
 
-    //--------------------------------------------------
-    // Hardness
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // HARDNESS
+    //------------------------------------------------------
 
     if (hardness > 250) {
 
-        scores.MCDI += 25;
-
-        reasons.push(
-            "High hardness favors membrane protected electrodes."
-        );
+        scores.MCDI += 30;
+        reasons.push("High hardness.");
 
     }
 
-    //--------------------------------------------------
-    // Conductivity
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // CONDUCTIVITY
+    //------------------------------------------------------
 
     if (conductivity > 1500) {
 
         scores.FCDI += 20;
-
-        reasons.push(
-            "High conductivity benefits Flow CDI."
-        );
+        reasons.push("High conductivity.");
 
     }
 
-    //--------------------------------------------------
-    // Target Water Quality
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // TARGET TDS
+    //------------------------------------------------------
 
-    if (targetTDS < 20) {
+    if (targetTds < 10) {
 
-        scores.EDI += 40;
+        scores.EDI += 50;
+        reasons.push("Ultra-pure water required.");
 
-        reasons.push(
-            "Ultra-pure water target favors EDI."
-        );
+    }
+    else if (targetTds < 100) {
+
+        scores.MCDI += 20;
 
     }
 
-    else if (targetTDS < 100) {
-
-        scores.MCDI += 10;
-
-    }
-
-    //--------------------------------------------------
-    // Flow Rate
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // FLOW RATE
+    //------------------------------------------------------
 
     if (flowRate > 50) {
 
-        scores.FCDI += 20;
-
-        reasons.push(
-            "Large flow rate favors Flow CDI."
-        );
+        scores.FCDI += 25;
+        reasons.push("Large flow rate.");
 
     }
 
-    //--------------------------------------------------
+    //------------------------------------------------------
     // pH
-    //--------------------------------------------------
+    //------------------------------------------------------
 
     if (ph < 6 || ph > 8.5) {
 
         scores.MCDI += 15;
-
-        reasons.push(
-            "Extreme pH favors membrane protected CDI."
-        );
+        reasons.push("Extreme pH.");
 
     }
 
-    //--------------------------------------------------
-    // Temperature
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // TEMPERATURE
+    //------------------------------------------------------
 
     if (temperature > 35) {
 
@@ -177,9 +141,9 @@ function aiRecommendation(feedWater) {
 
     }
 
-    //--------------------------------------------------
-    // Pressure
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // PRESSURE
+    //------------------------------------------------------
 
     if (pressure > 3) {
 
@@ -187,75 +151,83 @@ function aiRecommendation(feedWater) {
 
     }
 
-    //--------------------------------------------------
-    // Select Best Technology
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // FIND BEST TECHNOLOGY
+    //------------------------------------------------------
 
-    let technology = "CDI";
+    const ranking = Object.entries(scores)
+        .sort((a, b) => b[1] - a[1]);
 
-    let confidence = -1;
+    const technology = ranking[0][0];
+    const bestScore = ranking[0][1];
+    const secondScore = ranking[1][1];
 
-    for (const tech in scores) {
+    //------------------------------------------------------
+    // CONFIDENCE
+    //------------------------------------------------------
 
-        if (scores[tech] > confidence) {
+    let confidence = 70;
 
-            confidence = scores[tech];
+    const gap = bestScore - secondScore;
 
-            technology = tech;
+    if (gap > 50)
+        confidence = 99;
+    else if (gap > 35)
+        confidence = 95;
+    else if (gap > 20)
+        confidence = 90;
+    else if (gap > 10)
+        confidence = 85;
+    else
+        confidence = 80;
+
+    //------------------------------------------------------
+    // ENGINEERING DEFAULTS
+    //------------------------------------------------------
+
+    const defaults = {
+
+        CDI: {
+
+            voltage: 1.2,
+            current: 5,
+            cellPairs: 20,
+            removal: 70
+
+        },
+
+        MCDI: {
+
+            voltage: 1.4,
+            current: 5,
+            cellPairs: 30,
+            removal: 85
+
+        },
+
+        FCDI: {
+
+            voltage: 1.8,
+            current: 8,
+            cellPairs: 40,
+            removal: 95
+
+        },
+
+        EDI: {
+
+            voltage: 15,
+            current: 2,
+            cellPairs: 100,
+            removal: 99
 
         }
 
-    }
+    };
 
-    //--------------------------------------------------
-    // Engineering Defaults
-    //--------------------------------------------------
-
-    let recommendedVoltage = 1.2;
-
-    let recommendedCellPairs = 20;
-
-    let expectedRemoval = 70;
-
-    switch (technology) {
-
-        case "CDI":
-
-            recommendedVoltage = 1.2;
-            recommendedCellPairs = 20;
-            expectedRemoval = 70;
-
-            break;
-
-        case "MCDI":
-
-            recommendedVoltage = 1.4;
-            recommendedCellPairs = 30;
-            expectedRemoval = 85;
-
-            break;
-
-        case "FCDI":
-
-            recommendedVoltage = 1.8;
-            recommendedCellPairs = 40;
-            expectedRemoval = 95;
-
-            break;
-
-        case "EDI":
-
-            recommendedVoltage = 15;
-            recommendedCellPairs = 100;
-            expectedRemoval = 99;
-
-            break;
-
-    }
-
-    //--------------------------------------------------
-    // Return
-    //--------------------------------------------------
+    //------------------------------------------------------
+    // RETURN
+    //------------------------------------------------------
 
     return {
 
@@ -265,27 +237,25 @@ function aiRecommendation(feedWater) {
 
         scores,
 
-        recommendedVoltage,
+        recommendedVoltage:
+            defaults[technology].voltage,
 
-        recommendedCellPairs,
+        recommendedCurrent:
+            defaults[technology].current,
 
-        expectedRemoval,
+        recommendedCellPairs:
+            defaults[technology].cellPairs,
 
-        reason:
-
-            reasons.join(" "),
+        expectedRemoval:
+            defaults[technology].removal,
 
         operatingMode:
-
             technology === "EDI"
+                ? "Continuous Ion Migration"
+                : "Adsorption / Desorption",
 
-                ?
-
-                "Continuous ion migration"
-
-                :
-
-                "Adsorption / Desorption"
+        reason:
+            reasons.join(" ")
 
     };
 
