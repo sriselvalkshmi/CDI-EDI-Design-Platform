@@ -10,10 +10,25 @@ const session = require('express-session');
 
 const app = express();
 
-// 1. CORS (supports credentials and points specifically to client ports)
+// Trust proxy (required for production reverse proxies like Render/Railway/Heroku)
+app.set("trust proxy", 1);
+
+// 1. CORS configuration
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  process.env.CLIENT_ORIGIN
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: ["http://localhost:5174", "http://localhost:5173"],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || origin.endsWith(".netlify.app")) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "X-From-Equation-Editor"],
@@ -27,17 +42,18 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // 4. Session middleware
+const isProduction = process.env.NODE_ENV === "production";
 app.use(
   session({
-    name: 'cdi_edi_sid', // Custom cookie name to avoid localhost clashes
+    name: 'cdi_edi_sid', // Custom cookie name
     secret: process.env.SESSION_SECRET || 'replace_this_secret',
     resave: false,
     saveUninitialized: false,
     rolling: true,
     cookie: { 
       httpOnly: true,
-      secure: false, // http only
-      sameSite: 'lax',
+      secure: isProduction, // secure in production (HTTPS)
+      sameSite: isProduction ? 'none' : 'lax', // required for cross-domain cookies in production
       maxAge: 30 * 60 * 1000 
     },
   })
@@ -250,7 +266,7 @@ err.message
 //======================================================
 
 
-const PORT = 5007;
+const PORT = process.env.PORT || 5007;
 
 
 app.listen(
