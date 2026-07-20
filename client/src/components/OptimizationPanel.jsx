@@ -61,7 +61,8 @@ export default function OptimizationPanel() {
         lockedParameters,
         setLockedParameters,
         loading,
-        recalculate
+        recalculate,
+        user
     } = useApp();
 
     const tech = selectedDesign || "CDI";
@@ -102,9 +103,8 @@ export default function OptimizationPanel() {
         const userValue = optimizationInputs[parameter] !== undefined ? optimizationInputs[parameter] : "";
 
         // Determine if the input box should be disabled:
-        // - In AI mode: Always disabled (uses AI value)
-        // - In MANUAL mode: Always enabled (editable)
-        const isDisabled = optimizationMode === "AI";
+        const isViewerOrResearcher = user && (user.role === "Viewer" || user.role === "Researcher");
+        const isDisabled = optimizationMode === "AI" || isViewerOrResearcher;
 
         // Display value
         const displayValue = isDisabled ? aiValue : userValue;
@@ -170,25 +170,28 @@ export default function OptimizationPanel() {
         );
     }
 
-    return (
-        <div className="panel" style={{
-            padding: "20px",
-            borderRadius: "8px",
-            background: "white",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-            maxHeight: "80vh",
-            overflowY: "auto"
-        }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                <h2 style={{ color: "#1976d2", margin: 0 }}>Optimization &amp; Parameters</h2>
-                {loading && <span style={{ color: "#1976d2", fontSize: "13px", fontWeight: "bold" }}>⚡ Recalculating...</span>}
-            </div>
-            <hr style={{ border: "0", borderTop: "1px solid #eee", marginBottom: "15px" }} />
+            const isViewerOrResearcher = user && (user.role === "Viewer" || user.role === "Researcher");
 
-            <h3 style={{ fontSize: "14px", margin: "10px 0 8px 0", color: "#555", fontWeight: "bold" }}>Optimization Mode</h3>
-            <select
-                value={optimizationMode}
-                onChange={(e) => setOptimizationMode(e.target.value)}
+            return (
+                <div className="panel" style={{
+                    padding: "20px",
+                    borderRadius: "8px",
+                    background: "white",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                    maxHeight: "80vh",
+                    overflowY: "auto"
+                }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                        <h2 style={{ color: "#1976d2", margin: 0 }}>Optimization &amp; Parameters</h2>
+                        {loading && <span style={{ color: "#1976d2", fontSize: "13px", fontWeight: "bold" }}>⚡ Recalculating...</span>}
+                    </div>
+                    <hr style={{ border: "0", borderTop: "1px solid #eee", marginBottom: "15px" }} />
+        
+                    <h3 style={{ fontSize: "14px", margin: "10px 0 8px 0", color: "#555", fontWeight: "bold" }}>Optimization Mode</h3>
+                    <select
+                        value={optimizationMode}
+                        disabled={isViewerOrResearcher}
+                        onChange={(e) => setOptimizationMode(e.target.value)}
                 style={{
                     width: "100%",
                     padding: "10px",
@@ -242,7 +245,7 @@ export default function OptimizationPanel() {
             <div style={{ marginTop: "20px", marginBottom: "20px" }}>
                 <button
                     onClick={() => recalculate(optimizationInputs, tech)}
-                    disabled={loading}
+                    disabled={loading || isViewerOrResearcher}
                     style={{
                         width: "100%",
                         background: "#1976d2",

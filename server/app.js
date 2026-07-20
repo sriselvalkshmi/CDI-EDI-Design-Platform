@@ -4,6 +4,51 @@
 const express = require("express");
 
 const cors = require("cors");
+require('dotenv').config();
+const session = require('express-session');
+
+
+const app = express();
+
+// 1. CORS (supports credentials and points specifically to client ports)
+app.use(
+  cors({
+    origin: ["http://localhost:5174", "http://localhost:5173"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "X-From-Equation-Editor"],
+  })
+);
+
+// 2. Express JSON body parser
+app.use(express.json({ limit: "10mb" }));
+
+// 3. Express URLencoded parser
+app.use(express.urlencoded({ extended: true }));
+
+// 4. Session middleware
+app.use(
+  session({
+    name: 'cdi_edi_sid', // Custom cookie name to avoid localhost clashes
+    secret: process.env.SESSION_SECRET || 'replace_this_secret',
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: { 
+      httpOnly: true,
+      secure: false, // http only
+      sameSite: 'lax',
+      maxAge: 30 * 60 * 1000 
+    },
+  })
+);
+
+// Auth & Audit services/middlewares
+const fs = require("fs");
+const excelHelper = require("./utils/excelHelper");
+const { isAuthenticated, authorize } = require("./middleware/authMiddleware");
+const authRoutes = require("./routes/authRoutes");
+
 
 
 
@@ -30,7 +75,7 @@ require("./routes/equationsRoutes");
 //======================================================
 
 
-const app = express();
+
 
 
 
@@ -41,33 +86,11 @@ const app = express();
 //======================================================
 
 
-app.use(
-cors({
-
-origin:
-"*",
-
-methods:[
-"GET",
-"POST",
-"PUT",
-"DELETE"
-],
-
-allowedHeaders:[
-"Content-Type"
-]
-
-})
-);
 
 
 
-app.use(
-express.json({
-limit:"10mb"
-})
-);
+
+
 
 
 
@@ -135,36 +158,26 @@ message:
 
 
 
+const logsRoutes = require("./routes/logsRoutes");
+
 //======================================================
 // ROUTES
 //======================================================
 
+app.use("/api/auth", authRoutes);
 
-app.use(
+// Admin-only audit logs API (for Admin Panel)
+app.use("/api/logs", isAuthenticated, authorize(["Administrator"]), logsRoutes);
 
-"/api/optimize",
+// Public engineering routes
+app.use("/api/optimize", optimizeRoute);
 
-optimizeRoute
+// Protected equation editor routes
+app.use("/api/equations", isAuthenticated, equationsRoutes);
 
-);
+// Public design routes
+app.use("/api", designRoutes);
 
-
-app.use(
-
-"/api/equations",
-
-equationsRoutes
-
-);
-
-
-app.use(
-
-"/api",
-
-designRoutes
-
-);
 
 
 
@@ -237,7 +250,7 @@ err.message
 //======================================================
 
 
-const PORT = 5000;
+const PORT = 5007;
 
 
 app.listen(

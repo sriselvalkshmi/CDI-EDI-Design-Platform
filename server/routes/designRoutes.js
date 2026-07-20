@@ -2,6 +2,7 @@
 
 const express = require("express");
 const router = express.Router();
+const excelHelper = require("../utils/excelHelper");
 
 const cdiCellDesigner =
 require("../services/cdiCellDesigner");
@@ -166,19 +167,43 @@ loadFunction(
 
 //======================================================
 // DESIGN API
+// GET /api/design
+router.get(
+"/design",
+(req, res) => {
+    try {
+        const getParameters = require("../services/designParameters");
+        const technology = req.session?.designInputs?.technology || "CDI";
+        const designParameters = getParameters(technology);
+        res.json({ success: true, technology, designParameters });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 // POST /api/design
 //======================================================
 
 
 router.post(
 "/design",
-(req,res)=>{
+async (req,res)=>{
 
 
 try{
+        const username = req.session?.user?.username || "Anonymous";
+        const role = req.session?.user?.role || "Public/Guest";
+        await excelHelper.logActivity(username, role, "Generate Design", "Design Builder", `Generated stack design using technology: ${req.body.technology || "CDI"}`);
+        await excelHelper.logActivity(username, role, "Generate P&ID", "Design Builder", "Generated process flow diagram layout.");
+        await excelHelper.logActivity(username, role, "Run Simulation", "Simulation Engine", "Executed CDI/EDI dynamic process simulation.");
+        
+        if (req.session.designInputs) {
+            const changeReason = req.body.changeReason || "Generate Design";
+            await excelHelper.compareAndLogParameters(username, role, req.session.designInputs, req.body, changeReason, "Design Builder");
+        }
+        req.session.designInputs = JSON.parse(JSON.stringify(req.body));
 
-
-console.log("\n====================================");
+        console.log("\n====================================");
 console.log("NEW DESIGN REQUEST");
 console.log(req.body);
 console.log("====================================");

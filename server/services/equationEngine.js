@@ -383,7 +383,9 @@ class EquationEngine {
             'RemovedCharge',
             'SuppliedCharge',
             'f', // Friction factor
-            'waterRecovery'
+            'waterRecovery',
+            'ReactorVolume',
+            'ChannelArea'
         ]);
 
         for (const eq of equations) {

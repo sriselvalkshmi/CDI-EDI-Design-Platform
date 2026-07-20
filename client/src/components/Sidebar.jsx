@@ -1,47 +1,33 @@
 import React from "react";
 import api from "../services/api";
 import { useApp } from "../context/AppContext";
+import { generateEngineeringReportPDF } from "../utils/reportGenerator";
 
 export default function Sidebar() {
 
     const {
-
         technology,
         setTechnology,
-
         feedWater,
         setFeedWater,
-
         loading,
         setLoading,
-
         setAiResult,
-
         setSelectedDesign,
-
         setDesignParameters,
-
         setEngineering,
-
         setSimulation,
-
         setComponentSizing,
-
         setPerformance,
-
         setOptimization,
-
         setElectrode,
-
-        // NEW
         setLayout,
         setStack,
         setCellGeometry,
-
         optimizationMode,
         optimizationInputs,
-        lockedParameters
-
+        lockedParameters,
+        user
     } = useApp();
 
     //-----------------------------------------------------
@@ -405,16 +391,18 @@ if (data.layout) {
     // UI
     //-----------------------------------------------------
 
+    const isViewer = user && user.role === "Viewer";
+    const isResearcher = user && user.role === "Researcher";
+
     return (
-
         <div className="sidebar">
-
             <h2>Feed Water Input</h2>
 
             <label>TDS (mg/L)</label>
             <input
                 type="number"
                 value={feedWater.tds}
+                disabled={isViewer}
                 onChange={(e) => update("tds", e.target.value)}
             />
 
@@ -422,6 +410,7 @@ if (data.layout) {
             <input
                 type="number"
                 value={feedWater.conductivity}
+                disabled={isViewer}
                 onChange={(e) => update("conductivity", e.target.value)}
             />
 
@@ -429,6 +418,7 @@ if (data.layout) {
             <input
                 type="number"
                 value={feedWater.hardness}
+                disabled={isViewer}
                 onChange={(e) => update("hardness", e.target.value)}
             />
 
@@ -437,6 +427,7 @@ if (data.layout) {
                 type="number"
                 step="0.1"
                 value={feedWater.ph}
+                disabled={isViewer}
                 onChange={(e) => update("ph", e.target.value)}
             />
 
@@ -444,6 +435,7 @@ if (data.layout) {
             <input
                 type="number"
                 value={feedWater.temperature}
+                disabled={isViewer}
                 onChange={(e) => update("temperature", e.target.value)}
             />
 
@@ -451,6 +443,7 @@ if (data.layout) {
             <input
                 type="number"
                 value={feedWater.flowRate}
+                disabled={isViewer}
                 onChange={(e) => update("flowRate", e.target.value)}
             />
 
@@ -458,6 +451,7 @@ if (data.layout) {
             <input
                 type="number"
                 value={feedWater.pressure}
+                disabled={isViewer}
                 onChange={(e) => update("pressure", e.target.value)}
             />
 
@@ -465,6 +459,7 @@ if (data.layout) {
             <input
                 type="number"
                 value={feedWater.targetTds}
+                disabled={isViewer}
                 onChange={(e) => update("targetTds", e.target.value)}
             />
 
@@ -472,36 +467,22 @@ if (data.layout) {
 
             <h2>Technology</h2>
 
-             <select
-    value={technology}
-    onChange={(e) => setTechnology(e.target.value)}
->
+            <select
+                value={technology}
+                disabled={isViewer}
+                onChange={(e) => setTechnology(e.target.value)}
+            >
+                <option value="AUTO">AI Recommendation</option>
+                <option value="CDI">CDI</option>
+                <option value="MCDI">MCDI</option>
+                <option value="FCDI">FCDI</option>
+                <option value="EDI">EDI</option>
+            </select>
 
-    <option value="AUTO">
-        AI Recommendation
-    </option>
-
-    <option value="CDI">
-        CDI
-    </option>
-
-    <option value="MCDI">
-        MCDI
-    </option>
-
-    <option value="FCDI">
-        FCDI
-    </option>
-
-    <option value="EDI">
-        EDI
-    </option>
-
-</select>
             <button
                 className="primaryButton"
                 onClick={generateDesign}
-                disabled={loading}
+                disabled={loading || isViewer}
             >
                 {loading ? "Generating..." : "Generate Design"}
             </button>
@@ -509,16 +490,16 @@ if (data.layout) {
             <button
                 className="secondaryButton"
                 onClick={optimizeDesign}
-                disabled={loading}
+                disabled={loading || isViewer || isResearcher}
                 style={{
                     marginTop: 12,
-                    background: "#1565c0",
-                    color: "#fff"
+                    background: (isViewer || isResearcher) ? "#cbd5e1" : "#1565c0",
+                    color: (isViewer || isResearcher) ? "#94a3b8" : "#fff",
+                    cursor: (isViewer || isResearcher) ? "not-allowed" : "pointer"
                 }}
             >
                 {loading ? "Optimizing..." : "Optimize Design"}
             </button>
-
         </div>
 
     );

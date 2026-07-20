@@ -1,0 +1,26 @@
+[
+  {
+    "id": "u-admin",
+    "username": "admin",
+    "email": "admin@cdi-edi.platform",
+    "fullName": "System Administrator",
+    "company": "CDI/EDI Platform",
+    "role": "Administrator",
+    "status": "Active",
+    "password": "$2b$10$uwFaRXq8nOP2ZhJa6W8wxOCoHkT7gKLQmPH.IV14HYhLQGWv3F/AW",
+    "createdDate": "2026-07-20T09:10:31.398Z",
+    "lastLogin": "2026-07-20T10:55:52.488Z"
+  },
+  {
+    "id": "u-1784539345168",
+    "username": "sriselvalakshmia@gmail.com",
+    "email": "sriselvalakshmia@gmail.com",
+    "fullName": "Sri selva lakshmi .A",
+    "company": "N/A",
+    "role": "User",
+    "status": "Active",
+    "password": "$2b$10$AMZ89YZloFIaDLeDayYRjOoNhM83qOwqBiLOijNUP/8XLv/FJ1vuy",
+    "createdDate": "2026-07-20T09:22:25.168Z",
+    "lastLogin": "2026-07-20T10:57:00.440Z"
+  }
+]

@@ -154,16 +154,21 @@ export function AppProvider({ children }) {
             }
         ]);
 
+    const [user, setUser] = useState(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [page, setPage] = useState("DASHBOARD");
     const [equations, setEquations] = useState([]);
 
     const fetchEquations = async () => {
         try {
             const res = await api.get("/equations");
-            if (res.data.success) {
+            if (res.data && res.data.success) {
                 setEquations(res.data.equations);
             }
         } catch (e) {
+            if (e.response?.status === 401) {
+                return;
+            }
             console.error("Error fetching equations:", e);
         }
     };
@@ -224,9 +229,116 @@ export function AppProvider({ children }) {
         }
     };
 
-    // Load equations on mount
+    const checkSession = async () => {
+        try {
+            const res = await api.get("/auth/me");
+            if (res.data && res.data.success) {
+                setUser(res.data.user);
+                setIsAuthenticated(true);
+                try {
+                    const eqRes = await api.get("/equations");
+                    if (eqRes.data && eqRes.data.success) {
+                        setEquations(eqRes.data.equations);
+                    }
+                } catch (eqErr) {
+                    if (eqErr.response?.status === 401) {
+                        return;
+                    }
+                    console.error("Error loading equations on mount:", eqErr);
+                }
+            } else {
+                setUser(null);
+                setIsAuthenticated(false);
+            }
+        } catch (error) {
+            if (error.response?.status === 401) {
+                setIsAuthenticated(false);
+                setUser(null);
+                return;
+            }
+            setUser(null);
+            setIsAuthenticated(false);
+        }
+    };
+
+    const login = async (identifier, password) => {
+        try {
+            const res = await api.post("/auth/login", { identifier, password });
+            if (res.data.success) {
+                setUser(res.data.user);
+                setIsAuthenticated(true);
+                setPage("EQUATION_EDITOR");
+                try {
+                    const eqRes = await api.get("/equations");
+                    if (eqRes.data.success) {
+                        setEquations(eqRes.data.equations);
+                    }
+                } catch (eqErr) {
+                    console.error("Error loading equations after login:", eqErr);
+                }
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error("Login failed:", e);
+            throw e;
+        }
+    };
+
+    const register = async (formData) => {
+        try {
+            const res = await api.post("/auth/register", formData);
+            return res.data;
+        } catch (e) {
+            throw e;
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await api.post("/auth/logout");
+        } catch (e) {
+            console.error("Logout request failed:", e);
+        } finally {
+            setUser(null);
+            setIsAuthenticated(false);
+            setPage("DASHBOARD");
+        }
+    };
+
+    const changePassword = async (oldPassword, newPassword) => {
+        try {
+            const res = await api.post("/auth/change-password", { oldPassword, newPassword });
+            return res.data;
+        } catch (e) {
+            return { success: false, error: e.response?.data?.message || e.message };
+        }
+    };
+
+    // Setup Axios Interceptor to catch 401 errors
     useEffect(() => {
-        fetchEquations();
+        const interceptor = api.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response && error.response.status === 401) {
+                    const url = error.config.url;
+                    if (!url.includes("/auth/me") && !url.includes("/auth/login")) {
+                        setUser(null);
+                        setIsAuthenticated(false);
+                        setPage("LOGIN");
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+        return () => {
+            api.interceptors.response.eject(interceptor);
+        };
+    }, []);
+
+    // Check session on mount
+    useEffect(() => {
+        checkSession();
     }, []);
 
     // Debounced automatic calculation when optimization parameters change
@@ -326,7 +438,15 @@ export function AppProvider({ children }) {
                 fetchEquations,
                 saveEquations,
                 resetEquations,
-                recalculate
+                recalculate,
+                user,
+                setUser,
+                isAuthenticated,
+                setIsAuthenticated,
+                login,
+                register,
+                logout,
+                changePassword
             }}
         >
             {children}
