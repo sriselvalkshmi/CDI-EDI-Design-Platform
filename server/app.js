@@ -17,6 +17,7 @@ app.set("trust proxy", 1);
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
+  "https://effulgent-twilight-1ce68d.netlify.app",
   process.env.CLIENT_ORIGIN
 ].filter(Boolean);
 
@@ -27,7 +28,7 @@ app.use(
       if (allowedOrigins.includes(origin) || origin.endsWith(".netlify.app")) {
         return callback(null, true);
       }
-      return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
@@ -154,21 +155,13 @@ next();
 //======================================================
 
 
-app.get(
-"/",
-(req,res)=>{
-
-
-res.json({
-
-status:"running",
-
-message:
-"CDI EDI Design Platform Server"
-
-});
-
-
+// Health Check Endpoint for Render / Cloud Monitors
+app.get("/", (req, res) => {
+  res.json({
+    status: "online",
+    application: "CDI / EDI Design Platform",
+    version: "2.0"
+  });
 });
 
 
@@ -268,31 +261,9 @@ err.message
 
 const PORT = process.env.PORT || 5007;
 
-
-app.listen(
-PORT,
-()=>{
-
-
-console.log(
-"================================="
-);
-
-
-console.log(
-"CDI EDI Server running"
-);
-
-
-console.log(
-`http://localhost:${PORT}`
-);
-
-
-console.log(
-"================================="
-);
-
-
-}
-);
+app.listen(PORT, () => {
+  console.log("=================================");
+  console.log("CDI/EDI Backend Started");
+  console.log(`Running on port: ${PORT}`);
+  console.log("=================================");
+});
