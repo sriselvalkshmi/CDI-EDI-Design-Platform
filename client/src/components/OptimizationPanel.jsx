@@ -177,9 +177,7 @@ export default function OptimizationPanel() {
                     padding: "20px",
                     borderRadius: "8px",
                     background: "white",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                    maxHeight: "80vh",
-                    overflowY: "auto"
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
                 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                         <h2 style={{ color: "#1976d2", margin: 0 }}>Optimization &amp; Parameters</h2>
