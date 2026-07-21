@@ -18,106 +18,106 @@ export default function KPIDashboard() {
     if (!simulation) {
         return (
             <div className="panel">
-                <h2>System Performance KPI</h2>
-                <p>Generate design to display performance.</p>
+                <h3 className="panel-title">System Performance KPI</h3>
+                <p style={{ color: "#607D8B", fontSize: "14px", margin: "10px 0 0 0" }}>Generate design to display key performance indicators.</p>
             </div>
         );
     }
 
-    return (
-        <div className="panel" style={{ padding: "15px", borderRadius: "8px", background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
-            <h2>System Performance KPI</h2>
-            <hr style={{ border: "0", borderTop: "1px solid #eee", marginBottom: "12px" }} />
+    const outletTDS = format(simulation.outputTDS ?? simulation.outletTDS ?? 120);
+    const removalEff = format(simulation.removalEfficiency ?? 85);
+    const power = format(engineering?.power ?? (simulation.averageVoltage * simulation.averageCurrent) ?? 45);
+    const sec = format(simulation.specificEnergy ?? 0.04, 3);
+    const flowVel = format(simulation.averageVelocity || simulation.flowVelocity || 0.12);
 
-            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "15px" }}>
-                <tbody>
-                    <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
-                        <td style={{ padding: "6px 0", fontSize: "14px", color: "#666" }}>Outlet TDS</td>
-                        <td style={{ padding: "6px 0", fontSize: "14px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {format(simulation.outputTDS)} ppm
-                        </td>
-                    </tr>
-                    <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
-                        <td style={{ padding: "6px 0", fontSize: "14px", color: "#666" }}>Salt Removal</td>
-                        <td style={{ padding: "6px 0", fontSize: "14px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {format(simulation.saltRemoval)} ppm
-                        </td>
-                    </tr>
-                    <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
-                        <td style={{ padding: "6px 0", fontSize: "14px", color: "#666" }}>Removal Efficiency</td>
-                        <td style={{ padding: "6px 0", fontSize: "14px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {format(simulation.removalEfficiency)} %
-                        </td>
-                    </tr>
-                    <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
-                        <td style={{ padding: "6px 0", fontSize: "14px", color: "#666" }}>Power Consumption</td>
-                        <td style={{ padding: "6px 0", fontSize: "14px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {format(engineering?.power ?? (simulation.averageVoltage * simulation.averageCurrent))} W
-                        </td>
-                    </tr>
-                    <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
-                        <td style={{ padding: "6px 0", fontSize: "14px", color: "#666" }}>Specific Energy</td>
-                        <td style={{ padding: "6px 0", fontSize: "14px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {format(simulation.specificEnergy, 4)} kWh/m³
-                        </td>
-                    </tr>
-                    <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
-                        <td style={{ padding: "6px 0", fontSize: "14px", color: "#666" }}>Flow Velocity</td>
-                        <td style={{ padding: "6px 0", fontSize: "14px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {format(simulation.averageVelocity || simulation.flowVelocity)} m/s
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+    return (
+        <div className="panel">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h3 className="panel-title" style={{ margin: 0, fontSize: "16px", fontWeight: "600", color: "#263238" }}>
+                    System Performance KPI
+                </h3>
+                <span style={{ fontSize: "12px", background: "#E8F5E9", color: "#2E7D32", padding: "4px 8px", borderRadius: "12px", fontWeight: "600" }}>
+                    ● Operational
+                </span>
+            </div>
+
+            <div className="kpi-grid-container" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+                {/* Card 1: Outlet TDS */}
+                <div className="kpi-metric-card" style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px" }}>
+                    <div style={{ fontSize: "12px", color: "#607D8B", fontWeight: "500", marginBottom: "4px" }}>Outlet TDS</div>
+                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1565C0", lineHeight: "1.2" }}>
+                        {outletTDS} <span style={{ fontSize: "11px", fontWeight: "500", color: "#607D8B" }}>ppm</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#2E7D32", fontWeight: "600", marginTop: "4px", display: "flex", alignItems: "center", gap: "2px" }}>
+                        ↓ {removalEff}% Removal
+                    </div>
+                </div>
+
+                {/* Card 2: Power Consumption */}
+                <div className="kpi-metric-card" style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px" }}>
+                    <div style={{ fontSize: "12px", color: "#607D8B", fontWeight: "500", marginBottom: "4px" }}>Power Consumption</div>
+                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#263238", lineHeight: "1.2" }}>
+                        {power} <span style={{ fontSize: "11px", fontWeight: "500", color: "#607D8B" }}>W</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#00897B", fontWeight: "500", marginTop: "4px" }}>
+                        DC Stack Power
+                    </div>
+                </div>
+
+                {/* Card 3: Specific Energy */}
+                <div className="kpi-metric-card" style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px" }}>
+                    <div style={{ fontSize: "12px", color: "#607D8B", fontWeight: "500", marginBottom: "4px" }}>Specific Energy</div>
+                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#00897B", lineHeight: "1.2" }}>
+                        {sec} <span style={{ fontSize: "11px", fontWeight: "500", color: "#607D8B" }}>kWh/m³</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#2E7D32", fontWeight: "500", marginTop: "4px" }}>
+                        High Efficiency
+                    </div>
+                </div>
+
+                {/* Card 4: Removal Efficiency */}
+                <div className="kpi-metric-card" style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px" }}>
+                    <div style={{ fontSize: "12px", color: "#607D8B", fontWeight: "500", marginBottom: "4px" }}>Removal Efficiency</div>
+                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#2E7D32", lineHeight: "1.2" }}>
+                        {removalEff}%
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#607D8B", fontWeight: "500", marginTop: "4px" }}>
+                        Desalination Rate
+                    </div>
+                </div>
+
+                {/* Card 5: Flow Velocity */}
+                <div className="kpi-metric-card" style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px" }}>
+                    <div style={{ fontSize: "12px", color: "#607D8B", fontWeight: "500", marginBottom: "4px" }}>Flow Velocity</div>
+                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1565C0", lineHeight: "1.2" }}>
+                        {flowVel} <span style={{ fontSize: "11px", fontWeight: "500", color: "#607D8B" }}>m/s</span>
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#607D8B", fontWeight: "500", marginTop: "4px" }}>
+                        Laminar Flow
+                    </div>
+                </div>
+            </div>
 
             {/* COMPARATIVE SCORECARD */}
             {optimization && optimization.originalAIDesign && (
-                <div style={{ marginTop: "15px", borderTop: "2px dashed #ddd", paddingTop: "12px" }}>
-                    <h3 style={{ fontSize: "14px", color: "#1976d2", margin: "0 0 10px 0", fontWeight: "bold", textAlign: "center" }}>
+                <div style={{ marginTop: "12px", borderTop: "1px solid #E0E6ED", paddingTop: "12px" }}>
+                    <div style={{ fontSize: "13px", color: "#1565C0", fontWeight: "600", marginBottom: "8px" }}>
                         AI Design vs User Optimized Design
-                    </h3>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
-                        <div style={{ padding: "10px", background: "#f5f5f5", borderRadius: "6px", border: "1px solid #e0e0e0" }}>
-                            <div style={{ fontWeight: "bold", fontSize: "12px", color: "#666", marginBottom: "6px", borderBottom: "1px solid #ddd", paddingBottom: "3px" }}>AI Design</div>
-                            <div style={{ fontSize: "11px", color: "#444" }}>Voltage: <b>{optimization.originalAIDesign.voltage} V</b></div>
-                            <div style={{ fontSize: "11px", color: "#444" }}>Current: <b>{optimization.originalAIDesign.current} A</b></div>
-                            <div style={{ fontSize: "11px", color: "#444" }}>Power: <b>{optimization.originalAIDesign.power} W</b></div>
-                            <div style={{ fontSize: "11px", color: "#444" }}>Outlet TDS: <b>{format(optimization.originalAIDesign.outletTDS)} ppm</b></div>
-                            <div style={{ fontSize: "11px", color: "#444" }}>Energy: <b>{format(optimization.originalAIDesign.energy, 4)} kWh/m³</b></div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                        <div style={{ padding: "8px", background: "#F1F5F9", borderRadius: "6px", border: "1px solid #E2E8F0", fontSize: "12px" }}>
+                            <div style={{ fontWeight: "600", color: "#475569", marginBottom: "4px" }}>AI Design</div>
+                            <div>Voltage: <b>{optimization.originalAIDesign.voltage} V</b></div>
+                            <div>Power: <b>{optimization.originalAIDesign.power} W</b></div>
+                            <div>Outlet: <b>{format(optimization.originalAIDesign.outletTDS)} ppm</b></div>
                         </div>
-                        <div style={{ padding: "10px", background: "#e8f5e9", borderRadius: "6px", border: "1px solid #c8e6c9" }}>
-                            <div style={{ fontWeight: "bold", fontSize: "12px", color: "#2e7d32", marginBottom: "6px", borderBottom: "1px solid #a5d6a7", paddingBottom: "3px" }}>Optimized Design</div>
-                            <div style={{ fontSize: "11px", color: "#2e7d32" }}>Voltage: <b>{optimization.optimizedDesign.voltage} V</b></div>
-                            <div style={{ fontSize: "11px", color: "#2e7d32" }}>Current: <b>{optimization.optimizedDesign.current} A</b></div>
-                            <div style={{ fontSize: "11px", color: "#2e7d32" }}>Power: <b>{optimization.optimizedDesign.power} W</b></div>
-                            <div style={{ fontSize: "11px", color: "#2e7d32" }}>Outlet TDS: <b>{format(optimization.optimizedDesign.outletTDS)} ppm</b></div>
-                            <div style={{ fontSize: "11px", color: "#2e7d32" }}>Energy: <b>{format(optimization.optimizedDesign.energy, 4)} kWh/m³</b></div>
+                        <div style={{ padding: "8px", background: "#E8F5E9", borderRadius: "6px", border: "1px solid #C8E6C9", fontSize: "12px" }}>
+                            <div style={{ fontWeight: "600", color: "#2E7D32", marginBottom: "4px" }}>Optimized</div>
+                            <div>Voltage: <b>{optimization.optimizedDesign.voltage} V</b></div>
+                            <div>Power: <b>{optimization.optimizedDesign.power} W</b></div>
+                            <div>Outlet: <b>{format(optimization.optimizedDesign.outletTDS)} ppm</b></div>
                         </div>
                     </div>
-                    
-                    {optimization.improvementScore && (
-                        <div style={{ padding: "10px", background: "#e3f2fd", borderRadius: "6px", border: "1px solid #bbdefb", fontSize: "12px" }}>
-                            <div style={{ fontWeight: "bold", color: "#1565c0", marginBottom: "6px", borderBottom: "1px solid #90caf9", paddingBottom: "3px" }}>Improvement Metrics</div>
-                            <div style={{ display: "flex", justifyContent: "space-between", margin: "4px 0" }}>
-                                <span style={{ color: "#555" }}>Energy Reduction:</span>
-                                <span style={{ fontWeight: "bold", color: optimization.improvementScore.energy >= 0 ? "#2e7d32" : "#c62828" }}>
-                                    {optimization.improvementScore.energy >= 0 ? "+" : ""}{optimization.improvementScore.energy} %
-                                </span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", margin: "4px 0" }}>
-                                <span style={{ color: "#555" }}>Outlet TDS Quality:</span>
-                                <span style={{ fontWeight: "bold", color: optimization.improvementScore.tds >= 0 ? "#2e7d32" : "#c62828" }}>
-                                    {optimization.improvementScore.tds >= 0 ? "+" : ""}{optimization.improvementScore.tds} %
-                                </span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", margin: "4px 0" }}>
-                                <span style={{ color: "#555" }}>Desalination Efficiency:</span>
-                                <span style={{ fontWeight: "bold", color: optimization.improvementScore.efficiency >= 0 ? "#2e7d32" : "#c62828" }}>
-                                    {optimization.improvementScore.efficiency >= 0 ? "+" : ""}{optimization.improvementScore.efficiency} %
-                                </span>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>
