@@ -240,28 +240,6 @@ export default function OptimizationPanel() {
                 </div>
             )}
 
-            <div style={{ marginTop: "20px", marginBottom: "20px" }}>
-                <button
-                    onClick={() => recalculate(optimizationInputs, tech)}
-                    disabled={loading || isViewerOrResearcher}
-                    style={{
-                        width: "100%",
-                        background: "#1976d2",
-                        color: "white",
-                        border: "none",
-                        padding: "12px",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                        fontSize: "15px",
-                        boxShadow: "0 2px 5px rgba(0,0,0,0.15)",
-                        transition: "background 0.2s"
-                    }}
-                >
-                    {loading ? "Recalculating..." : "Recalculate Design"}
-                </button>
-            </div>
-
             <hr style={{ border: "0", borderTop: "1px solid #eee", marginBottom: "15px" }} />
             <h3 style={{ fontSize: "14px", margin: "15px 0 8px 0", color: "#555", fontWeight: "bold" }}>Design KPIs</h3>
             
