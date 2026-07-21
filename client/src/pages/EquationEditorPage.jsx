@@ -57,7 +57,7 @@ export default function EquationEditorPage() {
     const isEditable = true; // All authenticated users (Admin and User) can view/edit/save equations
 
     const [activeTab, setActiveTab] = useState("EQUATION_EDITOR"); // "EQUATION_EDITOR" | "ADMIN_PANEL"
-    const [adminLogSubTab, setAdminLogSubTab] = useState("USER_MANAGEMENT"); // "USER_MANAGEMENT" | "LOGIN_HISTORY" | "USER_ACTIVITY" | "ENGINEERING_MODS"
+    const [adminLogSubTab, setAdminLogSubTab] = useState("LOGIN_HISTORY"); // "LOGIN_HISTORY" | "USER_ACTIVITY" | "ENGINEERING_MODS"
 
     // Admin Panel Data State
     const [usersList, setUsersList] = useState([]);
@@ -109,17 +109,13 @@ export default function EquationEditorPage() {
         }
     }, [equations]);
 
-    // Fetch Admin Panel Data (Users + Excel Audit Logs)
+    // Fetch Admin Panel Data (Supabase Audit Logs)
     const fetchAdminData = async () => {
         if (!isAdmin) return;
         setLogsLoading(true);
         setLogsError(null);
         try {
-            const [logsRes, usersRes] = await Promise.all([
-                api.get("/logs/all"),
-                api.get("/auth/users")
-            ]);
-
+            const logsRes = await api.get("/logs/all");
             if (logsRes.data.success) {
                 setLogsData({
                     loginHistory: logsRes.data.loginHistory || [],
@@ -127,12 +123,8 @@ export default function EquationEditorPage() {
                     engineeringModifications: logsRes.data.engineeringModifications || []
                 });
             }
-
-            if (usersRes.data.success) {
-                setUsersList(usersRes.data.users || []);
-            }
         } catch (e) {
-            setLogsError(e.response?.data?.message || "Error connecting to admin logs server.");
+            setLogsError(e.response?.data?.message || "403 Unauthorized: Unable to load administrator logs.");
         } finally {
             setLogsLoading(false);
         }

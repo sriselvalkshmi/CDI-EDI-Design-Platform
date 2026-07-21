@@ -2,7 +2,7 @@
 
 const express = require("express");
 const router = express.Router();
-const excelHelper = require("../utils/excelHelper");
+const auditService = require("../services/auditService");
 
 const cdiCellDesigner =
 require("../services/cdiCellDesigner");
@@ -191,17 +191,11 @@ async (req,res)=>{
 
 
 try{
-        const username = req.session?.user?.username || "Anonymous";
-        const role = req.session?.user?.role || "Public/Guest";
-        await excelHelper.logActivity(username, role, "Generate Design", "Design Builder", `Generated stack design using technology: ${req.body.technology || "CDI"}`);
-        await excelHelper.logActivity(username, role, "Generate P&ID", "Design Builder", "Generated process flow diagram layout.");
-        await excelHelper.logActivity(username, role, "Run Simulation", "Simulation Engine", "Executed CDI/EDI dynamic process simulation.");
-        
-        if (req.session.designInputs) {
-            const changeReason = req.body.changeReason || "Generate Design";
-            await excelHelper.compareAndLogParameters(username, role, req.session.designInputs, req.body, changeReason, "Design Builder");
-        }
-        req.session.designInputs = JSON.parse(JSON.stringify(req.body));
+        const userId = req.user?.id;
+        const email = req.user?.email || req.body?.userEmail || "Anonymous";
+        await auditService.logActivity(userId, email, "Generate Design", "Design Builder", `Generated stack design using technology: ${req.body.technology || "CDI"}`);
+        await auditService.logActivity(userId, email, "Generate P&ID", "Design Builder", "Generated process flow diagram layout.");
+        await auditService.logActivity(userId, email, "Run Simulation", "Simulation Engine", "Executed CDI/EDI dynamic process simulation.");
 
         console.log("\n====================================");
 console.log("NEW DESIGN REQUEST");

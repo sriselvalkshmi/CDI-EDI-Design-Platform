@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { parseFormula, evaluatePostfix, validateFormula } = require('../utils/formulaParser');
 
+const supabase = require('../config/supabaseClient');
+
 const EQUATIONS_PATH = path.join(__dirname, '../data/equations.json');
 
 const EQUATION_SYMBOLS = {
@@ -37,12 +39,59 @@ class EquationEngine {
         }
     }
 
+    static async loadEquationsAsync() {
+        if (supabase) {
+            try {
+                const { data, error } = await supabase.from('equations').select('*');
+                if (!error && data && data.length > 0) {
+                    return data.map(eq => ({
+                        id: eq.id,
+                        name: eq.name,
+                        description: eq.description,
+                        formula: eq.formula,
+                        variables: eq.variables || [],
+                        units: eq.units,
+                        category: eq.category,
+                        enabled: eq.enabled,
+                        reference: eq.reference || {},
+                        example: eq.example
+                    }));
+                }
+            } catch (e) {
+                console.warn("  [SUPABASE] Equations fetch error, using local fallback:", e.message);
+            }
+        }
+        return EquationEngine.loadEquations();
+    }
+
     static saveEquations(equations) {
         // Validate all enabled equations for circular dependencies first
         EquationEngine.validateLibrary(equations);
         
         // Save to file
         fs.writeFileSync(EQUATIONS_PATH, JSON.stringify(equations, null, 2), 'utf8');
+
+        // Sync to Supabase PostgreSQL table if available
+        if (supabase) {
+            try {
+                const dbRecords = equations.map(eq => ({
+                    id: eq.id,
+                    name: eq.name,
+                    description: eq.description,
+                    formula: eq.formula,
+                    variables: eq.variables || [],
+                    units: eq.units,
+                    category: eq.category,
+                    enabled: eq.enabled,
+                    reference: eq.reference || {},
+                    example: eq.example,
+                    updated_at: new Date().toISOString()
+                }));
+                supabase.from('equations').upsert(dbRecords, { onConflict: 'id' }).then(() => {});
+            } catch (e) {
+                console.warn("  [SUPABASE] Equation upsert error:", e.message);
+            }
+        }
     }
 
     static resetToDefaults() {

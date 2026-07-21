@@ -2,7 +2,7 @@
 
 const express = require("express");
 const router = express.Router();
-const excelHelper = require("../utils/excelHelper");
+const auditService = require("../services/auditService");
 
 //------------------------------------------------------
 // SERVICES
@@ -80,16 +80,10 @@ function evaluateDesign(params, feedWater, technology) {
 //======================================================
 router.post("/", async (req, res) => {
     try {
-        const username = req.session?.user?.username || "Anonymous";
-        const role = req.session?.user?.role || "Public/Guest";
-        await excelHelper.logActivity(username, role, "Optimize Design", "Optimization Builder", `Executed design optimization using mode: ${req.body.optimizationMode || "AI"}`);
-        await excelHelper.logActivity(username, role, "Run Simulation", "Simulation Engine", "Executed CDI/EDI dynamic process simulation.");
-        
-        if (req.session.designInputs) {
-            const changeReason = req.body.changeReason || "Optimization Run";
-            await excelHelper.compareAndLogParameters(username, role, req.session.designInputs, req.body, changeReason, "Optimization Builder");
-        }
-        req.session.designInputs = JSON.parse(JSON.stringify(req.body));
+        const userId = req.user?.id;
+        const email = req.user?.email || req.body?.userEmail || "Anonymous";
+        await auditService.logActivity(userId, email, "Optimize Design", "Optimization Builder", `Executed design optimization using mode: ${req.body.optimizationMode || "AI"}`);
+        await auditService.logActivity(userId, email, "Run Simulation", "Simulation Engine", "Executed CDI/EDI dynamic process simulation.");
 
         console.log("--------------------------------");
         console.log("HYBRID/MANUAL OPTIMIZATION REQUEST");

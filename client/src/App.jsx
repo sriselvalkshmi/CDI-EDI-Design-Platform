@@ -1,30 +1,21 @@
-import React, { useEffect } from "react";
+import React from "react";
 import Dashboard from "./pages/Dashboard";
 import EquationEditorPage from "./pages/EquationEditorPage";
 import Login from "./pages/Login";
 import { useApp } from "./context/AppContext";
 
 function App() {
-    const { page, isAuthenticated, user, setPage } = useApp();
+    const { page, isAuthenticated } = useApp();
 
-    // Check Viewer role restriction
-    useEffect(() => {
-        if (page === "EQUATION_EDITOR" && isAuthenticated && user?.role === "Viewer") {
-            alert("Access Denied: Viewer role cannot access the Equation Editor.");
-            setPage("DASHBOARD");
-        }
-    }, [page, isAuthenticated, user, setPage]);
+    // If user explicitly navigated to LOGIN or attempted to open protected EQUATION_EDITOR without auth
+    if (page === "LOGIN" || (page === "EQUATION_EDITOR" && !isAuthenticated)) {
+        return <Login />;
+    }
 
     return (
         <div className="app-container" style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
-            {page === "EQUATION_EDITOR" ? (
-                isAuthenticated && user?.role !== "Viewer" ? (
-                    <EquationEditorPage />
-                ) : (
-                    <Login />
-                )
-            ) : page === "LOGIN" ? (
-                <Login />
+            {page === "EQUATION_EDITOR" && isAuthenticated ? (
+                <EquationEditorPage />
             ) : (
                 <Dashboard />
             )}

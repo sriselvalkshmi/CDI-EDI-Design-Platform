@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
+import { isSupabaseConfigured } from "../services/supabaseClient";
 
 export default function Login() {
-    const { login, register, setPage } = useApp();
+    const { login, register, requestPasswordReset, setPage } = useApp();
 
     const [activeTab, setActiveTab] = useState("SIGN_IN"); // "SIGN_IN" | "SIGN_UP" | "FORGOT_PASSWORD"
 
     // Sign In State
-    const [loginIdentifier, setLoginIdentifier] = useState("");
+    const [loginEmail, setLoginEmail] = useState("");
     const [loginPassword, setLoginPassword] = useState("");
     const [loginError, setLoginError] = useState("");
     const [loginLoading, setLoginLoading] = useState(false);
@@ -15,7 +16,6 @@ export default function Login() {
     // Sign Up State
     const [signUpFullName, setSignUpFullName] = useState("");
     const [signUpEmail, setSignUpEmail] = useState("");
-    const [signUpCompany, setSignUpCompany] = useState("");
     const [signUpPassword, setSignUpPassword] = useState("");
     const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
     const [signUpError, setSignUpError] = useState("");
@@ -25,18 +25,23 @@ export default function Login() {
     // Forgot Password State
     const [forgotEmail, setForgotEmail] = useState("");
     const [forgotMessage, setForgotMessage] = useState("");
+    const [forgotLoading, setForgotLoading] = useState(false);
 
     const handleSignIn = async (e) => {
         e.preventDefault();
         setLoginError("");
         setLoginLoading(true);
         try {
-            const success = await login(loginIdentifier.trim(), loginPassword);
+            const success = await login(loginEmail.trim(), loginPassword);
             if (!success) {
-                setLoginError("Invalid email/username or password.");
+                setLoginError("Invalid email or password.");
             }
         } catch (err) {
-            setLoginError(err.response?.data?.message || "Authentication failed. Check credentials.");
+            if (err.message && err.message.includes("Email not confirmed")) {
+                setLoginError("Email address not verified. Please check your inbox for verification email.");
+            } else {
+                setLoginError(err.message || "Authentication failed. Check your email and password.");
+            }
         } finally {
             setLoginLoading(false);
         }
@@ -47,48 +52,68 @@ export default function Login() {
         setSignUpError("");
         setSignUpSuccess("");
 
+        if (!signUpFullName.trim()) {
+            setSignUpError("Full Name is required.");
+            return;
+        }
+
+        if (!signUpEmail.trim()) {
+            setSignUpError("Email address is required.");
+            return;
+        }
+
         if (signUpPassword !== signUpConfirmPassword) {
             setSignUpError("Passwords do not match.");
             return;
         }
 
-        if (signUpPassword.length < 4) {
-            setSignUpError("Password must be at least 4 characters long.");
+        if (signUpPassword.length < 6) {
+            setSignUpError("Password must be at least 6 characters long.");
             return;
         }
 
         setSignUpLoading(true);
         try {
             const res = await register({
-                fullName: signUpFullName,
-                email: signUpEmail,
-                company: signUpCompany,
+                fullName: signUpFullName.trim(),
+                email: signUpEmail.trim(),
                 password: signUpPassword
             });
+
             if (res.success) {
-                setSignUpSuccess("Account created successfully! You can now sign in.");
+                setSignUpSuccess("Account created successfully! Please check your email for verification link if required, then sign in.");
                 setSignUpFullName("");
                 setSignUpEmail("");
-                setSignUpCompany("");
                 setSignUpPassword("");
                 setSignUpConfirmPassword("");
                 setTimeout(() => {
                     setActiveTab("SIGN_IN");
-                    setLoginIdentifier(signUpEmail);
-                }, 1500);
-            } else {
-                setSignUpError(res.message || "Registration failed.");
+                    setLoginEmail(signUpEmail);
+                }, 2000);
             }
         } catch (err) {
-            setSignUpError(err.response?.data?.message || "Registration failed. Try a different email.");
+            setSignUpError(err.message || "Registration failed. Try a different email.");
         } finally {
             setSignUpLoading(false);
         }
     };
 
-    const handleForgotPassword = (e) => {
+    const handleForgotPassword = async (e) => {
         e.preventDefault();
-        setForgotMessage("Password reset request logged. Please contact System Administrator (admin@cdi-edi.platform) to issue a new password.");
+        setForgotMessage("");
+        setForgotLoading(true);
+        try {
+            const res = await requestPasswordReset(forgotEmail.trim());
+            if (res.success) {
+                setForgotMessage(res.message || "Password reset email sent!");
+            } else {
+                setForgotMessage(res.error || "Failed to send password reset email.");
+            }
+        } catch (err) {
+            setForgotMessage(err.message || "An error occurred.");
+        } finally {
+            setForgotLoading(false);
+        }
     };
 
     return (
@@ -98,7 +123,7 @@ export default function Login() {
                     onClick={() => setPage("DASHBOARD")}
                     style={styles.backBtn}
                 >
-                    ← Back to Engineering Dashboard
+                    ← Back to Platform
                 </button>
 
                 {/* Platform Logo Design */}
@@ -114,7 +139,27 @@ export default function Login() {
                 </div>
 
                 <h1 style={styles.title}>CDI / EDI Design Platform</h1>
-                <p style={styles.subtitle}>Engineering Design &amp; Optimization Suite</p>
+                <p style={styles.subtitle}>Supabase Enterprise Security Authentication</p>
+
+                {!isSupabaseConfigured && (
+                    <div style={{
+                        backgroundColor: "#fffbeb",
+                        border: "1px solid #fcd34d",
+                        color: "#92400e",
+                        padding: "12px 14px",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        marginBottom: "16px",
+                        textAlign: "left",
+                        width: "100%",
+                        boxSizing: "border-box"
+                    }}>
+                        <strong>⚠️ Supabase Not Configured</strong>
+                        <div style={{ marginTop: "4px", fontSize: "11px", color: "#b45309" }}>
+                            Please set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in your <code>client/.env</code> file or Netlify project settings.
+                        </div>
+                    </div>
+                )}
 
                 {/* Tab Switcher: Sign In | Sign Up | Forgot Password */}
                 <div style={styles.tabBar}>
@@ -151,19 +196,19 @@ export default function Login() {
                 {activeTab === "SIGN_IN" && (
                     <form onSubmit={handleSignIn} style={styles.form}>
                         <div style={styles.inputGroup}>
-                            <label style={styles.label}>Email Address or Admin Username</label>
+                            <label style={styles.label}>Email Address *</label>
                             <input
-                                type="text"
+                                type="email"
                                 required
-                                placeholder="e.g. user@domain.com or admin"
-                                value={loginIdentifier}
-                                onChange={(e) => setLoginIdentifier(e.target.value)}
+                                placeholder="e.g. user@domain.com"
+                                value={loginEmail}
+                                onChange={(e) => setLoginEmail(e.target.value)}
                                 style={styles.input}
                             />
                         </div>
 
                         <div style={styles.inputGroup}>
-                            <label style={styles.label}>Password</label>
+                            <label style={styles.label}>Password *</label>
                             <input
                                 type="password"
                                 required
@@ -217,22 +262,11 @@ export default function Login() {
                         </div>
 
                         <div style={styles.inputGroup}>
-                            <label style={styles.label}>Company / University (Optional)</label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Acme Engineering Solutions"
-                                value={signUpCompany}
-                                onChange={(e) => setSignUpCompany(e.target.value)}
-                                style={styles.input}
-                            />
-                        </div>
-
-                        <div style={styles.inputGroup}>
                             <label style={styles.label}>Password *</label>
                             <input
                                 type="password"
                                 required
-                                placeholder="Create password"
+                                placeholder="Create password (min 6 chars)"
                                 value={signUpPassword}
                                 onChange={(e) => setSignUpPassword(e.target.value)}
                                 style={styles.input}
@@ -262,7 +296,7 @@ export default function Login() {
                                 ...(signUpLoading ? styles.submitButtonDisabled : {})
                             }}
                         >
-                            {signUpLoading ? "Creating Account..." : "Create New User Account"}
+                            {signUpLoading ? "Registering..." : "Create New Account"}
                         </button>
                     </form>
                 )}
@@ -271,7 +305,7 @@ export default function Login() {
                 {activeTab === "FORGOT_PASSWORD" && (
                     <form onSubmit={handleForgotPassword} style={styles.form}>
                         <div style={styles.inputGroup}>
-                            <label style={styles.label}>Enter Registered Email</label>
+                            <label style={styles.label}>Registered Email Address *</label>
                             <input
                                 type="email"
                                 required
@@ -286,15 +320,19 @@ export default function Login() {
 
                         <button
                             type="submit"
-                            style={styles.submitButton}
+                            disabled={forgotLoading}
+                            style={{
+                                ...styles.submitButton,
+                                ...(forgotLoading ? styles.submitButtonDisabled : {})
+                            }}
                         >
-                            Request Password Reset
+                            {forgotLoading ? "Sending..." : "Send Password Reset Link"}
                         </button>
                     </form>
                 )}
 
                 <div style={styles.footer}>
-                    <span style={styles.version}>CDI / EDI Design Platform v2.5 (Enterprise Security Edition)</span>
+                    <span style={styles.version}>CDI / EDI Design Platform v3.0 (Supabase Auth Enabled)</span>
                 </div>
             </div>
         </div>
@@ -442,25 +480,6 @@ const styles = {
         padding: "8px 12px",
         borderRadius: "6px",
         fontSize: "12px"
-    },
-    hintBox: {
-        marginTop: "10px",
-        padding: "10px 12px",
-        background: "#f8fafc",
-        borderRadius: "8px",
-        border: "1px solid #e2e8f0",
-        display: "flex",
-        flexDirection: "column",
-        gap: "3px"
-    },
-    hintTitle: {
-        fontSize: "11px",
-        fontWeight: "bold",
-        color: "#334155"
-    },
-    hintText: {
-        fontSize: "11px",
-        color: "#64748b"
     },
     footer: {
         marginTop: "20px",

@@ -23,3 +23,5 @@ server/logs/*.xlsx
 # OS files
 .DS_Store
 Thumbs.db
+server/logs/
+*.xlsx

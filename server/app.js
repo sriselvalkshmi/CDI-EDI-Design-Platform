@@ -1,13 +1,6 @@
-"use strict";
-
-
 const express = require("express");
-
 const cors = require("cors");
 require('dotenv').config();
-const session = require('express-session');
-
-
 const app = express();
 
 // Trust proxy (required for production reverse proxies like Render/Railway/Heroku)
@@ -32,7 +25,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "X-From-Equation-Editor"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-From-Equation-Editor"],
   })
 );
 
@@ -42,27 +35,7 @@ app.use(express.json({ limit: "10mb" }));
 // 3. Express URLencoded parser
 app.use(express.urlencoded({ extended: true }));
 
-// 4. Session middleware
-const isProduction = process.env.NODE_ENV === "production";
-app.use(
-  session({
-    name: 'cdi_edi_sid', // Custom cookie name
-    secret: process.env.SESSION_SECRET || 'replace_this_secret',
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    cookie: { 
-      httpOnly: true,
-      secure: isProduction, // secure in production (HTTPS)
-      sameSite: isProduction ? 'none' : 'lax', // required for cross-domain cookies in production
-      maxAge: 30 * 60 * 1000 
-    },
-  })
-);
-
 // Auth & Audit services/middlewares
-const fs = require("fs");
-const excelHelper = require("./utils/excelHelper");
 const { isAuthenticated, authorize } = require("./middleware/authMiddleware");
 const authRoutes = require("./routes/authRoutes");
 
