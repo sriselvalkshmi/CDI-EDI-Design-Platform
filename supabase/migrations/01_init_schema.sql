@@ -1,22 +1,32 @@
 -- ====================================================================
--- CDI/EDI Design Platform - Database Initialization Schema
--- Migration 01: Core Tables & Signup Trigger
+-- CDI/EDI Design Platform - Supabase Production Schema
+-- Migration 01: Core Tables & Profile Trigger
 -- ====================================================================
 
--- 1. Profiles Table (Linked to auth.users)
+-- 1. Profiles Table
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL DEFAULT 'User',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. User Roles Table (Default role: Engineer)
-CREATE TABLE IF NOT EXISTS public.user_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    role TEXT NOT NULL DEFAULT 'Engineer',
-    CONSTRAINT unique_user_role UNIQUE (user_id)
+-- 2. Equations Table
+CREATE TABLE IF NOT EXISTS public.equations (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    formula TEXT NOT NULL,
+    variables JSONB DEFAULT '[]'::jsonb,
+    units VARCHAR(50),
+    category VARCHAR(100),
+    enabled BOOLEAN DEFAULT TRUE,
+    reference JSONB DEFAULT '{}'::jsonb,
+    example TEXT,
+    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 3. Login History Table
@@ -29,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.login_history (
     ip_address TEXT,
     browser TEXT,
     operating_system TEXT,
+    session_duration TEXT,
     status TEXT NOT NULL CHECK (status IN ('LOGIN', 'LOGOUT', 'FAILED LOGIN'))
 );
 
@@ -47,6 +58,7 @@ CREATE TABLE IF NOT EXISTS public.user_activity (
 CREATE TABLE IF NOT EXISTS public.engineering_modifications (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID,
+    email TEXT,
     parameter TEXT NOT NULL,
     old_value TEXT,
     new_value TEXT,
@@ -54,38 +66,22 @@ CREATE TABLE IF NOT EXISTS public.engineering_modifications (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Equations Table
-CREATE TABLE IF NOT EXISTS public.equations (
-    id VARCHAR(255) PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    formula TEXT NOT NULL,
-    variables JSONB DEFAULT '[]'::jsonb,
-    units VARCHAR(50),
-    category VARCHAR(100),
-    enabled BOOLEAN DEFAULT TRUE,
-    reference JSONB DEFAULT '{}'::jsonb,
-    example TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Automatic profile and role trigger on sign up
+-- Automatic profile creation on auth.users sign up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, full_name, email)
+    INSERT INTO public.profiles (id, full_name, email, role)
     VALUES (
         NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'full_name', 'Engineer User'),
-        NEW.email
+        COALESCE(NEW.raw_user_meta_data->>'full_name', 'Engineer'),
+        NEW.email,
+        CASE 
+            WHEN NEW.email = 'admin@cdiedi.com' THEN 'Administrator'
+            ELSE 'User'
+        END
     )
     ON CONFLICT (id) DO UPDATE
     SET full_name = EXCLUDED.full_name, email = EXCLUDED.email;
-
-    INSERT INTO public.user_roles (user_id, role)
-    VALUES (NEW.id, 'Engineer')
-    ON CONFLICT (user_id) DO NOTHING;
 
     RETURN NEW;
 END;
@@ -98,7 +94,6 @@ CREATE TRIGGER on_auth_user_created
 
 -- Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles (email);
-CREATE INDEX IF NOT EXISTS idx_user_roles_user_id ON public.user_roles (user_id);
 CREATE INDEX IF NOT EXISTS idx_login_history_time ON public.login_history (login_time DESC);
 CREATE INDEX IF NOT EXISTS idx_user_activity_time ON public.user_activity (timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_eng_mods_time ON public.engineering_modifications (timestamp DESC);

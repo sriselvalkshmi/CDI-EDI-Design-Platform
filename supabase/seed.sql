@@ -1,16 +1,19 @@
 -- ====================================================================
--- CDI/EDI Design Platform - Database Seed Script
--- Execute this script after signing up your Administrator user account
+-- CDI/EDI Design Platform - Supabase Seed Script
+-- Run this script to assign Administrator role to admin@cdiedi.com
 -- ====================================================================
 
--- 1. Example Query to Assign Administrator Role to the designated Admin Email
-UPDATE public.user_roles 
+-- Assign Administrator role to admin@cdiedi.com profile
+UPDATE public.profiles 
 SET role = 'Administrator' 
-WHERE user_id = (SELECT id FROM auth.users WHERE email = 'admin@cdi-edi.platform');
+WHERE email = 'admin@cdiedi.com';
 
--- 2. Seed Default System Equations into Equations Table
+-- Default Equations Seed
 INSERT INTO public.equations (id, name, description, formula, variables, units, category, enabled) VALUES
-('power_consumption', 'Specific Energy Consumption', 'Calculates energy consumed per m3 of treated water', '(V * I) / Q', '[{"name":"V","label":"Voltage (V)"},{"name":"I","label":"Current (A)"},{"name":"Q","label":"Flow Rate (m3/h)"}]', 'kWh/m3', 'Energy', true),
-('salt_removal_efficiency', 'Salt Removal Efficiency', 'Calculates percentage TDS removal', '((C_in - C_out) / C_in) * 100', '[{"name":"C_in","label":"Feed TDS (mg/L)"},{"name":"C_out","label":"Product TDS (mg/L)"}]', '%', 'Performance', true),
-('water_recovery', 'Water Recovery Ratio', 'Calculates percentage of clean water recovered', '(Q_prod / Q_feed) * 100', '[{"name":"Q_prod","label":"Product Flow Rate"},{"name":"Q_feed","label":"Feed Flow Rate"}]', '%', 'Hydraulic', true)
+('power', 'Power Consumption', 'Calculates electrical power consumed by cell stack', 'V * I', '["V", "I"]'::jsonb, 'W', 'Electrical', true),
+('current_density', 'Current Density', 'Electrical current per unit area of electrode', 'I / Area', '["I", "Area"]'::jsonb, 'A/cm²', 'Electrical', true),
+('residence_time', 'Residence Time', 'Time water spends inside flow channel', '(Area * Height) / FlowRate', '["Area", "Height", "FlowRate"]'::jsonb, 's', 'Hydraulic', true),
+('sec', 'Specific Energy Consumption', 'Energy consumed per m3 of clean water produced', 'Power / WaterProduced', '["Power", "WaterProduced"]'::jsonb, 'kWh/m³', 'Energy', true),
+('salt_removal', 'Salt Removal', 'Difference in TDS between inlet feed and product outlet', 'FeedTDS - OutletTDS', '["FeedTDS", "OutletTDS"]'::jsonb, 'ppm', 'Mass Transfer', true),
+('removal_efficiency', 'Removal Efficiency', 'Percentage of salt removed relative to feed salinity', '((FeedTDS - OutletTDS) / FeedTDS) * 100', '["FeedTDS", "OutletTDS"]'::jsonb, '%', 'Performance', true)
 ON CONFLICT (id) DO NOTHING;

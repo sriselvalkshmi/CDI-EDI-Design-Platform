@@ -4,15 +4,30 @@ import React, {
     useState,
     useEffect
 } from "react";
-import api from "../services/api";
 import supabase, { isSupabaseConfigured } from "../services/supabaseClient";
+import auditLogger from "../services/auditLogger";
+
+// Client-side engineering calculation modules
+import engineeringEquationEngine from "../engineering/engineeringEquationEngine";
+import electrodeModel from "../engineering/electrodeModel";
+import componentSizingModule from "../engineering/componentSizing";
+import simulationEngine from "../engineering/simulationEngine";
+import cdiDesignCalculator from "../engineering/cdiDesignCalculator";
+import stackDesigner from "../engineering/stackDesigner";
+import layoutGenerator from "../engineering/layoutGenerator";
+import performanceCalculator from "../engineering/performanceCalculator";
+import designOptimizer from "../engineering/designOptimizer";
+import EquationEngine from "../engineering/equationEngine";
+import aiRecommendation from "../engineering/aiRecommendation";
+
+const componentSizing = typeof componentSizingModule === "function" ? componentSizingModule : componentSizingModule.calculate;
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
 
     //------------------------------------------
-    // GENERAL
+    // GENERAL STATE
     //------------------------------------------
 
     const [technology, setTechnology] = useState("AUTO");
@@ -35,34 +50,21 @@ export function AppProvider({ children }) {
     });
 
     //------------------------------------------
-    // COMPLETE API RESPONSE
+    // RESULTS & MODULES
     //------------------------------------------
 
     const [aiResult, setAiResult] = useState(null);
-
-    //------------------------------------------
-    // DESIGN RESULTS
-    //------------------------------------------
-
     const [designParameters, setDesignParameters] = useState(null);
     const [engineering, setEngineering] = useState(null);
-    const [componentSizing, setComponentSizing] = useState(null);
+    const [componentSizingState, setComponentSizing] = useState(null);
     const [simulation, setSimulation] = useState(null);
     const [performance, setPerformance] = useState(null);
     const [optimization, setOptimization] = useState(null);
     const [electrode, setElectrode] = useState(null);
 
-    //------------------------------------------
-    // NEW DESIGN OBJECTS
-    //------------------------------------------
-
     const [layout, setLayout] = useState(null);
     const [stack, setStack] = useState(null);
     const [cellGeometry, setCellGeometry] = useState(null);
-
-    //------------------------------------------
-    // EQUIPMENT
-    //------------------------------------------
 
     const [selectedComponent, setSelectedComponent] = useState(null);
     const [selectedEquipment, setSelectedEquipment] = useState(null);
@@ -110,34 +112,10 @@ export function AppProvider({ children }) {
         electrodePorosity: false
     });
 
-    //------------------------------------------
-    // DESIGN COMPONENTS
-    //------------------------------------------
-
     const [designComponents, setDesignComponents] = useState([
-        {
-            id: 1,
-            type: "Electrode",
-            name: "Carbon Electrode",
-            area: 250,
-            thickness: 0.6,
-            material: "Activated Carbon"
-        },
-        {
-            id: 2,
-            type: "Spacer",
-            name: "Flow Channel",
-            height: 0.5,
-            flowRate: 10
-        },
-        {
-            id: 3,
-            type: "Electrode",
-            name: "Carbon Electrode",
-            area: 250,
-            thickness: 0.6,
-            material: "Activated Carbon"
-        }
+        { id: 1, type: "Electrode", name: "Carbon Electrode", area: 250, thickness: 0.6, material: "Activated Carbon" },
+        { id: 2, type: "Spacer", name: "Flow Channel", height: 0.5, flowRate: 10 },
+        { id: 3, type: "Electrode", name: "Carbon Electrode", area: 250, thickness: 0.6, material: "Activated Carbon" }
     ]);
 
     const [user, setUser] = useState(null);
@@ -145,75 +123,87 @@ export function AppProvider({ children }) {
     const [page, setPage] = useState("DASHBOARD");
     const [equations, setEquations] = useState([]);
 
+    // Client-side engineering calculation engine
+    const recalculate = (currentInputs = optimizationInputs, currentTech = technology) => {
+        try {
+            const ai = aiRecommendation(feedWater);
+            const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "CDI") : currentTech;
+            const eng = engineeringEquationEngine({
+                technology: activeTech,
+                feedWater,
+                ...currentInputs
+            });
+
+            const elect = electrodeModel(feedWater, eng);
+            const size = componentSizing(eng, activeTech);
+            const sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
+
+            let cellDes = null;
+            try { cellDes = cdiDesignCalculator(feedWater, eng); } catch (e) {}
+
+            let stk = null;
+            try { stk = stackDesigner(feedWater, cellDes, eng); } catch (e) {}
+
+            let lay = null;
+            try { lay = layoutGenerator(stk, eng, feedWater, sim, activeTech); } catch (e) {}
+
+            let perf = null;
+            try { perf = performanceCalculator(eng, sim, feedWater); } catch (e) {}
+
+            let optResult = null;
+            try { optResult = designOptimizer(feedWater, size, eng); } catch (e) {}
+
+            setAiResult(ai);
+            setSelectedDesign(activeTech);
+            setEngineering(eng);
+            setElectrode(elect);
+            setComponentSizing(size);
+            setSimulation(sim);
+            setCellGeometry(cellDes);
+            setStack(stk);
+            setLayout(lay);
+            setPerformance(perf);
+            setOptimization(optResult);
+        } catch (e) {
+            console.error("Client calculation error:", e);
+        }
+    };
+
     const fetchEquations = async () => {
         try {
-            const res = await api.get("/equations");
-            if (res.data && res.data.success) {
-                setEquations(res.data.equations);
-            }
+            const eqList = await EquationEngine.loadEquationsAsync();
+            setEquations(eqList || []);
         } catch (e) {
-            if (e.response?.status === 401) {
-                return;
-            }
             console.error("Error fetching equations:", e);
         }
     };
 
     const saveEquations = async (newEquations) => {
         try {
-            const res = await api.post("/equations", newEquations);
-            if (res.data.success) {
-                setEquations(res.data.equations);
-                return { success: true };
+            EquationEngine.saveEquations(newEquations);
+            setEquations(newEquations);
+            if (user) {
+                await auditLogger.logActivity(user.id, user.email, "Save Equation", "Equation Editor", `Saved equation library (${newEquations.length} equations)`);
             }
-            return { success: false, error: res.data.error };
+            return { success: true };
         } catch (e) {
-            return { success: false, error: e.response?.data?.error || e.message };
+            return { success: false, error: e.message };
         }
     };
 
     const resetEquations = async () => {
         try {
-            const res = await api.post("/equations/reset");
-            if (res.data.success) {
-                setEquations(res.data.equations);
-                return { success: true };
+            const defaultEqs = EquationEngine.resetToDefaults();
+            setEquations(defaultEqs);
+            if (user) {
+                await auditLogger.logActivity(user.id, user.email, "Reset Equation Library", "Equation Editor", "Restored default equations library");
             }
-            return { success: false, error: res.data.error };
+            return { success: true };
         } catch (e) {
-            return { success: false, error: e.response?.data?.error || e.message };
+            return { success: false, error: e.message };
         }
     };
 
-    const recalculate = async (currentInputs = optimizationInputs, currentTech = technology) => {
-        try {
-            const payload = {
-                ...feedWater,
-                technology: currentTech,
-                optimizationMode,
-                optimizationInputs: currentInputs,
-                lockedParameters
-            };
-            const res = await api.post("/optimize", payload);
-            if (res.data.success) {
-                const data = res.data;
-                setSelectedDesign(data.selectedTechnology || currentTech);
-                if (data.engineering) setEngineering(data.engineering);
-                if (data.simulation) setSimulation(data.simulation);
-                if (data.sizing) setComponentSizing(data.sizing);
-                if (data.electrode) setElectrode(data.electrode);
-                if (data.performance) setPerformance(data.performance);
-                if (data.optimization) setOptimization(data.optimization);
-                if (data.stack) setStack(data.stack);
-                if (data.cellGeometry) setCellGeometry(data.cellGeometry);
-                if (data.layout) setLayout(data.layout);
-            }
-        } catch (e) {
-            console.error("Recalculation error:", e);
-        }
-    };
-
-    // Helper to fetch user role & profile details
     const loadUserData = async (sbUser) => {
         if (!sbUser) {
             setUser(null);
@@ -221,41 +211,35 @@ export function AppProvider({ children }) {
             return;
         }
 
-        let role = "Engineer";
+        let role = "User";
         let fullName = sbUser.user_metadata?.full_name || "Engineer";
 
         try {
-            // Check roles table first
-            const { data: roleData } = await supabase
-                .from("user_roles")
-                .select("role")
-                .eq("user_id", sbUser.id)
-                .single();
-
-            if (roleData && roleData.role) {
-                role = roleData.role;
-            }
-
             const { data: profileData } = await supabase
                 .from("profiles")
-                .select("full_name")
+                .select("full_name, role")
                 .eq("id", sbUser.id)
-                .single();
+                .maybeSingle();
 
-            if (profileData && profileData.full_name) {
-                fullName = profileData.full_name;
+            if (profileData) {
+                if (profileData.role) role = profileData.role;
+                if (profileData.full_name) fullName = profileData.full_name;
+            } else {
+                const initialRole = (sbUser.email === "admin@cdiedi.com" || sbUser.email === "admin@cdi-edi.platform") ? "Administrator" : "User";
+                await supabase.from("profiles").upsert([{
+                    id: sbUser.id,
+                    email: sbUser.email,
+                    full_name: fullName,
+                    role: initialRole
+                }]);
+                role = initialRole;
+            }
+
+            if (sbUser.email === "admin@cdiedi.com" || sbUser.email === "admin@cdi-edi.platform") {
+                role = "Administrator";
             }
         } catch (e) {
-            console.warn("Could not query user profile directly, falling back to /auth/me API endpoint:", e.message);
-            try {
-                const meRes = await api.get("/auth/me");
-                if (meRes.data?.success && meRes.data?.user) {
-                    role = meRes.data.user.role || role;
-                    fullName = meRes.data.user.fullName || fullName;
-                }
-            } catch (meErr) {
-                console.warn("/auth/me fallback error:", meErr.message);
-            }
+            console.warn("User profile fetch error:", e.message);
         }
 
         setUser({
@@ -269,31 +253,31 @@ export function AppProvider({ children }) {
 
     const login = async (email, password) => {
         if (!isSupabaseConfigured) {
-            throw new Error("Supabase Project URL & Anon Key are missing. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to client/.env file.");
+            throw new Error("Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in client/.env.");
         }
         try {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) {
-                await api.post("/auth/login-event", { userId: null, email, success: false });
+                await auditLogger.logLogin(null, email, false);
                 throw error;
             }
             if (data?.user) {
                 await loadUserData(data.user);
-                await api.post("/auth/login-event", { userId: data.user.id, email: data.user.email, success: true });
-                setPage("DASHBOARD");
+                await auditLogger.logLogin(data.user.id, data.user.email, true);
+                setPage("EQUATION_EDITOR");
                 fetchEquations();
                 return true;
             }
             return false;
         } catch (e) {
-            console.error("Login failed:", e);
+            console.error("Login error:", e);
             throw e;
         }
     };
 
     const register = async ({ fullName, email, password }) => {
         if (!isSupabaseConfigured) {
-            throw new Error("Supabase Project URL & Anon Key are missing. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to client/.env file.");
+            throw new Error("Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in client/.env.");
         }
         try {
             const { data, error } = await supabase.auth.signUp({
@@ -304,9 +288,20 @@ export function AppProvider({ children }) {
                 }
             });
             if (error) throw error;
+
+            if (data?.user) {
+                // Upsert profile in Supabase profiles table
+                await supabase.from("profiles").upsert([{
+                    id: data.user.id,
+                    full_name: fullName,
+                    email,
+                    role: email === "admin@cdiedi.com" ? "Administrator" : "User"
+                }]);
+            }
+
             return { success: true, user: data?.user };
         } catch (e) {
-            console.error("Registration failed:", e);
+            console.error("Registration error:", e);
             throw e;
         }
     };
@@ -314,7 +309,7 @@ export function AppProvider({ children }) {
     const logout = async () => {
         try {
             if (user) {
-                await api.post("/auth/logout-event", { userId: user.id, email: user.email });
+                await auditLogger.logLogout(user.id, user.email);
             }
             await supabase.auth.signOut();
         } catch (e) {
@@ -322,44 +317,28 @@ export function AppProvider({ children }) {
         } finally {
             setUser(null);
             setIsAuthenticated(false);
-            setPage("LOGIN");
+            setPage("DASHBOARD");
         }
     };
 
     const requestPasswordReset = async (email) => {
         try {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}`
+                redirectTo: window.location.origin
             });
             if (error) throw error;
-            return { success: true, message: "Password reset link sent to your email address." };
+            return { success: true, message: "Password reset link sent to your email." };
         } catch (e) {
             return { success: false, error: e.message };
         }
     };
 
-    // Setup Axios Interceptor to catch 401 errors
+    // Initialize engineering calculations on mount & when inputs change
     useEffect(() => {
-        const interceptor = api.interceptors.response.use(
-            (response) => response,
-            (error) => {
-                if (error.response && error.response.status === 401) {
-                    const url = error.config.url;
-                    if (!url.includes("/auth/me") && !url.includes("/auth/login-event")) {
-                        setUser(null);
-                        setIsAuthenticated(false);
-                        setPage("LOGIN");
-                    }
-                }
-                return Promise.reject(error);
-            }
-        );
-        return () => {
-            api.interceptors.response.eject(interceptor);
-        };
-    }, []);
+        recalculate(optimizationInputs, technology);
+    }, [feedWater, optimizationInputs, technology]);
 
-    // Check Supabase Auth Session on mount & listen for auth state changes
+    // Check Supabase Auth Session on mount
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -386,21 +365,8 @@ export function AppProvider({ children }) {
             }
         });
 
-        return () => {
-            subscription?.unsubscribe();
-        };
+        return () => subscription?.unsubscribe();
     }, []);
-
-    // Debounced automatic calculation when optimization parameters change
-    useEffect(() => {
-        if (!engineering) return;
-        
-        const timer = setTimeout(() => {
-            recalculate(optimizationInputs, technology);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [optimizationInputs, technology]);
 
     return (
         <AppContext.Provider
@@ -419,7 +385,7 @@ export function AppProvider({ children }) {
                 setDesignParameters,
                 engineering,
                 setEngineering,
-                componentSizing,
+                componentSizing: componentSizingState,
                 setComponentSizing,
                 simulation,
                 setSimulation,

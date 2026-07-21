@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import api from "../services/api";
+import supabase from "../services/supabaseClient";
+import auditLogger from "../services/auditLogger";
+import { validateFormula } from "../engineering/formulaParser";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { generateEngineeringReportPDF } from "../utils/reportGenerator";
@@ -109,63 +111,98 @@ export default function EquationEditorPage() {
         }
     }, [equations]);
 
-    // Fetch Admin Panel Data (Supabase Audit Logs)
+    // Fetch Admin Panel Data directly from Supabase (Administrator Only)
     const fetchAdminData = async () => {
-        if (!isAdmin) return;
+        if (!user || user.role !== "Administrator" || !isAdmin || !supabase) return;
         setLogsLoading(true);
         setLogsError(null);
         try {
-            const logsRes = await api.get("/logs/all");
-            if (logsRes.data.success) {
-                setLogsData({
-                    loginHistory: logsRes.data.loginHistory || [],
-                    userActivity: logsRes.data.userActivity || [],
-                    engineeringModifications: logsRes.data.engineeringModifications || []
-                });
-            }
+            const [loginRes, activityRes, modRes, profilesRes] = await Promise.all([
+                supabase.from("login_history").select("*").order("login_time", { ascending: false }).limit(100),
+                supabase.from("user_activity").select("*").order("timestamp", { ascending: false }).limit(100),
+                supabase.from("engineering_modifications").select("*").order("timestamp", { ascending: false }).limit(100),
+                supabase.from("profiles").select("*").order("created_at", { ascending: false })
+            ]);
+
+            const loginHistory = (loginRes.data || []).map(item => ({
+                id: item.id,
+                loginTime: item.login_time ? new Date(item.login_time).toLocaleString() : "-",
+                logoutTime: item.logout_time ? new Date(item.logout_time).toLocaleString() : "-",
+                username: item.email,
+                email: item.email,
+                role: item.status === "LOGIN" ? "User" : "-",
+                status: item.status,
+                ip: item.ip_address || "127.0.0.1",
+                browser: item.browser || "Unknown",
+                os: item.operating_system || "Unknown",
+                sessionDuration: item.session_duration || "-"
+            }));
+
+            const userActivity = (activityRes.data || []).map(item => ({
+                id: item.id,
+                date: item.timestamp ? new Date(item.timestamp).toLocaleDateString() : "-",
+                time: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "-",
+                user: item.email,
+                email: item.email,
+                activity: item.activity,
+                module: item.module,
+                details: item.details
+            }));
+
+            const engineeringModifications = (modRes.data || []).map(item => ({
+                id: item.id,
+                date: item.timestamp ? new Date(item.timestamp).toLocaleString() : "-",
+                user: item.email || "Anonymous",
+                email: item.email,
+                parameter: item.parameter,
+                oldValue: item.old_value,
+                newValue: item.new_value,
+                reason: item.reason
+            }));
+
+            setLogsData({ loginHistory, userActivity, engineeringModifications });
+            setUsersList(profilesRes.data || []);
         } catch (e) {
-            setLogsError(e.response?.data?.message || "403 Unauthorized: Unable to load administrator logs.");
+            setLogsError(e.message || "Failed to load audit logs from Supabase.");
         } finally {
             setLogsLoading(false);
         }
     };
 
     useEffect(() => {
-        if (activeTab === "ADMIN_PANEL" && isAdmin) {
+        if (activeTab === "ADMIN_PANEL" && user && user.role === "Administrator") {
             fetchAdminData();
         }
-    }, [activeTab, isAdmin]);
+    }, [activeTab, user, isAdmin]);
 
     // Admin User Management Actions
     const handleDeleteUser = async (userId, userName) => {
-        if (!isAdmin) return;
+        if (!isAdmin || !supabase) return;
         if (!window.confirm(`Are you sure you want to delete user account "${userName}"?`)) return;
         try {
-            const res = await api.delete(`/auth/users/${userId}`);
-            if (res.data.success) {
-                alert("User account deleted successfully.");
+            const { error } = await supabase.from("profiles").delete().eq("id", userId);
+            if (!error) {
+                alert("User profile deleted successfully.");
                 fetchAdminData();
             } else {
-                alert(`Failed to delete user: ${res.data.message}`);
+                alert(`Failed to delete user profile: ${error.message}`);
             }
         } catch (err) {
-            alert(err.response?.data?.message || "Failed to delete user.");
+            alert("Failed to delete user profile.");
         }
     };
 
-    const handleResetUserPassword = async (userId, userName) => {
-        if (!isAdmin) return;
-        const newPass = prompt(`Enter new password for user "${userName}":`, "UserPass@123");
-        if (!newPass) return;
+    const handleResetUserPassword = async (userId, userName, email) => {
+        if (!isAdmin || !supabase) return;
         try {
-            const res = await api.post(`/auth/users/${userId}/reset-password`, { newPassword: newPass });
-            if (res.data.success) {
-                alert(`Password for user "${userName}" reset successfully.`);
+            const { error } = await supabase.auth.resetPasswordForEmail(email || userName);
+            if (!error) {
+                alert(`Password reset link sent to ${email || userName}.`);
             } else {
-                alert(`Failed to reset password: ${res.data.message}`);
+                alert(`Failed to request password reset: ${error.message}`);
             }
         } catch (err) {
-            alert(err.response?.data?.message || "Failed to reset user password.");
+            alert("Failed to request password reset.");
         }
     };
 
@@ -189,24 +226,24 @@ export default function EquationEditorPage() {
         extractAndSetVariables(eq.formula);
     };
 
-    const extractAndSetVariables = async (formula) => {
+    const extractAndSetVariables = (formula) => {
         if (!formula || formula.trim() === "") {
             setVariablesUsed([]);
             return;
         }
         try {
-            const res = await api.post("/equations/validate", { formula });
-            if (res.data.success) {
-                setVariablesUsed(res.data.variablesUsed || []);
+            const valRes = validateFormula(formula);
+            if (valRes.success) {
+                setVariablesUsed(valRes.variablesUsed || []);
                 setFormulaError(null);
 
                 const newScope = {};
-                (res.data.variablesUsed || []).forEach(v => {
+                (valRes.variablesUsed || []).forEach(v => {
                     newScope[v] = testScope[v] !== undefined ? testScope[v] : 1.0;
                 });
                 setTestScope(newScope);
             } else {
-                setFormulaError(res.data.error);
+                setFormulaError(valRes.error);
                 setVariablesUsed([]);
             }
         } catch (e) {
@@ -226,9 +263,9 @@ export default function EquationEditorPage() {
 
     const handleSave = async () => {
         if (!selectedEquation) return;
-        const valRes = await api.post("/equations/validate", { formula: selectedEquation.formula });
-        if (!valRes.data.success) {
-            alert(`Cannot save formula due to syntax error: ${valRes.data.error}`);
+        const valRes = validateFormula(selectedEquation.formula);
+        if (!valRes.success) {
+            alert(`Cannot save formula due to syntax error: ${valRes.error}`);
             return;
         }
 

@@ -1,7 +1,7 @@
 import React from "react";
-import api from "../services/api";
 import { useApp } from "../context/AppContext";
 import { generateEngineeringReportPDF } from "../utils/reportGenerator";
+import auditLogger from "../services/auditLogger";
 
 export default function Sidebar() {
 
@@ -27,6 +27,7 @@ export default function Sidebar() {
         optimizationMode,
         optimizationInputs,
         lockedParameters,
+        recalculate,
         user
     } = useApp();
 
@@ -48,345 +49,32 @@ export default function Sidebar() {
     //-----------------------------------------------------
 
     async function generateDesign() {
-
         try {
-
             setLoading(true);
-
-            // Clear previous results
-
-            setAiResult(null);
-            setEngineering(null);
-            setSimulation(null);
-            setOptimization(null);
-            setPerformance(null);
-            setElectrode(null);
-            setComponentSizing(null);
-
-            // NEW
-            setLayout(null);
-            setStack(null);
-            setCellGeometry(null);
-
-            const payload = {
-
-                ...feedWater,
-                technology,
-
-                optimizationMode,
-                optimizationInputs,
-                lockedParameters
-
-            };
-
-            console.log("Design Payload:", payload);
-
-            const response = await api.post("/design", payload);
-
-            console.log("Design Response:", response.data);
-
-            const data = response.data;
-
-            //---------------------------------
-            // STORE COMPLETE RESPONSE
-            //---------------------------------
-
-            setAiResult(data);
-
-            //---------------------------------
-            // TECHNOLOGY
-            //---------------------------------
-
-            setSelectedDesign(
-                data.selectedTechnology || technology
-            );
-
-            //---------------------------------
-            // DESIGN PARAMETERS
-            //---------------------------------
-
-            if (data.designParameters)
-                setDesignParameters(data.designParameters);
-
-            //---------------------------------
-            // ENGINEERING
-            //---------------------------------
-
-            if (data.engineering)
-                setEngineering(data.engineering);
-
-            //---------------------------------
-            // SIMULATION
-            //---------------------------------
-
-            if (data.simulation)
-                setSimulation(data.simulation);
-
-            //---------------------------------
-            // COMPONENT SIZING
-            //---------------------------------
-
-            if (data.sizing)
-                setComponentSizing(data.sizing);
-
-            //---------------------------------
-            // ELECTRODE
-            //---------------------------------
-
-            if (data.electrode)
-                setElectrode(data.electrode);
-
-            //---------------------------------
-            // PERFORMANCE
-            //---------------------------------
-
-            if (data.performance)
-                setPerformance(data.performance);
-
-            //---------------------------------
-            // OPTIMIZATION
-            //---------------------------------
-
-            if (data.optimization)
-                setOptimization(data.optimization);
-
-            //---------------------------------
-            // STACK
-            //---------------------------------
-
-            if (data.stack)
-                setStack(data.stack);
-
-            //---------------------------------
-            // CELL GEOMETRY
-            //---------------------------------
-
-            if (data.cellGeometry)
-                setCellGeometry(data.cellGeometry);
-
-            //---------------------------------
-            // P&ID LAYOUT
-            //---------------------------------
-
-            if (data.layout) {
-
-                console.log("Layout Loaded");
-
-                setLayout(data.layout);
-
-            } else {
-
-                console.warn("No layout received from backend");
-
+            recalculate(optimizationInputs, technology);
+            if (user) {
+                await auditLogger.logActivity(user.id, user.email, "Generate Design", "Dashboard", `Generated design for ${technology}`);
             }
-
-        }
-
-        catch (error) {
-
+        } catch (error) {
             console.error("Design Error:", error);
-
-            alert("Unable to generate design.");
-
-        }
-
-        finally {
-
+        } finally {
             setLoading(false);
-
         }
-
-    }
-    //-----------------------------------------------------
-// OPTIMIZE DESIGN
-//-----------------------------------------------------
-
-async function optimizeDesign() {
-
-    try {
-
-        setLoading(true);
-
-        const payload = {
-
-            ...feedWater,
-
-            technology,
-
-            optimizationMode,
-
-            optimizationInputs,
-
-            lockedParameters
-
-        };
-
-        console.log("Optimization Payload:", payload);
-
-        const response = await api.post(
-            "/optimize",
-            payload
-        );
-
-        console.log(
-            "Optimization Response:",
-            response.data
-        );
-
-        const data = response.data;
-
-        //---------------------------------
-// STORE P&ID LAYOUT
-//---------------------------------
-
-if (data.layout) {
-    console.log("Saving Layout:", data.layout);
-    setLayout(data.layout);
-} else {
-    console.warn("No layout received from backend");
-}
-
-        //---------------------------------
-        // ENGINEERING
-        //---------------------------------
-
-        if (data.engineering) {
-
-            setEngineering(data.engineering);
-
-        }
-
-        //---------------------------------
-        // SIMULATION
-        //---------------------------------
-
-        if (data.simulation) {
-
-            setSimulation(data.simulation);
-
-        }
-
-        //---------------------------------
-        // COMPONENT SIZING
-        //---------------------------------
-
-        if (data.sizing) {
-
-            setComponentSizing(data.sizing);
-
-        }
-
-        //---------------------------------
-        // ELECTRODE
-        //---------------------------------
-
-        if (data.electrode) {
-
-            setElectrode(data.electrode);
-
-        }
-
-        //---------------------------------
-        // PERFORMANCE
-        //---------------------------------
-
-        if (data.performance) {
-
-            setPerformance(data.performance);
-
-        }
-
-        //---------------------------------
-        // OPTIMIZATION
-        //---------------------------------
-
-        if (data.optimization) {
-
-            setOptimization(data.optimization);
-
-        }
-
-        //---------------------------------
-        // STACK
-        //---------------------------------
-
-        if (data.stack) {
-
-            setStack(data.stack);
-
-        }
-
-        //---------------------------------
-        // CELL GEOMETRY
-        //---------------------------------
-
-        if (data.cellGeometry) {
-
-            setCellGeometry(data.cellGeometry);
-
-        }
-
-        //---------------------------------
-        // P&ID LAYOUT
-        //---------------------------------
-
-        if (data.layout) {
-
-            setLayout(data.layout);
-
-        }
-
-        //---------------------------------
-        // TECHNOLOGY
-        //---------------------------------
-
-        if (data.selectedTechnology) {
-
-            setSelectedDesign(
-                data.selectedTechnology
-            );
-
-        }
-
-        alert("Optimization completed successfully.");
-
     }
 
-    catch (error) {
-
-        console.error(
-            "Optimization Error:",
-            error
-        );
-
-        if (error.response) {
-
-            console.error(
-                error.response.data
-            );
-
-            alert(
-                error.response.data.error ||
-                "Optimization failed."
-            );
-
+    async function optimizeDesign() {
+        try {
+            setLoading(true);
+            recalculate(optimizationInputs, technology);
+            if (user) {
+                await auditLogger.logActivity(user.id, user.email, "Optimize Design", "Dashboard", `Optimized parameters for ${technology}`);
+            }
+        } catch (error) {
+            console.error("Optimization Error:", error);
+        } finally {
+            setLoading(false);
         }
-
-        else {
-
-            alert("Optimization failed.");
-
-        }
-
     }
-
-    finally {
-
-        setLoading(false);
-
-    }
-
-}
     //-----------------------------------------------------
     // UI
     //-----------------------------------------------------
