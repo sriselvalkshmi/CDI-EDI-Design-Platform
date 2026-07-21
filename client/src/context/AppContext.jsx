@@ -122,10 +122,12 @@ export function AppProvider({ children }) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [page, setPage] = useState("DASHBOARD");
     const [equations, setEquations] = useState([]);
+    const [designGenerated, setDesignGenerated] = useState(false);
 
     // Client-side engineering calculation engine
     const recalculate = (currentInputs = optimizationInputs, currentTech = technology) => {
         try {
+            setDesignGenerated(true);
             const ai = aiRecommendation(feedWater);
             const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "CDI") : currentTech;
             const eng = engineeringEquationEngine({
@@ -333,11 +335,6 @@ export function AppProvider({ children }) {
         }
     };
 
-    // Initialize engineering calculations on mount & when inputs change
-    useEffect(() => {
-        recalculate(optimizationInputs, technology);
-    }, [feedWater, optimizationInputs, technology]);
-
     // Check Supabase Auth Session on mount
     useEffect(() => {
         const initAuth = async () => {
@@ -421,6 +418,8 @@ export function AppProvider({ children }) {
                 saveEquations,
                 resetEquations,
                 recalculate,
+                designGenerated,
+                setDesignGenerated,
                 user,
                 setUser,
                 isAuthenticated,
