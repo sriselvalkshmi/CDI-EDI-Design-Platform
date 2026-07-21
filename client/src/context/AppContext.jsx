@@ -130,15 +130,15 @@ export function AppProvider({ children }) {
             setDesignGenerated(true);
             const ai = aiRecommendation(feedWater);
             const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "CDI") : currentTech;
-            const eng = engineeringEquationEngine({
+            let eng = engineeringEquationEngine({
                 technology: activeTech,
                 feedWater,
                 ...currentInputs
             });
 
-            const elect = electrodeModel(feedWater, eng);
+            let elect = electrodeModel(feedWater, eng);
             const size = componentSizing(eng, activeTech);
-            const sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
+            let sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
 
             let cellDes = null;
             try { cellDes = cdiDesignCalculator(feedWater, eng); } catch (e) {}
@@ -154,6 +154,30 @@ export function AppProvider({ children }) {
 
             let optResult = null;
             try { optResult = designOptimizer(feedWater, size, eng); } catch (e) {}
+
+            // Engineering Validation: ensure Outlet TDS <= Target TDS
+            const targetTds = Number(feedWater.targetTds || 50);
+            if ((sim.outputTDS > targetTds || sim.outletTDS > targetTds) && optResult) {
+                const optInputs = {
+                    ...currentInputs,
+                    voltage: optResult.optimizedDesign?.voltage ?? ai.voltage,
+                    current: optResult.optimizedDesign?.current ?? ai.current,
+                    cellPairs: optResult.optimizedDesign?.cellPairs ?? ai.cellPairs,
+                    electrodeArea: optResult.optimizedDesign?.electrodeArea ?? ai.electrodeArea
+                };
+                const engOpt = engineeringEquationEngine({
+                    technology: activeTech,
+                    feedWater,
+                    ...optInputs
+                });
+                const electOpt = electrodeModel(feedWater, engOpt);
+                const simOpt = simulationEngine(activeTech, feedWater, { engineering: engOpt, electrode: electOpt });
+                if ((simOpt.outputTDS || simOpt.outletTDS) <= (sim.outputTDS || sim.outletTDS)) {
+                    eng = engOpt;
+                    elect = electOpt;
+                    sim = simOpt;
+                }
+            }
 
             setAiResult(ai);
             setSelectedDesign(activeTech);

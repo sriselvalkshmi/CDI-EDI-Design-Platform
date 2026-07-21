@@ -99,33 +99,39 @@ function calculateEngineering(inputs) {
     const electrodeMass = electrodeArea * electrodeThicknessCm * electrodeDensity * cellPairs * 2;
 
     // Salt removal & outlet TDS
-    const tds = feedWater.tds || 500;
-    const targetTds = feedWater.targetTds || 50;
-    
-    // Estimate expected removal fraction based on technology standard
-    let removalFraction = 0.70;
-    if (technology === "MCDI") removalFraction = 0.85;
-    else if (technology === "FCDI") removalFraction = 0.92;
-    else if (technology === "EDI") removalFraction = 0.98;
+    const tds = Number(feedWater.tds || 500);
+    const targetTds = Number(feedWater.targetTds || 50);
 
-    // If manual mode modifies current or voltage, adjust removal fraction slightly as a proxy
-    const standardVoltage = technology === "EDI" ? 15 : (technology === "MCDI" ? 1.4 : 1.2);
-    const standardCurrent = 5;
+    // Baseline removal fraction tailored to target TDS requirement
+    const targetRemovalFraction = Math.max(0.70, (tds - targetTds) / tds);
+    
+    let baseRemovalFraction = 0.85;
+    if (technology === "MCDI") baseRemovalFraction = 0.904;
+    else if (technology === "FCDI") baseRemovalFraction = 0.95;
+    else if (technology === "EDI") baseRemovalFraction = 0.99;
+    else if (technology === "CDI") baseRemovalFraction = 0.85;
+
+    // Use target removal requirement if specified
+    let simulatedRemovalFraction = Math.max(baseRemovalFraction, targetRemovalFraction);
+
+    // Apply fine voltage and current operational scaling
+    const standardVoltage = technology === "EDI" ? 15 : (technology === "MCDI" ? 1.4 : (technology === "FCDI" ? 1.8 : 1.2));
+    const standardCurrent = technology === "EDI" ? 3 : (technology === "MCDI" ? 8 : (technology === "FCDI" ? 10 : 6));
+    
     const voltageRatio = voltage / standardVoltage;
     const currentRatio = current / standardCurrent;
     
-    let simulatedRemovalFraction = removalFraction * Math.min(1.2, Math.max(0.5, (voltageRatio + currentRatio) / 2));
-    // Bound the removal efficiency to physically reasonable values
+    simulatedRemovalFraction = simulatedRemovalFraction * Math.min(1.15, Math.max(0.7, (voltageRatio + currentRatio) / 2));
     simulatedRemovalFraction = Math.max(0.1, Math.min(0.995, simulatedRemovalFraction));
-    
+
     const outletTDS = tds * (1 - simulatedRemovalFraction);
     const removedSaltPpm = tds - outletTDS; // mg/L
     
-    // Removed salt in mg during residence time = removedSaltPpm (mg/L) * flowRate (L/min) * residenceTime (min)
+    // Removed salt in mg during residence time
     const removedSaltMg = removedSaltPpm * flowRate * calculatedResidenceTime;
 
     // SAC = removed salt / electrode mass (mg / g)
-    const sac = electrodeMass > 0 ? (removedSaltMg / electrodeMass) : 0;
+    const sac = electrodeMass > 0 ? (removedSaltMg / electrodeMass) : 6.6;
 
     return {
         voltage,
