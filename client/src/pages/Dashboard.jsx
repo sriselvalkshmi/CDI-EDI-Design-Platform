@@ -13,15 +13,14 @@ export default function Dashboard() {
     const { designGenerated } = useApp();
 
     return (
-        <div className="dashboard-container">
-            {/* LEFT FIXED CONTROL SIDEBAR (320px) */}
-            <Sidebar />
+        <div className="dashboard-app-wrapper">
+            <Navbar />
+            <div className="dashboard-body">
+                {/* LEFT FIXED CONTROL SIDEBAR (320px) */}
+                <Sidebar />
 
-            {/* MAIN ENGINEERING WORKSPACE AREA */}
-            <div className="main-workspace-container">
-                <Navbar />
-
-                <div className="content-scroll-area">
+                {/* MAIN ENGINEERING WORKSPACE AREA */}
+                <div className="main-workspace-container">
                     {designGenerated ? (
                         <div className="grid-workspace-layout">
                             {/* LEFT COLUMN: DIAGRAMS, EQUIPMENT, SIMULATIONS */}

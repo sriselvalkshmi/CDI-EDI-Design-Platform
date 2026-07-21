@@ -33,7 +33,7 @@ export default function Navbar() {
     };
 
     return (
-        <div className="navbar" style={styles.navContainer}>
+        <header className="navbar" style={styles.navContainer}>
             <div style={styles.brandGroup}>
                 <h1 style={styles.navTitle}>CDI / EDI Design Platform</h1>
             </div>
@@ -63,7 +63,7 @@ export default function Navbar() {
                     </button>
                 )}
             </div>
-        </div>
+        </header>
     );
 }
 
@@ -74,11 +74,12 @@ const styles = {
         alignItems: "center",
         padding: "0 20px",
         background: "#ffffff",
-        borderBottom: "1px solid #e2e8f0",
-        height: "60px",
+        borderBottom: "1px solid #D9E2EC",
+        height: "56px",
         boxSizing: "border-box",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-        fontFamily: "'Segoe UI', Roboto, sans-serif"
+        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+        fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif",
+        flexShrink: 0
     },
     brandGroup: {
         display: "flex",
@@ -86,10 +87,11 @@ const styles = {
         gap: "12px"
     },
     navTitle: {
-        fontSize: "18px",
-        fontWeight: "600",
-        color: "#1e293b",
-        margin: 0
+        fontSize: "24px",
+        fontWeight: "700",
+        color: "#0F172A",
+        margin: 0,
+        letterSpacing: "-0.5px"
     },
     userSection: {
         display: "flex",
@@ -97,7 +99,7 @@ const styles = {
         gap: "12px"
     },
     reportBtn: {
-        backgroundColor: "#0f172a",
+        backgroundColor: "#0F172A",
         color: "#ffffff",
         border: "none",
         padding: "8px 14px",
@@ -111,7 +113,7 @@ const styles = {
         gap: "6px"
     },
     equationBtn: {
-        backgroundColor: "#2563eb",
+        backgroundColor: "#1565C0",
         color: "#ffffff",
         border: "none",
         padding: "8px 16px",
@@ -125,7 +127,7 @@ const styles = {
         gap: "6px"
     },
     logoutBtn: {
-        backgroundColor: "#dc2626",
+        backgroundColor: "#C62828",
         color: "#ffffff",
         border: "none",
         padding: "8px 14px",
