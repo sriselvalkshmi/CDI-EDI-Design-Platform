@@ -3,15 +3,20 @@ import { useApp } from "../context/AppContext";
 
 export default function PerformancePanel(){
 
-    const { performance, simulation } = useApp();
+    const { designResult } = useApp();
+    const performance = designResult?.performance;
+    const kpi = designResult?.kpi;
 
+    const data = performance || kpi;
 
-    const data =
-        performance ||
-        simulation;
-
-
-    if(!data) return null;
+    if (!designResult || (!designResult.performance && !designResult.kpi)) {
+        return (
+            <div className="panel">
+                <h2>Performance Analysis</h2>
+                <p>Generate design first.</p>
+            </div>
+        );
+    }
 
 
 

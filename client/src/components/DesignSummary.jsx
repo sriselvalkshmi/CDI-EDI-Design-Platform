@@ -4,13 +4,14 @@ import { useApp } from "../context/AppContext";
 export default function DesignSummary() {
 
     const {
-
-        feedWater,
-        simulation,
-        optimization,
+        designResult,
         selectedDesign
-
     } = useApp();
+
+    const feedWater = designResult?.input?.feedWater;
+    const simulation = designResult?.simulation;
+    const optimization = designResult?.optimizedEngineering;
+    const kpi = designResult?.kpi;
 
     //------------------------------------------------------
 
@@ -30,7 +31,7 @@ export default function DesignSummary() {
 
     //------------------------------------------------------
 
-    if (!simulation) {
+    if (!designResult || !designResult.simulation) {
 
         return (
 
@@ -62,7 +63,7 @@ export default function DesignSummary() {
 
                     <tr>
                         <td>Technology</td>
-                        <td>{selectedDesign ?? "-"}</td>
+                        <td>{designResult?.engineering?.technology || selectedDesign || "-"}</td>
                     </tr>
 
                     <tr>
@@ -77,12 +78,12 @@ export default function DesignSummary() {
 
                     <tr>
                         <td>Predicted Outlet TDS</td>
-                        <td>{format(simulation?.outputTDS)} ppm</td>
+                        <td>{format(designResult?.engineering?.outletTDS ?? kpi?.outletTDS)} ppm</td>
                     </tr>
 
                     <tr>
                         <td>Removal Efficiency</td>
-                        <td>{format(simulation?.removalEfficiency)} %</td>
+                        <td>{format(designResult?.engineering?.removalEfficiency ?? kpi?.removalEfficiency)} %</td>
                     </tr>
 
                     <tr>

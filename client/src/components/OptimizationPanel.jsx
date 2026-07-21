@@ -50,9 +50,7 @@ const defaultAiValues = {
 
 export default function OptimizationPanel() {
     const {
-        optimization,
-        engineering,
-        simulation,
+        designResult,
         selectedDesign,
         optimizationMode,
         setOptimizationMode,
@@ -64,6 +62,11 @@ export default function OptimizationPanel() {
         recalculate,
         user
     } = useApp();
+
+    const engineering = designResult?.engineering;
+    const simulation = designResult?.simulation;
+    const optimization = designResult?.optimizedEngineering;
+    const kpi = designResult?.kpi;
 
     const tech = selectedDesign || "CDI";
 
@@ -160,7 +163,7 @@ export default function OptimizationPanel() {
         );
     }
 
-    if (!engineering) {
+    if (!designResult || !designResult.engineering) {
         return (
             <div className="panel" style={{ padding: "20px", borderRadius: "8px", background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
                 <h2 style={{ color: "#1976d2", margin: "0 0 10px 0" }}>Optimization &amp; Parameters</h2>
@@ -248,7 +251,7 @@ export default function OptimizationPanel() {
                     <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
                         <td style={{ padding: "8px 10px", fontSize: "13px", color: "#666" }}>Technology</td>
                         <td style={{ padding: "8px 10px", fontSize: "13px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {tech}
+                            {engineering?.technology || tech}
                         </td>
                     </tr>
                     <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
@@ -260,13 +263,13 @@ export default function OptimizationPanel() {
                     <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
                         <td style={{ padding: "8px 10px", fontSize: "13px", color: "#666" }}>Specific Energy</td>
                         <td style={{ padding: "8px 10px", fontSize: "13px", fontWeight: "bold", color: "#c62828", textAlign: "right" }}>
-                            {format(simulation?.specificEnergy ?? engineering?.specificEnergy, 4)} kWh/m³
+                            {format(kpi?.SEC ?? simulation?.specificEnergy ?? engineering?.sec, 4)} kWh/m³
                         </td>
                     </tr>
                     <tr style={{ borderBottom: "1px solid #f0f0f0" }}>
                         <td style={{ padding: "8px 10px", fontSize: "13px", color: "#666" }}>Pressure Drop</td>
                         <td style={{ padding: "8px 10px", fontSize: "13px", fontWeight: "bold", color: "#333", textAlign: "right" }}>
-                            {format(simulation?.pressureDrop ?? engineering?.pressureDrop, 1)} Pa
+                            {format(engineering?.pressureDrop ?? simulation?.pressureDrop, 2)} Pa
                         </td>
                     </tr>
                 </tbody>

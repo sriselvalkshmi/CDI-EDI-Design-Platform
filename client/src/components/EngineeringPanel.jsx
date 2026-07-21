@@ -2,22 +2,20 @@ import React from "react";
 import { useApp } from "../context/AppContext";
 
 export default function EngineeringPanel() {
-    const {
-        engineering,
-        electrode,
-        selectedDesign,
-        simulation,
-        feedWater
-    } = useApp();
+    const { designResult, selectedDesign } = useApp();
+    const engineering = designResult?.engineering;
+    const kpi = designResult?.kpi;
+    const feedWater = designResult?.input?.feedWater;
+    const activeTech = designResult?.input?.technology || selectedDesign || "-";
 
     const format = (value, digits = 2) => {
         if (value === undefined || value === null || isNaN(value)) {
-            return "Calculating...";
+            return "N/A";
         }
         return Number(value).toFixed(digits);
     };
 
-    if (!engineering) {
+    if (!designResult || !designResult.engineering) {
         return (
             <div className="panel">
                 <h3 className="panel-title">Engineering Design Summary</h3>
@@ -26,19 +24,20 @@ export default function EngineeringPanel() {
         );
     }
 
-    const voltage = format(engineering.voltage);
-    const current = format(engineering.current);
-    const power = format(engineering.power);
-    const currentDensity = format(engineering.currentDensity ?? electrode?.currentDensity);
-    const cellPairs = engineering.cellPairs ?? 48;
-    const electrodeArea = format(engineering.electrodeArea ?? 420, 0);
-    const residenceTime = format(engineering.residenceTime ?? 0.04, 2);
-    const flowVelocity = format(engineering.flowVelocity ?? simulation?.flowVelocity ?? 0.15);
-    const pressureDrop = format(engineering.pressureDrop ?? 25.85);
-    const outletTDS = format(simulation?.outputTDS ?? simulation?.outletTDS ?? engineering.outletTDS ?? 48);
-    const removalEff = format(simulation?.removalEfficiency ?? engineering.removalEfficiency ?? 90.4);
-    const sac = format(engineering.sac ?? electrode?.sac ?? 6.6);
-    const sec = format(simulation?.specificEnergy ?? engineering.sec ?? 0.04, 3);
+    const voltage = format(engineering?.voltage);
+    const current = format(engineering?.current);
+    const power = format(engineering?.power);
+    const currentDensity = format(engineering?.currentDensity);
+    const cellPairs = engineering?.cellPairs ?? "-";
+    const electrodeArea = format(engineering?.electrodeArea, 0);
+    const residenceTime = format(engineering?.residenceTime, 2);
+    const flowVelocity = format(engineering?.flowVelocity ?? kpi?.flowVelocity);
+    const pressureDrop = format(engineering?.pressureDrop ?? kpi?.pressureDrop);
+    const outletTDS = format(kpi?.outletTDS);
+    const removalEff = format(kpi?.removalEfficiency);
+    const sac = format(engineering?.sac);
+    const sec = format(kpi?.SEC, 3);
+    const waterRecovery = format(kpi?.waterRecovery ?? engineering?.waterRecovery ?? 95.0);
 
     return (
         <div className="panel">
@@ -55,7 +54,7 @@ export default function EngineeringPanel() {
                 {/* Stack Geometry Card */}
                 <div style={{ background: "#F8FAFC", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px" }}>
                     <div style={{ fontSize: "13px", fontWeight: "600", color: "#1565C0", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>Stack Geometry</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Technology:</span><span style={{ fontWeight: "700", color: "#00897B" }}>{selectedDesign || "MCDI"}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Technology:</span><span style={{ fontWeight: "700", color: "#00897B" }}>{activeTech}</span></div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Cell Pairs:</span><span style={{ fontWeight: "700", color: "#263238" }}>{cellPairs}</span></div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Electrode Area:</span><span style={{ fontWeight: "700", color: "#263238" }}>{electrodeArea} cm²</span></div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Residence Time:</span><span style={{ fontWeight: "700", color: "#263238" }}>{residenceTime} min</span></div>
@@ -65,8 +64,8 @@ export default function EngineeringPanel() {
                     <div style={{ fontSize: "13px", fontWeight: "600", color: "#1565C0", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>Hydraulics & Pressure</div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Flow Velocity:</span><span style={{ fontWeight: "700", color: "#263238" }}>{flowVelocity} m/s</span></div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Pressure Drop:</span><span style={{ fontWeight: "700", color: "#263238" }}>{pressureDrop} Pa</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Feed Flow Rate:</span><span style={{ fontWeight: "700", color: "#263238" }}>{feedWater?.flowRate || 10} L/min</span></div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Water Recovery:</span><span style={{ fontWeight: "700", color: "#2E7D32" }}>95.0 %</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Feed Flow Rate:</span><span style={{ fontWeight: "700", color: "#263238" }}>{feedWater?.flowRate ?? "-"} L/min</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}><span style={{ color: "#607D8B" }}>Water Recovery:</span><span style={{ fontWeight: "700", color: "#2E7D32" }}>{waterRecovery} %</span></div>
                 </div>
                 {/* Desalination Performance Card */}
                 <div style={{ background: "#F8FAFC", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px" }}>

@@ -4,14 +4,15 @@ import { useApp } from "../context/AppContext";
 export default function EquipmentPanel() {
 
     const {
-
+        designResult,
         selectedEquipment,
-        selectedDesign,
-        engineering,
-        simulation,
-        feedWater
-
+        selectedDesign
     } = useApp();
+
+    const feedWater = designResult?.input?.feedWater;
+    const engineering = designResult?.engineering;
+    const simulation = designResult?.simulation;
+    const equipmentList = designResult?.equipment || [];
 
     //----------------------------------------------------
 
@@ -31,6 +32,16 @@ export default function EquipmentPanel() {
 
     //----------------------------------------------------
 
+    if (!designResult || !designResult.engineering) {
+        return (
+            <div className="panel equipment-panel">
+                <h2>Equipment Properties</h2>
+                <hr />
+                <p>Generate a design first.</p>
+            </div>
+        );
+    }
+
     if (!selectedEquipment) {
 
         return (
@@ -41,10 +52,35 @@ export default function EquipmentPanel() {
 
                 <hr />
 
-                <p>
-                    Click any equipment in the P&amp;ID diagram
-                    to display its engineering information.
-                </p>
+                {equipmentList.length > 0 ? (
+                    <div>
+                        <p style={{ fontSize: "12px", color: "#607D8B", marginBottom: "12px" }}>
+                            Click any equipment in the P&amp;ID diagram to inspect detailed engineering properties.
+                        </p>
+                        <table style={{ width: "100%", fontSize: "13px", borderCollapse: "collapse" }}>
+                            <thead>
+                                <tr style={{ background: "#F1F5F9", textAlign: "left", borderBottom: "1px solid #E2E8F0" }}>
+                                    <th style={{ padding: "6px 8px" }}>ID</th>
+                                    <th style={{ padding: "6px 8px" }}>Equipment Name</th>
+                                    <th style={{ padding: "6px 8px" }}>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {equipmentList.map(eq => (
+                                    <tr key={eq.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                                        <td style={{ padding: "6px 8px", fontWeight: "600", color: "#1565C0" }}>{eq.id}</td>
+                                        <td style={{ padding: "6px 8px" }}>{eq.name}</td>
+                                        <td style={{ padding: "6px 8px", textTransform: "capitalize", color: "#607D8B" }}>{eq.type}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p>
+                        Click any equipment in the P&amp;ID diagram to display its engineering information.
+                    </p>
+                )}
 
             </div>
 
@@ -131,7 +167,7 @@ export default function EquipmentPanel() {
 
                         <tr>
                             <td>Pressure Drop</td>
-                            <td>{format(simulation?.pressureDrop)} Pa</td>
+                            <td>{format(engineering?.pressureDrop ?? simulation?.pressureDrop)} Pa</td>
                         </tr>
 
                     </tbody>
@@ -167,7 +203,7 @@ export default function EquipmentPanel() {
 
                         <tr>
                             <td>Technology</td>
-                            <td>{selectedDesign}</td>
+                            <td>{engineering?.technology || selectedDesign}</td>
                         </tr>
 
                         <tr>

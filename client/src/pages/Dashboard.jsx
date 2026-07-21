@@ -7,10 +7,14 @@ import SimulationGraphs from "../components/SimulationGraphs";
 import KPIDashboard from "../components/KPIDashboard";
 import EngineeringPanel from "../components/EngineeringPanel";
 import OptimizationPanel from "../components/OptimizationPanel";
+import RecommendationPanel from "../components/RecommendationPanel";
+import ValidationPanel from "../components/ValidationPanel";
 import { useApp } from "../context/AppContext";
 
 export default function Dashboard() {
-    const { designGenerated } = useApp();
+    const { designGenerated, designResult } = useApp();
+
+    const isReady = designGenerated || (designResult?.engineering != null);
 
     return (
         <div className="dashboard-app-wrapper">
@@ -21,18 +25,20 @@ export default function Dashboard() {
 
                 {/* MAIN ENGINEERING WORKSPACE AREA */}
                 <div className="main-workspace-container">
-                    {designGenerated ? (
+                    {isReady ? (
                         <div className="grid-workspace-layout">
                             {/* LEFT COLUMN: DIAGRAMS, EQUIPMENT, SIMULATIONS */}
                             <div className="left-column">
+                                <ValidationPanel />
                                 <PIDDiagram />
                                 <EquipmentPanel />
                                 <SimulationGraphs />
                             </div>
 
-                            {/* RIGHT COLUMN: KPI DASHBOARD, ENGINEERING ANALYSIS, OPTIMIZATION */}
+                            {/* RIGHT COLUMN: KPI DASHBOARD, RECOMMENDATION, ENGINEERING ANALYSIS, OPTIMIZATION */}
                             <div className="right-column">
                                 <KPIDashboard />
+                                <RecommendationPanel />
                                 <EngineeringPanel />
                                 <OptimizationPanel />
                             </div>

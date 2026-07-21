@@ -4,25 +4,17 @@ import { useApp } from "../context/AppContext";
 
 export default function RecommendationPanel(){
 
-
 const {
+    designResult,
+    selectedDesign
+} = useApp();
 
-aiResult,
-selectedDesign,
-feedWater,
-engineering,
-simulation
+const aiRecommendation = designResult?.aiRecommendation;
+const engineering = designResult?.engineering;
+const kpi = designResult?.kpi;
+const feedWater = designResult?.input?.feedWater;
 
-}=useApp();
-
-
-
-
-
-
-
-
-if(!aiResult){
+if (!designResult || !designResult.aiRecommendation) {
 
 
 return(
@@ -59,7 +51,7 @@ Generate design to view AI recommendation.
 
 
 const recommendation =
-aiResult.recommendation ?? {};
+aiRecommendation ?? {};
 
 
 
@@ -124,30 +116,12 @@ AI Technology Recommendation
 
 
 <tr>
-
-<td>
-Recommended Technology
-</td>
-
-
-<td>
-
-<strong>
-
-{
-recommendation.technology
-??
-selectedDesign
-??
-"-"
-}
-
-</strong>
-
-
-</td>
-
-
+<td>Selected Technology</td>
+<td><strong>{engineering?.technology || selectedDesign || "-"}</strong></td>
+</tr>
+<tr>
+<td>AI Recommended Technology</td>
+<td><strong>{recommendation.selectedTechnology || recommendation.technology || "-"}</strong></td>
 </tr>
 
 
@@ -200,8 +174,6 @@ Feed TDS
 {
 feedWater?.tds
 ??
-aiResult.feedWater?.tds
-??
 "-"
 }
 
@@ -231,8 +203,6 @@ Target TDS
 
 {
 feedWater?.targetTds
-??
-aiResult.feedWater?.targetTds
 ??
 "-"
 }
@@ -334,7 +304,7 @@ Operating Voltage
 
 {
 format(
-engineering?.voltage
+    engineering?.voltage
 )
 }
 
@@ -390,7 +360,7 @@ Predicted Outlet TDS
 
 {
 format(
-simulation?.outputTDS
+    engineering?.outletTDS ?? kpi?.outletTDS
 )
 }
 
@@ -419,7 +389,7 @@ Removal Efficiency
 
 {
 format(
-simulation?.removalEfficiency
+    engineering?.removalEfficiency ?? kpi?.removalEfficiency
 )
 }
 

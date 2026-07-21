@@ -53,18 +53,31 @@ export function AppProvider({ children }) {
     // RESULTS & MODULES
     //------------------------------------------
 
-    const [aiResult, setAiResult] = useState(null);
-    const [designParameters, setDesignParameters] = useState(null);
-    const [engineering, setEngineering] = useState(null);
-    const [componentSizingState, setComponentSizing] = useState(null);
-    const [simulation, setSimulation] = useState(null);
-    const [performance, setPerformance] = useState(null);
-    const [optimization, setOptimization] = useState(null);
-    const [electrode, setElectrode] = useState(null);
-
-    const [layout, setLayout] = useState(null);
-    const [stack, setStack] = useState(null);
-    const [cellGeometry, setCellGeometry] = useState(null);
+    const [designResult, setDesignResult] = useState({
+      input: {},
+      aiRecommendation: null,
+      engineering: null,
+      optimizedEngineering: null,
+      simulation: null,
+      performance: null,
+      equipment: null,
+      pid: null,
+      kpi: {
+        outletTDS: null,
+        removalEfficiency: null,
+        pressureDrop: null,
+        power: null,
+        flowVelocity: null,
+        SEC: null,
+        residenceTime: null,
+        waterRecovery: null,
+        recovery: null,
+        currentDensity: null,
+        electrodeArea: null,
+        stackLength: null
+      },
+      validation: { status: "VALID", messages: [] }
+    });
 
     const [selectedComponent, setSelectedComponent] = useState(null);
     const [selectedEquipment, setSelectedEquipment] = useState(null);
@@ -127,69 +140,101 @@ export function AppProvider({ children }) {
     // Client-side engineering calculation engine
     const recalculate = (currentInputs = optimizationInputs, currentTech = technology) => {
         try {
-            setDesignGenerated(true);
+
+
+            // 1. AI Recommendation
             const ai = aiRecommendation(feedWater);
             const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "CDI") : currentTech;
-            let eng = engineeringEquationEngine({
+
+            // 2. Engineering Equation Engine
+            const eng = engineeringEquationEngine({
                 technology: activeTech,
                 feedWater,
                 ...currentInputs
             });
 
-            let elect = electrodeModel(feedWater, eng);
+            // 3. Electrode Model
+            const elect = electrodeModel(feedWater, eng);
+
+            // 4. Component Sizing (kept for UI but not part of designResult output)
             const size = componentSizing(eng, activeTech);
-            let sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
 
-            let cellDes = null;
-            try { cellDes = cdiDesignCalculator(feedWater, eng); } catch (e) {}
+            // 5. Simulation Engine
+            const sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
 
-            let stk = null;
-            try { stk = stackDesigner(feedWater, cellDes, eng); } catch (e) {}
+            // 6. Performance Calculator
+            const perf = performanceCalculator(eng, sim, feedWater);
 
-            let lay = null;
-            try { lay = layoutGenerator(stk, eng, feedWater, sim, activeTech); } catch (e) {}
+            // 7. Design Optimizer (optional)
+            const optResult = designOptimizer(feedWater, size, eng);
 
-            let perf = null;
-            try { perf = performanceCalculator(eng, sim, feedWater); } catch (e) {}
+            // Ensure technology is set on engineering
+            eng.technology = activeTech;
 
-            let optResult = null;
-            try { optResult = designOptimizer(feedWater, size, eng); } catch (e) {}
+            // Assemble output fields
+            const output = {
+                technology: activeTech,
+                outletTDS: sim?.outputTDS ?? sim?.outletTDS ?? eng?.outletTDS ?? null,
+                removalEfficiency: sim?.removalEfficiency ?? eng?.removalEfficiency ?? null,
+                pressureDrop: eng?.pressureDrop ?? 0,
+                power: eng?.power ?? (sim?.averageVoltage * sim?.averageCurrent) ?? null,
+                flowVelocity: eng?.flowVelocity ?? 0,
+                SEC: sim?.specificEnergy ?? eng?.sec ?? null,
+                residenceTime: eng?.residenceTime ?? currentInputs?.residenceTime ?? null,
+                waterRecovery: eng?.waterRecovery ?? 95.0,
+                recovery: eng?.recovery ?? 95.0,
+                currentDensity: eng?.currentDensity ?? null,
+                electrodeArea: eng?.electrodeArea ?? null,
+                stackLength: eng?.stackLength ?? null
+            };
 
-            // Engineering Validation: ensure Outlet TDS <= Target TDS
+            // Validation checks
+            const validation = { status: "VALID", messages: [] };
             const targetTds = Number(feedWater.targetTds || 50);
-            if ((sim.outputTDS > targetTds || sim.outletTDS > targetTds) && optResult) {
-                const optInputs = {
-                    ...currentInputs,
-                    voltage: optResult.optimizedDesign?.voltage ?? ai.voltage,
-                    current: optResult.optimizedDesign?.current ?? ai.current,
-                    cellPairs: optResult.optimizedDesign?.cellPairs ?? ai.cellPairs,
-                    electrodeArea: optResult.optimizedDesign?.electrodeArea ?? ai.electrodeArea
-                };
-                const engOpt = engineeringEquationEngine({
-                    technology: activeTech,
-                    feedWater,
-                    ...optInputs
-                });
-                const electOpt = electrodeModel(feedWater, engOpt);
-                const simOpt = simulationEngine(activeTech, feedWater, { engineering: engOpt, electrode: electOpt });
-                if ((simOpt.outputTDS || simOpt.outletTDS) <= (sim.outputTDS || sim.outletTDS)) {
-                    eng = engOpt;
-                    elect = electOpt;
-                    sim = simOpt;
-                }
+            if (output.outletTDS !== null && output.outletTDS > targetTds) {
+                validation.status = "INVALID";
+                validation.messages.push("⚠ Target TDS NOT achieved");
+            }
+            if (eng?.voltage && eng.voltage > 5) {
+                validation.messages.push("⚠ Voltage exceeds safe range");
+            }
+            if (eng?.currentDensity && eng.currentDensity > 3) {
+                validation.messages.push("⚠ Current density exceeds safe range");
             }
 
-            setAiResult(ai);
-            setSelectedDesign(activeTech);
-            setEngineering(eng);
-            setElectrode(elect);
-            setComponentSizing(size);
-            setSimulation(sim);
-            setCellGeometry(cellDes);
-            setStack(stk);
-            setLayout(lay);
-            setPerformance(perf);
-            setOptimization(optResult);
+            // 8. P&ID and Layout Generator
+            const pidResult = layoutGenerator(null, eng, feedWater, sim, activeTech);
+
+            // Build the unified designResult object
+            const newDesignResult = {
+                input: { feedWater, optimizationInputs: currentInputs, technology: activeTech, userSelectedTechnology: currentTech },
+                aiRecommendation: ai,
+                engineering: eng,
+                simulation: sim,
+                performance: perf,
+                optimizedEngineering: optResult?.optimizedDesign || null,
+                equipment: pidResult?.equipment || [],
+                pid: pidResult,
+                kpi: {
+                    technology: eng.technology,
+                    outletTDS: output.outletTDS,
+                    removalEfficiency: output.removalEfficiency,
+                    pressureDrop: eng.pressureDrop,
+                    power: output.power,
+                    flowVelocity: eng.flowVelocity,
+                    SEC: output.SEC,
+                    residenceTime: output.residenceTime,
+                    waterRecovery: output.waterRecovery,
+                    recovery: output.recovery,
+                    currentDensity: output.currentDensity,
+                    electrodeArea: output.electrodeArea,
+                    stackLength: output.stackLength
+                },
+                validation
+            };
+
+            setDesignResult(newDesignResult);
+            setDesignGenerated(true);
         } catch (e) {
             console.error("Client calculation error:", e);
         }
@@ -400,47 +445,8 @@ export function AppProvider({ children }) {
                 setLoading,
                 feedWater,
                 setFeedWater,
-                aiResult,
-                setAiResult,
-                designParameters,
-                setDesignParameters,
-                engineering,
-                setEngineering,
-                componentSizing: componentSizingState,
-                setComponentSizing,
-                simulation,
-                setSimulation,
-                performance,
-                setPerformance,
-                optimization,
-                setOptimization,
-                electrode,
-                setElectrode,
-                layout,
-                setLayout,
-                stack,
-                setStack,
-                cellGeometry,
-                setCellGeometry,
-                selectedComponent,
-                setSelectedComponent,
-                selectedEquipment,
-                setSelectedEquipment,
-                designComponents,
-                setDesignComponents,
-                optimizationMode,
-                setOptimizationMode,
-                optimizationInputs,
-                setOptimizationInputs,
-                lockedParameters,
-                setLockedParameters,
-                page,
-                setPage,
-                equations,
-                setEquations,
-                fetchEquations,
-                saveEquations,
-                resetEquations,
+                designResult,
+                setDesignResult,
                 recalculate,
                 designGenerated,
                 setDesignGenerated,
@@ -451,7 +457,26 @@ export function AppProvider({ children }) {
                 login,
                 register,
                 logout,
-                requestPasswordReset
+                requestPasswordReset,
+                page,
+                setPage,
+                equations,
+                setEquations,
+                fetchEquations,
+                saveEquations,
+                resetEquations,
+                optimizationMode,
+                setOptimizationMode,
+                optimizationInputs,
+                setOptimizationInputs,
+                lockedParameters,
+                setLockedParameters,
+                designComponents,
+                setDesignComponents,
+                selectedComponent,
+                setSelectedComponent,
+                selectedEquipment,
+                setSelectedEquipment
             }}
         >
             {children}

@@ -4,15 +4,25 @@ import { useApp } from "../context/AppContext";
 
 export default function ResultPanel(){
 
-
 const {
+    designResult,
+    selectedDesign
+} = useApp();
 
-simulation,
-selectedDesign,
-engineering,
-optimization
+const simulation = designResult?.simulation;
+const engineering = designResult?.engineering;
+const optimization = designResult?.optimizedEngineering;
+const kpi = designResult?.kpi;
 
-}=useApp();
+if (!designResult || !designResult.engineering) {
+    return (
+        <div className="panel">
+            <h2>Final Design Summary</h2>
+            <hr />
+            <p>Generate design first.</p>
+        </div>
+    );
+}
 
 
 
@@ -79,7 +89,7 @@ Technology
 <td>
 
 {
-selectedDesign ?? "-"
+engineering?.technology || selectedDesign || "-"
 }
 
 </td>
@@ -103,7 +113,7 @@ Feed TDS
 
 {
 format(
-simulation?.inputTDS
+    designResult?.input?.feedWater?.tds
 )
 }
 
@@ -130,7 +140,7 @@ Outlet TDS
 
 {
 format(
-simulation?.outputTDS
+    engineering?.outletTDS ?? kpi?.outletTDS
 )
 }
 
@@ -158,7 +168,9 @@ Salt Removed
 
 {
 format(
-simulation?.saltRemoval
+    (designResult?.input?.feedWater?.tds != null && engineering?.outletTDS != null)
+        ? (designResult.input.feedWater.tds - engineering.outletTDS)
+        : null
 )
 }
 
@@ -187,7 +199,7 @@ Removal Efficiency
 
 {
 format(
-simulation?.removalEfficiency
+    engineering?.removalEfficiency ?? kpi?.removalEfficiency
 )
 }
 

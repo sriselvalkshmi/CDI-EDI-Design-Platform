@@ -8,26 +8,21 @@ export default function Navbar() {
         logout,
         user,
         isAuthenticated,
-        feedWater,
+        designResult,
         technology,
-        aiResult,
-        engineering,
-        simulation,
-        performance,
-        optimization,
         equations
     } = useApp();
 
     const handleExportReport = () => {
         generateEngineeringReportPDF({
             user,
-            feedWater,
-            technology,
-            aiResult,
-            engineering,
-            simulation,
-            performance,
-            optimization,
+            feedWater: designResult?.input?.feedWater,
+            technology: designResult?.input?.technology || technology,
+            aiResult: designResult?.aiRecommendation,
+            engineering: designResult?.engineering,
+            simulation: designResult?.simulation,
+            performance: designResult?.performance,
+            optimization: designResult?.optimizedEngineering,
             equations
         });
     };
@@ -75,7 +70,7 @@ const styles = {
         padding: "0 20px",
         background: "#ffffff",
         borderBottom: "1px solid #D9E2EC",
-        height: "56px",
+        height: "60px",
         boxSizing: "border-box",
         boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
         fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif",

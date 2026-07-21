@@ -134,6 +134,7 @@ function calculateEngineering(inputs) {
     const sac = electrodeMass > 0 ? (removedSaltMg / electrodeMass) : 6.6;
 
     return {
+        technology,
         voltage,
         current,
         cellPairs,

@@ -42,7 +42,7 @@ export default function Sidebar() {
             setLoading(true);
             recalculate(optimizationInputs, technology);
             if (user) {
-                await auditLogger.logActivity(user.id, user.email, "Optimize Design", "Dashboard", `Optimized parameters for ${technology}`);
+                await auditLogger.logActivity(user.id, user.email, "Apply Optimization", "Dashboard", `Optimized parameters for ${technology}`);
             }
         } catch (error) {
             console.error("Optimization Error:", error);
@@ -170,7 +170,7 @@ export default function Sidebar() {
                 onClick={optimizeDesign}
                 disabled={loading || isViewer || isResearcher}
             >
-                {loading ? "Optimizing..." : "Optimize Design"}
+                {loading ? "Optimizing..." : "Apply Optimization"}
             </button>
         </div>
     );

@@ -37,9 +37,10 @@ function GraphCard({ title, data, dataKey, unit }) {
 }
 
 export default function SimulationGraphs() {
-    const { simulation } = useApp();
+    const { designResult } = useApp();
+    const simulation = designResult?.simulation;
 
-    if (!simulation || !simulation.time) {
+    if (!designResult || !designResult.simulation || !designResult.simulation.time) {
         return (
             <div className="panel">
                 <h2>CDI / EDI Cell Simulation</h2>

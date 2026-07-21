@@ -4,15 +4,17 @@ import "../styles/pid.css";
 
 export default function PIDDiagram() {
     const {
-        feedWater,
-        engineering,
-        simulation,
+        designResult,
         selectedDesign,
-        layout,
         setSelectedEquipment
     } = useApp();
 
-    if (!engineering || !simulation || !layout) {
+    const feedWater = designResult?.input?.feedWater || {};
+    const engineering = designResult?.engineering;
+    const simulation = designResult?.simulation;
+    const layout = designResult?.pid;
+
+    if (!designResult || !designResult.engineering || !designResult.pid) {
         return (
             <div className="panel">
                 <h2>P&amp;ID Diagram</h2>
@@ -21,12 +23,13 @@ export default function PIDDiagram() {
         );
     }
 
+    const activeTech = engineering?.technology || selectedDesign || "CDI";
     const reactorColor = {
         CDI: "#99ffcc",
         MCDI: "#D9EAD3",
         FCDI: "#CFE2F3",
         EDI: "#F4CCCC"
-    }[selectedDesign] || "#FFE699";
+    }[activeTech] || "#FFE699";
 
     const { equipment, pipes } = layout;
 
@@ -174,12 +177,12 @@ export default function PIDDiagram() {
                                 {/* Reactor block */}
                                 <g style={{ cursor: "pointer" }} onClick={() => {
                                     setSelectedEquipment({
-                                        name: selectedDesign + " Reactor",
-                                        Technology: selectedDesign,
+                                        name: activeTech + " Reactor",
+                                        Technology: activeTech,
                                         Voltage: engineering.voltage + " V",
                                         Current: engineering.current + " A",
                                         Power: engineering.power + " W",
-                                        CurrentDensity: engineering.currentDensity + " A/cm²",
+                                        CurrentDensity: engineering.currentDensity + " A/m²",
                                         ElectrodeArea: engineering.electrodeArea + " cm²"
                                     });
                                 }}>
@@ -193,7 +196,7 @@ export default function PIDDiagram() {
                                         strokeWidth="2.5"
                                         rx="8"
                                     />
-                                    <text x={eq.x + eq.width/2 - 25} y={eq.y + 35} fontWeight="bold" fontSize="16">{selectedDesign}</text>
+                                    <text x={eq.x + eq.width/2 - 40} y={eq.y + 35} fontWeight="bold" fontSize="15">{activeTech} Reactor</text>
                                     <text x={eq.x + 15} y={eq.y + 65} fontSize="13">Voltage: {engineering.voltage} V</text>
                                     <text x={eq.x + 15} y={eq.y + 95} fontSize="13">Current: {engineering.current} A</text>
                                     <text x={eq.x + 15} y={eq.y + 125} fontSize="11" fill="#444">Pairs: {engineering.cellPairs}</text>
