@@ -1,43 +1,32 @@
-"use strict";
+import calculateEngineering from "./engineeringEquationEngine.js";
 
-/*
-==========================================================
-AI TECHNOLOGY RECOMMENDATION ENGINE
-Supports: CDI, MCDI, FCDI, EDI
-==========================================================
-*/
 
+/**
+ * AI Technology Recommendation Engine
+ * Evaluates physical feasibility and runs engineering equations to produce calculated recommendations.
+ */
 function aiRecommendation(feedWater = {}) {
     const tds = Number(feedWater.tds ?? 500);
     const conductivity = Number(feedWater.conductivity ?? 300);
     const hardness = Number(feedWater.hardness ?? 150);
-    const ph = Number(feedWater.ph ?? 7);
-    const temperature = Number(feedWater.temperature ?? 25);
     const flowRate = Number(feedWater.flowRate ?? 10);
-    const pressure = Number(feedWater.pressure ?? 1);
     const targetTds = Number(feedWater.targetTds ?? 50);
 
-    const scores = {
-        CDI: 0,
-        MCDI: 0,
-        FCDI: 0,
-        EDI: 0
-    };
-
+    const scores = { CDI: 0, MCDI: 0, FCDI: 0, EDI: 0 };
     const reasons = [];
 
-    if (tds < 100) {
+    if (tds < 100 || targetTds < 10) {
         scores.EDI += 70;
         scores.MCDI += 20;
-        reasons.push("Low feed TDS is ideal for EDI high-purity polishing.");
+        reasons.push("Low feed TDS / ultra-pure polishing requirement is ideal for EDI resin-membrane stack.");
     } else if (tds <= 1000) {
         scores.MCDI += 65;
         scores.CDI += 40;
-        reasons.push("Moderate salinity feed water with dissolved minerals requires MCDI.");
+        reasons.push("Moderate salinity feed water with dissolved minerals favors membrane-assisted CDI (MCDI).");
     } else if (tds <= 5000) {
         scores.FCDI += 75;
         scores.MCDI += 20;
-        reasons.push("High TDS stream favors Flowable Electrode CDI (FCDI).");
+        reasons.push("High TDS stream favors Flowable Electrode CDI (FCDI) continuous slurry desalting.");
     } else {
         scores.FCDI += 100;
         reasons.push("Very high salinity feed requires FCDI continuous slurry operation.");
@@ -45,7 +34,7 @@ function aiRecommendation(feedWater = {}) {
 
     if (hardness >= 100) {
         scores.MCDI += 35;
-        reasons.push("Presence of hardness ions requires membrane-assisted CDI (MCDI) for ion selectivity.");
+        reasons.push("Presence of scale-forming hardness ions requires membrane ion selectivity.");
     }
 
     if (conductivity > 1500) {
@@ -56,12 +45,7 @@ function aiRecommendation(feedWater = {}) {
     if (targetTds <= 50) {
         scores.MCDI += 25;
         scores.EDI += 30;
-        reasons.push("Stringent target TDS requires membrane ion blocking.");
-    }
-
-    if (flowRate > 50) {
-        scores.FCDI += 25;
-        reasons.push("High volumetric flow rate operates efficiently with scalable cell stacks.");
+        reasons.push("Stringent target TDS requires membrane co-ion blocking.");
     }
 
     const ranking = Object.entries(scores).sort((a, b) => b[1] - a[1]);
@@ -71,20 +55,17 @@ function aiRecommendation(feedWater = {}) {
 
     let confidence = 92;
     const gap = bestScore - secondScore;
-
     if (gap > 50) confidence = 95;
     else if (gap > 30) confidence = 92;
     else if (gap > 15) confidence = 88;
     else confidence = 82;
 
-    const defaults = {
-        CDI: { voltage: 1.2, current: 6.0, cellPairs: 36, electrodeArea: 350, flowVelocity: 0.12, residenceTime: 10.0, pressureDrop: 22.5, pumpPower: 0.05, waterRecovery: 90.0, removal: 85 },
-        MCDI: { voltage: 1.4, current: 8.0, cellPairs: 48, electrodeArea: 420, flowVelocity: 0.15, residenceTime: 12.0, pressureDrop: 25.85, pumpPower: 0.06, waterRecovery: 95.0, removal: 90.4 },
-        FCDI: { voltage: 1.8, current: 10.0, cellPairs: 60, electrodeArea: 500, flowVelocity: 0.22, residenceTime: 15.0, pressureDrop: 32.0, pumpPower: 0.09, waterRecovery: 94.0, removal: 95 },
-        EDI: { voltage: 15.0, current: 3.0, cellPairs: 100, electrodeArea: 600, flowVelocity: 0.30, residenceTime: 18.0, pressureDrop: 45.0, pumpPower: 0.15, waterRecovery: 98.0, removal: 99 }
-    };
-
-    const techDefaults = defaults[technology];
+    // Run exact physical engineering calculation for the recommended technology
+    const eng = calculateEngineering({
+        technology,
+        feedWater,
+        flowRate
+    });
 
     return {
         selectedTechnology: technology,
@@ -92,20 +73,23 @@ function aiRecommendation(feedWater = {}) {
         confidence,
         scores,
         reason: reasons.join(" "),
-        voltage: techDefaults.voltage,
-        current: techDefaults.current,
-        cellPairs: techDefaults.cellPairs,
-        electrodeArea: techDefaults.electrodeArea,
-        flowVelocity: techDefaults.flowVelocity,
-        residenceTime: techDefaults.residenceTime,
-        pressureDrop: techDefaults.pressureDrop,
-        pumpPower: techDefaults.pumpPower,
-        waterRecovery: techDefaults.waterRecovery,
-        recommendedVoltage: techDefaults.voltage,
-        recommendedCurrent: techDefaults.current,
-        recommendedCellPairs: techDefaults.cellPairs,
-        expectedRemoval: techDefaults.removal,
-        operatingMode: technology === "EDI" ? "Continuous Ion Migration" : "Adsorption / Desorption"
+        voltage: eng.voltage,
+        current: eng.current,
+        cellPairs: eng.cellPairs,
+        electrodeArea: eng.electrodeArea,
+        flowRate: eng.flowRate,
+        flowVelocity: eng.flowVelocity,
+        residenceTime: eng.residenceTime,
+        pressureDrop: eng.pressureDrop,
+        pumpPower: eng.pumpPower,
+        waterRecovery: eng.waterRecovery,
+        recommendedVoltage: eng.voltage,
+        recommendedCurrent: eng.current,
+        recommendedCellPairs: eng.cellPairs,
+        expectedRemoval: eng.removalEfficiency,
+        expectedOutletTDS: eng.outletTDS,
+        expectedSEC: eng.sec,
+        operatingMode: technology === "EDI" ? "Continuous Ion Migration" : (technology === "FCDI" ? "Continuous Slurry Flow" : "Adsorption / Desorption")
     };
 }
 

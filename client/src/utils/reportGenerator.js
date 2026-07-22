@@ -41,19 +41,41 @@ export const generateEngineeringReportPDF = ({
         const targetTds = feedWater.targetTds ?? feedWater.targetTDS ?? 50;
 
         // Engineering Data
-        const engData = engineering || aiResult?.engineering || {};
-        const elec = engData.electrical || aiResult?.cellDesign || { voltage: 1.20, current: 5.00, power: 6.00, currentDensity: 200.0 };
-        const stack = engData.stack || aiResult?.stack || { cellPairs: 20, electrodeArea: 250, residenceTime: 10.0, stackLength: 100, stackWidth: 50, stackHeight: 22 };
-        const hydr = engData.hydraulic || aiResult?.cellGeometry?.hydraulic || { flowVelocity: 0.300, pressureDrop: 580.8, pumpPower: 0.138, waterRecovery: 99.42 };
-        const elecProps = engData.electrode || aiResult?.electrode || { mass: 67.50, capacitance: 5062.5, sac: 6.60, chargeEfficiency: 85.0 };
+        const engData = engineering || {};
+        const elec = {
+            voltage: engData.voltage ?? aiResult?.voltage ?? 1.20,
+            current: engData.current ?? aiResult?.current ?? 5.00,
+            power: engData.power ?? (engData.voltage * engData.current) ?? 6.00,
+            currentDensity: engData.currentDensity ?? 200.0
+        };
+        const stack = {
+            cellPairs: engData.cellPairs ?? aiResult?.cellPairs ?? 36,
+            electrodeArea: engData.electrodeArea ?? aiResult?.electrodeArea ?? 250,
+            residenceTime: engData.residenceTime ?? aiResult?.residenceTime ?? 10.0,
+            stackLength: engData.stackLength ?? 200,
+            stackWidth: engData.stackWidth ?? 100,
+            stackHeight: engData.stackHeight ?? 37
+        };
+        const hydr = {
+            flowVelocity: engData.flowVelocity ?? aiResult?.flowVelocity ?? 0.15,
+            pressureDrop: engData.pressureDrop ?? aiResult?.pressureDrop ?? 50.0,
+            pumpPower: engData.pumpPower ?? aiResult?.pumpPower ?? 0.05,
+            waterRecovery: engData.waterRecovery ?? aiResult?.waterRecovery ?? 95.0
+        };
+        const elecProps = {
+            mass: engData.electrodeMass ?? 67.50,
+            capacitance: 5062.5,
+            sac: engData.sac ?? 6.60,
+            chargeEfficiency: 85.0
+        };
 
-        // Simulation Data
-        const simData = simulation || aiResult?.simulation || aiResult?.performance || {};
-        const outletTds = simData.outletTDS ?? simData.outletTds ?? 467.0;
-        const saltRemoval = simData.saltRemoval ?? (fwTds - outletTds);
-        const removalEff = simData.removalEfficiency ?? simData.saltRemovalPercentage ?? 6.60;
-        const powerCons = simData.powerConsumption ?? elec.power ?? 6.00;
-        const sec = simData.sec ?? simData.specificEnergy ?? 0.0100;
+        // Simulation & Performance Data
+        const simData = simulation || performance || {};
+        const outletTds = engData.outletTDS ?? simData.outletTDS ?? simData.outletTds ?? (fwTds * 0.1);
+        const saltRemoval = fwTds - outletTds;
+        const removalEff = engData.removalEfficiency ?? simData.removalEfficiency ?? ((saltRemoval / fwTds) * 100);
+        const powerCons = engData.power ?? elec.power ?? 6.00;
+        const sec = engData.sec ?? simData.specificEnergy ?? simData.sec ?? 0.0100;
 
         // Selected Tech & AI Recommendation
         const recTech = aiResult?.selectedTechnology || technology || "CDI";

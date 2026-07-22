@@ -13,25 +13,25 @@ import {
     ReferenceArea
 } from "recharts";
 
-function GraphCard({ title, data, dataKey, unit }) {
-    const adsorptionTime = data[0]?.adsorption ?? 0;
-    const totalTime = data[0]?.total ?? 20;
+function GraphCard({ title, data, dataKey, unit, color = "#2563EB" }) {
     return (
-        <div className="graph-card" style={{ background: "#F8FAFC", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px" }}>
-            <h3 style={{ fontSize: "14px", fontWeight: "600", color: "#263238", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>{title}</h3>
-            <ResponsiveContainer width="100%" height={220}>
+        <div style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px" }}>
+            <h4 style={{ fontSize: "13px", fontWeight: "600", color: "#1F2937", marginBottom: "8px" }}>{title}</h4>
+            <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={data}>
-                    <ReferenceArea x1={0} x2={adsorptionTime} fill="#e3f2fd" fillOpacity={0.3} />
-                    <ReferenceArea x1={adsorptionTime} x2={totalTime} fill="#fff3e0" fillOpacity={0.3} />
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
+                    {/* Phase 1: Adsorption (+V, +I Desalination) */}
+                    <ReferenceArea x1="0 min" x2="20 min" fill="#EFF6FF" fillOpacity={0.6} label={{ value: "Adsorption Phase", fill: "#2563EB", fontSize: 10, position: "insideTopLeft" }} />
+                    {/* Phase 2: Desorption (-V, -I Regeneration) */}
+                    <ReferenceArea x1="20 min" x2="30 min" fill="#FEF3C7" fillOpacity={0.6} label={{ value: "Desorption Phase", fill: "#D97706", fontSize: 10, position: "insideTopRight" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                    <XAxis dataKey="time" stroke="#64748B" fontSize={10} />
+                    <YAxis stroke="#64748B" fontSize={10} />
+                    <Tooltip contentStyle={{ backgroundColor: "#FFFFFF", borderColor: "#CBD5E1", color: "#1E293B" }} />
                     <Legend />
-                    <Line type="monotone" dataKey={dataKey} strokeWidth={3} stroke="#1565c0" dot={false} />
+                    <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2.5} dot={false} isAnimationActive={false} />
                 </LineChart>
             </ResponsiveContainer>
-            <p className="graph-unit" style={{ fontSize: "12px", color: "#607D8B", marginTop: "8px" }}>{unit}</p>
+            <p style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>{unit}</p>
         </div>
     );
 }
@@ -40,35 +40,33 @@ export default function SimulationGraphs() {
     const { designResult } = useApp();
     const simulation = designResult?.simulation;
 
-    if (!designResult || !designResult.simulation || !designResult.simulation.time) {
+    if (!designResult || !simulation || !simulation.time) {
         return (
             <div className="panel">
-                <h2>CDI / EDI Cell Simulation</h2>
-                <p>Generate design first.</p>
+                <h2>Dynamic Simulation Profiles</h2>
+                <p style={{ color: "#6B7280" }}>Generate design to load simulation profiles.</p>
             </div>
         );
     }
 
     const graphData = simulation.time.map((t, i) => ({
-        time: t,
+        time: `${t} min`,
         voltage: simulation.voltage?.[i] ?? 0,
         current: simulation.current?.[i] ?? 0,
         tds: simulation.tds?.[i] ?? 0,
-        conductivity: simulation.conductivity?.[i] ?? 0,
-        chargeEfficiency: simulation.chargeEfficiency?.[i] ?? 0,
-        adsorption: simulation.adsorptionTime ?? 0,
-        total: (simulation.adsorptionTime ?? 0) + (simulation.desorptionTime ?? 0)
+        loading: simulation.electrodeLoading?.[i] ?? 0,
+        chargeEfficiency: simulation.chargeEfficiency?.[i] ?? 0
     }));
 
     return (
         <div className="panel">
-            <h2>CDI / EDI Cell Dynamic Simulation</h2>
-            <div className="graphs-container" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", overflowY: "auto" }}>
-                <GraphCard title="Voltage Profile" data={graphData} dataKey="voltage" unit="Voltage (V)" />
-                <GraphCard title="Current Profile" data={graphData} dataKey="current" unit="Current (A)" />
-                <GraphCard title="TDS Removal" data={graphData} dataKey="tds" unit="TDS (ppm)" />
-                <GraphCard title="Conductivity" data={graphData} dataKey="conductivity" unit="µS/cm" />
-                <GraphCard title="Charge Efficiency" data={graphData} dataKey="chargeEfficiency" unit="Λ" />
+            <h3 className="panel-title" style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1F2937" }}>Dynamic Simulation Profiles</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "12px" }}>
+                <GraphCard title="Outlet TDS vs Time" data={graphData} dataKey="tds" unit="TDS (ppm)" color="#2563EB" />
+                <GraphCard title="Electrode Loading" data={graphData} dataKey="loading" unit="SAC (mg/g)" color="#7C3AED" />
+                <GraphCard title="Operating Voltage" data={graphData} dataKey="voltage" unit="Voltage (V)" color="#D97706" />
+                <GraphCard title="Cell Current" data={graphData} dataKey="current" unit="Current (A)" color="#16A34A" />
+                <GraphCard title="Charge Efficiency" data={graphData} dataKey="chargeEfficiency" unit="Charge Efficiency Λ (%)" color="#DB2777" />
             </div>
         </div>
     );

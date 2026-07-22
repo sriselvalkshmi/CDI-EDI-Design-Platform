@@ -6,30 +6,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg-main: #F4F7FB;
+  --bg-main: #F7F9FC;
   --bg-panel: #FFFFFF;
-  --bg-subtle: #F8FAFC;
+  --bg-subtle: #FFFFFF;
   --border-color: #D9E2EC;
   --border-divider: #E5E7EB;
   
-  --primary: #1565C0;
-  --primary-hover: #0D47A1;
-  --secondary: #00897B;
-  --success: #2E7D32;
-  --warning: #F57C00;
-  --danger: #C62828;
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --secondary: #0284C7;
+  --success: #16A34A;
+  --warning: #F59E0B;
+  --danger: #DC2626;
   
-  --text-main: #263238;
-  --text-header: #0F172A;
-  --text-muted: #607D8B;
+  --text-main: #1F2937;
+  --text-header: #111827;
+  --text-muted: #6B7280;
   
-  --shadow-panel: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.12);
+  --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 4px 6px rgba(0, 0, 0, 0.06);
   
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
 }
+
 
 * {
   box-sizing: border-box;

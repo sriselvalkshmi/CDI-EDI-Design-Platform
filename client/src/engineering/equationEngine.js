@@ -1,5 +1,6 @@
-import { parseFormula, evaluatePostfix, validateFormula } from './formulaParser';
-import supabase from '../services/supabaseClient';
+import { parseFormula, evaluatePostfix, validateFormula } from './formulaParser.js';
+
+import supabase from '../services/supabaseClient.js';
 let inMemoryEquationsCache = null;
 
 const EQUATION_SYMBOLS = {

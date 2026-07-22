@@ -1,0 +1,62 @@
+[
+  {
+    "id": "EXP-001",
+    "technology": "CDI",
+    "feedTds": 500,
+    "targetTds": 50,
+    "voltage": 1.2,
+    "current": 5.0,
+    "flowRate": 10.0,
+    "electrodeArea": 350,
+    "cellPairs": 36,
+    "expOutletTds": 51.5,
+    "expRemoval": 89.7,
+    "expSec": 0.0125,
+    "expPressureDrop": 26.2
+  },
+  {
+    "id": "EXP-002",
+    "technology": "MCDI",
+    "feedTds": 800,
+    "targetTds": 100,
+    "voltage": 1.4,
+    "current": 7.0,
+    "flowRate": 10.0,
+    "electrodeArea": 400,
+    "cellPairs": 48,
+    "expOutletTds": 75.2,
+    "expRemoval": 90.6,
+    "expSec": 0.0192,
+    "expPressureDrop": 28.5
+  },
+  {
+    "id": "EXP-003",
+    "technology": "FCDI",
+    "feedTds": 1500,
+    "targetTds": 100,
+    "voltage": 1.8,
+    "current": 10.0,
+    "flowRate": 10.0,
+    "electrodeArea": 500,
+    "cellPairs": 60,
+    "expOutletTds": 74.0,
+    "expRemoval": 95.1,
+    "expSec": 0.0305,
+    "expPressureDrop": 31.8
+  },
+  {
+    "id": "EXP-004",
+    "technology": "EDI",
+    "feedTds": 3000,
+    "targetTds": 200,
+    "voltage": 15.0,
+    "current": 3.0,
+    "flowRate": 10.0,
+    "electrodeArea": 600,
+    "cellPairs": 100,
+    "expOutletTds": 28.8,
+    "expRemoval": 99.04,
+    "expSec": 0.0745,
+    "expPressureDrop": 3.5
+  }
+]

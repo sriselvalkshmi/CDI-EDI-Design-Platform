@@ -19,6 +19,11 @@ import performanceCalculator from "../engineering/performanceCalculator";
 import designOptimizer from "../engineering/designOptimizer";
 import EquationEngine from "../engineering/equationEngine";
 import aiRecommendation from "../engineering/aiRecommendation";
+import analyzeWaterChemistry from "../engineering/waterChemistry";
+import calculateEconomics from "../engineering/economicEngine";
+import calibrateEquations from "../engineering/experimentalCalibration";
+import predictActualPerformance from "../engineering/mlCorrectionEngine";
+
 
 const componentSizing = typeof componentSizingModule === "function" ? componentSizingModule : componentSizingModule.calculate;
 
@@ -138,35 +143,62 @@ export function AppProvider({ children }) {
     const [designGenerated, setDesignGenerated] = useState(false);
 
     // Client-side engineering calculation engine
-    const recalculate = (currentInputs = optimizationInputs, currentTech = technology) => {
+    const recalculate = (currentInputs = optimizationInputs, currentTech = technology, isOptimization = false) => {
         try {
+            // 1. Water Chemistry Analysis
+            const waterChem = analyzeWaterChemistry(feedWater);
 
-
-            // 1. AI Recommendation
+            // 2. AI Recommendation
             const ai = aiRecommendation(feedWater);
             const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "CDI") : currentTech;
 
-            // 2. Engineering Equation Engine
-            const eng = engineeringEquationEngine({
+            let calcInputs = { ...currentInputs };
+
+            // 3. Engineering Equation Engine
+            let eng = engineeringEquationEngine({
                 technology: activeTech,
                 feedWater,
-                ...currentInputs
+                ...calcInputs
             });
 
-            // 3. Electrode Model
+            // 4. Electrode Model
             const elect = electrodeModel(feedWater, eng);
 
-            // 4. Component Sizing (kept for UI but not part of designResult output)
+            // 5. Component Sizing
             const size = componentSizing(eng, activeTech);
 
-            // 5. Simulation Engine
+            // 6. Design Optimizer
+            const optResult = designOptimizer(feedWater, size, eng);
+
+            if ((isOptimization || currentTech === "AUTO") && optResult) {
+                calcInputs = {
+                    ...calcInputs,
+                    voltage: optResult.optimizedVoltage ?? calcInputs.voltage,
+                    current: optResult.current ?? calcInputs.current,
+                    flowRate: optResult.optimizedFlowRate ?? calcInputs.flowRate,
+                    electrodeArea: optResult.optimizedElectrodeArea ?? calcInputs.electrodeArea,
+                    cellPairs: optResult.optimizedCellPairs ?? calcInputs.cellPairs
+                };
+                eng = engineeringEquationEngine({
+                    technology: activeTech,
+                    feedWater,
+                    ...calcInputs
+                });
+                setOptimizationInputs(calcInputs);
+            }
+
+            // 7. Simulation Engine
             const sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
 
-            // 6. Performance Calculator
-            const perf = performanceCalculator(eng, sim, feedWater);
+            // 8. Performance Calculator
+            const perf = performanceCalculator(feedWater, sim, eng, null, elect);
 
-            // 7. Design Optimizer (optional)
-            const optResult = designOptimizer(feedWater, size, eng);
+            // 9. Economic & Energy Analysis
+            const economics = calculateEconomics(eng, feedWater);
+
+            // 10. Experimental Calibration & ML Prediction
+            const calibration = calibrateEquations();
+            const mlPrediction = predictActualPerformance(eng, feedWater);
 
             // Ensure technology is set on engineering
             eng.technology = activeTech;
@@ -174,13 +206,13 @@ export function AppProvider({ children }) {
             // Assemble output fields
             const output = {
                 technology: activeTech,
-                outletTDS: sim?.outputTDS ?? sim?.outletTDS ?? eng?.outletTDS ?? null,
-                removalEfficiency: sim?.removalEfficiency ?? eng?.removalEfficiency ?? null,
+                outletTDS: eng?.outletTDS ?? sim?.outputTDS ?? sim?.outletTDS ?? null,
+                removalEfficiency: eng?.removalEfficiency ?? sim?.removalEfficiency ?? null,
                 pressureDrop: eng?.pressureDrop ?? 0,
                 power: eng?.power ?? (sim?.averageVoltage * sim?.averageCurrent) ?? null,
                 flowVelocity: eng?.flowVelocity ?? 0,
-                SEC: sim?.specificEnergy ?? eng?.sec ?? null,
-                residenceTime: eng?.residenceTime ?? currentInputs?.residenceTime ?? null,
+                SEC: eng?.sec ?? sim?.specificEnergy ?? null,
+                residenceTime: eng?.residenceTime ?? calcInputs?.residenceTime ?? null,
                 waterRecovery: eng?.waterRecovery ?? 95.0,
                 recovery: eng?.recovery ?? 95.0,
                 currentDensity: eng?.currentDensity ?? null,
@@ -188,31 +220,54 @@ export function AppProvider({ children }) {
                 stackLength: eng?.stackLength ?? null
             };
 
-            // Validation checks
-            const validation = { status: "VALID", messages: [] };
+            // Validation logic
+            const tds = Number(feedWater.tds || 500);
             const targetTds = Number(feedWater.targetTds || 50);
-            if (output.outletTDS !== null && output.outletTDS > targetTds) {
-                validation.status = "INVALID";
-                validation.messages.push("⚠ Target TDS NOT achieved");
-            }
-            if (eng?.voltage && eng.voltage > 5) {
-                validation.messages.push("⚠ Voltage exceeds safe range");
-            }
-            if (eng?.currentDensity && eng.currentDensity > 3) {
-                validation.messages.push("⚠ Current density exceeds safe range");
+            const requiredRemoval = tds > 0 ? ((tds - targetTds) / tds) * 100 : 90.0;
+            const currentRemoval = output.removalEfficiency ?? 0;
+
+            const maxTechRemovalMap = { CDI: 85.0, MCDI: 94.0, FCDI: 96.0, EDI: 99.9 };
+            const maxTechRemoval = maxTechRemovalMap[activeTech] || 85.0;
+
+            const isTargetAchieved = output.outletTDS !== null && output.outletTDS <= targetTds;
+            const isVoltageSafe = activeTech === "EDI" ? (eng.voltage >= 5.0 && eng.voltage <= 50.0) : (eng.voltage >= 0.8 && eng.voltage <= 4.0);
+            const isCurrentDensitySafe = (eng.currentDensityCm2 ?? 0) <= 0.05 || (eng.currentDensity ?? 0) <= 600;
+            const isPressureSafe = (eng.pressureDrop ?? 0) <= 200000;
+
+            const validation = { status: "VALID", messages: [] };
+
+            if (requiredRemoval > maxTechRemoval && !isTargetAchieved) {
+                validation.status = "TARGET NOT ACHIEVABLE";
+                const nextTech = activeTech === "CDI" ? "MCDI" : (activeTech === "MCDI" ? "FCDI" : "EDI");
+                validation.messages.push(`⚠ Required removal (${requiredRemoval.toFixed(1)}%) exceeds ${activeTech} maximum capacity (${maxTechRemoval}%).`);
+                validation.messages.push(`💡 Recommend upgrading technology: ${activeTech} → ${nextTech}`);
+            } else if (!isTargetAchieved || currentRemoval < requiredRemoval || !isVoltageSafe || !isCurrentDensitySafe || !isPressureSafe) {
+                validation.status = "OPTIMIZATION REQUIRED";
+                if (!isTargetAchieved || currentRemoval < requiredRemoval) validation.messages.push("⚠ Current design is insufficient to meet target TDS.");
+                if (!isVoltageSafe) validation.messages.push("⚠ Voltage outside safe operational limits.");
+                if (!isCurrentDensitySafe) validation.messages.push("⚠ Current density exceeds safe limit.");
+                if (!isPressureSafe) validation.messages.push("⚠ High hydraulic pressure drop.");
+                validation.messages.push("💡 Suggestions: Increase electrode area, Increase cell pairs, Lower flow rate, Increase residence time, Increase voltage.");
+            } else {
+                validation.status = "VALID";
+                validation.messages.push("✓ Target TDS achieved, current density safe, voltage safe, pressure acceptable.");
             }
 
-            // 8. P&ID and Layout Generator
+            // P&ID and Layout Generator
             const pidResult = layoutGenerator(null, eng, feedWater, sim, activeTech);
 
             // Build the unified designResult object
             const newDesignResult = {
-                input: { feedWater, optimizationInputs: currentInputs, technology: activeTech, userSelectedTechnology: currentTech },
+                input: { feedWater, optimizationInputs: calcInputs, technology: activeTech, userSelectedTechnology: currentTech },
                 aiRecommendation: ai,
                 engineering: eng,
                 simulation: sim,
                 performance: perf,
-                optimizedEngineering: optResult?.optimizedDesign || null,
+                waterChemistry: waterChem,
+                economics,
+                calibration,
+                mlPrediction,
+                optimizedEngineering: optResult || null,
                 equipment: pidResult?.equipment || [],
                 pid: pidResult,
                 kpi: {
@@ -228,7 +283,12 @@ export function AppProvider({ children }) {
                     recovery: output.recovery,
                     currentDensity: output.currentDensity,
                     electrodeArea: output.electrodeArea,
-                    stackLength: output.stackLength
+                    stackLength: output.stackLength,
+                    costPerM3: economics.costPerM3,
+                    carbonFootprint: economics.carbonFootprint,
+                    lsi: waterChem.lsi,
+                    sac: eng.sac,
+                    chargeEfficiency: eng.chargeEfficiency
                 },
                 validation
             };
@@ -239,6 +299,8 @@ export function AppProvider({ children }) {
             console.error("Client calculation error:", e);
         }
     };
+
+
 
     const fetchEquations = async () => {
         try {

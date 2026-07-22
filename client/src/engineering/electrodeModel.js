@@ -53,31 +53,28 @@ function electrodeModel(feedWater, engineering) {
 
 
     //--------------------------------------------------
-    // CARBON ELECTRODE PROPERTIES
+    // ELECTRODE MATERIAL DATABASE
     //--------------------------------------------------
+    const MATERIALS = {
+        "Activated Carbon": { density: 0.45, porosity: 0.65, conductivity: 120, specificCapacitance: 75, specificSurfaceArea: 1500, sac: 15.0, costPerKg: 15.0, poreDiameter: 2.5 },
+        "Carbon Aerogel": { density: 0.20, porosity: 0.85, conductivity: 500, specificCapacitance: 120, specificSurfaceArea: 1100, sac: 28.0, costPerKg: 45.0, poreDiameter: 4.0 },
+        "Graphene": { density: 0.15, porosity: 0.90, conductivity: 2000, specificCapacitance: 180, specificSurfaceArea: 2600, sac: 42.0, costPerKg: 120.0, poreDiameter: 1.8 },
+        "Carbon Nanotube": { density: 0.25, porosity: 0.80, conductivity: 1500, specificCapacitance: 150, specificSurfaceArea: 1800, sac: 35.0, costPerKg: 95.0, poreDiameter: 3.0 },
+        "MXene": { density: 0.60, porosity: 0.75, conductivity: 3500, specificCapacitance: 250, specificSurfaceArea: 800, sac: 55.0, costPerKg: 150.0, poreDiameter: 2.0 }
+    };
+
+    const materialName = engineering?.material || "Activated Carbon";
+    const mat = MATERIALS[materialName] || MATERIALS["Activated Carbon"];
+
+    const density = mat.density;
+    const porosity = mat.porosity;
+    const conductivity = mat.conductivity;
+    const specificCapacitance = mat.specificCapacitance;
+    const specificSurfaceArea = mat.specificSurfaceArea;
+    const poreDiameter = mat.poreDiameter || 2.5;
+    const SAC = mat.sac;
 
 
-    const density = 0.45;      
-    // g/cm3
-
-
-    const porosity = 0.65;
-
-
-    const conductivity = 120;
-    // S/m
-
-
-    const specificCapacitance = 75;
-    // F/g
-
-
-    const specificSurfaceArea = 1500;
-    // m2/g
-
-
-    const poreDiameter = 2.5;
-    // nm
 
 
 
@@ -226,13 +223,13 @@ function electrodeModel(feedWater, engineering) {
     //--------------------------------------------------
 
 
-    const SAC =
-
+    const calculatedSac =
         EquationEngine.evaluate(
             'Salt Adsorption Capacity',
             { SaltRemoved: saltRemoved, ElectrodeMass: electrodeMass },
-            saltRemoved / Math.max(electrodeMass, 0.001)
+            mat.sac || (saltRemoved / Math.max(electrodeMass, 0.001))
         );
+
 
 
 

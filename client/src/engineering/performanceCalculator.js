@@ -1,4 +1,5 @@
-import EquationEngine from "./equationEngine";
+import EquationEngine from "./equationEngine.js";
+
 
 function performanceCalculator(
     feedWater,
@@ -73,19 +74,26 @@ function performanceCalculator(
     //--------------------------------------------------
 
     
-    // Initial guess/fallbacks
-    const initialProductFlow = Number(simulation?.productFlow ?? flowRate * 0.98);
+    // Initial guess/fallbacks helper
+    const getScalar = (val, fallback = 0) => {
+        if (Array.isArray(val)) return Number(val[0]) || fallback;
+        if (typeof val === "number") return val;
+        if (typeof val === "string") return Number(val) || fallback;
+        return fallback;
+    };
+
+    const initialProductFlow = Number(getScalar(simulation?.productFlow, flowRate * 0.98));
     const initialWaterRecovery = Number((initialProductFlow / Math.max(flowRate, 0.001) * 100).toFixed(2));
-    const initialOutputTDS = Math.max(0, Number(simulation?.outputTDS ?? simulation?.outletTDS ?? inputTDS));
+    const initialOutputTDS = Math.max(0, Number(getScalar(simulation?.outputTDS ?? simulation?.outletTDS, inputTDS)));
     const initialSaltRemoval = Math.max(0, inputTDS - initialOutputTDS);
     const initialRemovalEfficiency = inputTDS > 0 ? Number((initialSaltRemoval / inputTDS * 100).toFixed(2)) : 0;
     
     const initialCapacitance = Number(electrode?.capacitance ?? engineering?.capacitance ?? 0);
     const initialElectrodeMass = Number(electrode?.electrodeMass ?? engineering?.electrodeMass ?? 0);
-    const initialSAC = Number(electrode?.SAC ?? simulation?.sac ?? engineering?.SAC ?? 0);
+    const initialSAC = Number(electrode?.SAC ?? getScalar(simulation?.sac) ?? engineering?.sac ?? 0);
     
     const initialChargeEfficiency = (() => {
-        let eff = simulation?.chargeEfficiency ?? engineering?.chargeEfficiency ?? 0.85;
+        let eff = getScalar(simulation?.chargeEfficiency, getScalar(engineering?.chargeEfficiency, 85));
         if (eff <= 1) eff = eff * 100;
         return Number(eff.toFixed(2));
     })();
@@ -94,6 +102,7 @@ function performanceCalculator(
         const flow_m3_hr = (flowRate / 1000) * 60;
         return flow_m3_hr > 0 ? Number(((power / 1000) / flow_m3_hr).toFixed(5)) : 0;
     })();
+
 
     const evalInputs = {
         voltage,
@@ -130,9 +139,9 @@ function performanceCalculator(
     const resolved = EquationEngine.evaluateAll(evalInputs);
 
     // Apply resolved variables
-    const outputTDS = Math.max(0, resolved.OutletTDS ?? initialOutputTDS);
-    const saltRemoval = Math.max(0, resolved.SaltRemoval ?? (inputTDS - outputTDS));
-    const removalEfficiency = Number((resolved.RemovalEfficiency ?? (inputTDS > 0 ? (saltRemoval / inputTDS * 100) : 0)).toFixed(2));
+    const outputTDS = Math.max(0, engineering?.outletTDS ?? simulation?.outputTDS ?? simulation?.outletTDS ?? resolved.OutletTDS ?? initialOutputTDS);
+    const saltRemoval = Math.max(0, inputTDS - outputTDS);
+    const removalEfficiency = inputTDS > 0 ? Number(((saltRemoval / inputTDS) * 100).toFixed(2)) : 0;
     
     const productFlow = initialProductFlow;
     const concentrateFlow = Number((flowRate - productFlow).toFixed(3));

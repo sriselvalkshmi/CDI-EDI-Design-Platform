@@ -40,7 +40,7 @@ export default function Sidebar() {
     async function optimizeDesign() {
         try {
             setLoading(true);
-            recalculate(optimizationInputs, technology);
+            recalculate(optimizationInputs, technology, true);
             if (user) {
                 await auditLogger.logActivity(user.id, user.email, "Apply Optimization", "Dashboard", `Optimized parameters for ${technology}`);
             }

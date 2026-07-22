@@ -22,43 +22,52 @@ export default function ValidationPanel() {
     const tech = engineering.technology || "CDI";
     const maxAchievableNum = tech === "EDI" ? 99.9 : (tech === "FCDI" ? 95.0 : (tech === "MCDI" ? 90.4 : 85.0));
 
-    const isTargetAchieved = (engineering.outletTDS ?? kpi.outletTDS ?? inletTDS) <= targetTDS;
-    const isValid = validation.status === "VALID" && isTargetAchieved;
+    const status = validation.status || "VALID";
 
-    const suggestedImprovements = [];
-    if (!isTargetAchieved || currentRemovalNum < requiredRemovalNum) {
-        if (tech === "CDI") {
-            suggestedImprovements.push("Switch to MCDI or FCDI for higher salinity feed water");
-        } else if (tech === "MCDI") {
-            suggestedImprovements.push("Switch to FCDI or EDI for ultra-high purity requirements");
-        }
-        suggestedImprovements.push("Increase electrode area (e.g. 250 cm² → 500 cm²)");
-        suggestedImprovements.push("Increase cell pairs (e.g. 36 → 60 pairs)");
-        suggestedImprovements.push("Lower flow rate to increase residence time");
-        suggestedImprovements.push("Consider multi-stage operation (2-stage pass)");
+    let statusBg = "#F0FDF4";
+    let statusBorder = "#BBF7D0";
+    let titleColor = "#15803D";
+    let badgeBg = "#DCFCE7";
+    let badgeColor = "#166534";
+    let titleText = "✓ Design Validation Status: Feasible";
+
+    if (status === "TARGET NOT ACHIEVABLE") {
+        statusBg = "#FEF2F2";
+        statusBorder = "#FCA5A5";
+        titleColor = "#991B1B";
+        badgeBg = "#FEE2E2";
+        badgeColor = "#991B1B";
+        titleText = "✕ TARGET NOT ACHIEVABLE";
+    } else if (status === "OPTIMIZATION REQUIRED") {
+        statusBg = "#FFFBEB";
+        statusBorder = "#FDE68A";
+        titleColor = "#92400E";
+        badgeBg = "#FEF3C7";
+        badgeColor = "#92400E";
+        titleText = "⚠ OPTIMIZATION REQUIRED";
     }
 
     return (
         <div className="panel validation-panel" style={{
-            background: isValid ? "#F0FDF4" : "#FFFFE0",
-            border: `1px solid ${isValid ? "#BBF7D0" : "#FDE68A"}`,
+            background: statusBg,
+            border: `1px solid ${statusBorder}`,
             borderRadius: "8px",
             padding: "16px",
             marginBottom: "16px"
         }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: isValid ? "#15803D" : "#92400E" }}>
-                    {isValid ? "✓ Design Validation Status: Feasible" : "⚠ Design Validation Notice"}
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: titleColor }}>
+                    {titleText}
                 </h3>
                 <span style={{
                     fontSize: "12px",
                     fontWeight: "600",
                     padding: "3px 10px",
                     borderRadius: "12px",
-                    background: isValid ? "#DCFCE7" : "#FEF3C7",
-                    color: isValid ? "#166534" : "#92400E"
+                    background: badgeBg,
+                    color: badgeColor
                 }}>
-                    {isValid ? "VALIDATED" : "OPTIMIZATION RECOMMENDED"}
+                    {status}
                 </span>
             </div>
 
@@ -78,13 +87,13 @@ export default function ValidationPanel() {
                 </div>
             </div>
 
-            {/* Suggested Improvements if target not achieved */}
-            {suggestedImprovements.length > 0 && (
-                <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid #FDE68A" }}>
-                    <div style={{ fontSize: "13px", fontWeight: "700", color: "#92400E", marginBottom: "4px" }}>Suggested Improvements</div>
-                    <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px", color: "#78350F", lineHeight: "1.6" }}>
-                        {suggestedImprovements.map((imp, idx) => (
-                            <li key={idx}>{imp}</li>
+            {/* Messages / Suggestions */}
+            {validation.messages && validation.messages.length > 0 && (
+                <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: `1px solid ${statusBorder}` }}>
+                    <div style={{ fontSize: "13px", fontWeight: "700", color: titleColor, marginBottom: "4px" }}>Validation Notes & Recommendations</div>
+                    <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px", color: titleColor, lineHeight: "1.6" }}>
+                        {validation.messages.map((msg, idx) => (
+                            <li key={idx}>{msg}</li>
                         ))}
                     </ul>
                 </div>
@@ -92,3 +101,4 @@ export default function ValidationPanel() {
         </div>
     );
 }
+

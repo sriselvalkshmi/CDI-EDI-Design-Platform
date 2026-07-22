@@ -37,7 +37,7 @@ export default function Navbar() {
                 <button
                     onClick={handleExportReport}
                     style={styles.reportBtn}
-                    title="Generate & Download Complete Engineering PDF Report"
+                    title="Export Complete Engineering Report PDF"
                 >
                     📄 Export Engineering Report
                 </button>
@@ -68,11 +68,11 @@ const styles = {
         justifyContent: "space-between",
         alignItems: "center",
         padding: "0 20px",
-        background: "#ffffff",
+        background: "#FFFFFF",
         borderBottom: "1px solid #D9E2EC",
         height: "60px",
         boxSizing: "border-box",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
         fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif",
         flexShrink: 0
     },
@@ -82,11 +82,11 @@ const styles = {
         gap: "12px"
     },
     navTitle: {
-        fontSize: "24px",
+        fontSize: "20px",
         fontWeight: "700",
-        color: "#0F172A",
+        color: "#1F2937",
         margin: 0,
-        letterSpacing: "-0.5px"
+        letterSpacing: "-0.3px"
     },
     userSection: {
         display: "flex",
@@ -94,8 +94,8 @@ const styles = {
         gap: "12px"
     },
     reportBtn: {
-        backgroundColor: "#0F172A",
-        color: "#ffffff",
+        backgroundColor: "#2563EB",
+        color: "#FFFFFF",
         border: "none",
         padding: "8px 14px",
         borderRadius: "6px",
@@ -108,8 +108,8 @@ const styles = {
         gap: "6px"
     },
     equationBtn: {
-        backgroundColor: "#1565C0",
-        color: "#ffffff",
+        backgroundColor: "#1F2937",
+        color: "#FFFFFF",
         border: "none",
         padding: "8px 16px",
         borderRadius: "6px",
@@ -122,8 +122,8 @@ const styles = {
         gap: "6px"
     },
     logoutBtn: {
-        backgroundColor: "#C62828",
-        color: "#ffffff",
+        backgroundColor: "#DC2626",
+        color: "#FFFFFF",
         border: "none",
         padding: "8px 14px",
         borderRadius: "6px",
