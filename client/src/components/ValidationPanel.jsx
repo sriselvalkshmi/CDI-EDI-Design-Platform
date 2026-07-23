@@ -90,7 +90,14 @@ export default function ValidationPanel() {
             {/* Messages / Suggestions */}
             {validation.messages && validation.messages.length > 0 && (
                 <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: `1px solid ${statusBorder}` }}>
-                    <div style={{ fontSize: "13px", fontWeight: "700", color: titleColor, marginBottom: "4px" }}>Validation Notes & Recommendations</div>
+                    <div style={{ fontSize: "13px", fontWeight: "700", color: titleColor, marginBottom: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>Validation Notes &amp; Recommendations</span>
+                        {validation.recommendedProcess && (
+                            <span style={{ fontSize: "11px", background: "#FEF3C7", color: "#92400E", padding: "2px 8px", borderRadius: "6px", fontWeight: "700" }}>
+                                Recommended Process: {validation.recommendedProcess}
+                            </span>
+                        )}
+                    </div>
                     <ul style={{ margin: 0, paddingLeft: "18px", fontSize: "12px", color: titleColor, lineHeight: "1.6" }}>
                         {validation.messages.map((msg, idx) => (
                             <li key={idx}>{msg}</li>

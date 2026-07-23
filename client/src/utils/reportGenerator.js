@@ -160,33 +160,105 @@ export const generateEngineeringReportPDF = ({
 
         startY = doc.lastAutoTable.finalY + 4;
 
-        // 3. Engineering Design Summary Table
-        autoTable(doc, {
-            startY: startY,
-            head: [["Engineering Design Summary", "", ""]],
-            body: [
-                ["Parameter", "Recommended / Current Value", "Unit"],
-                ["Operating Voltage", fmt(elec.voltage, 2), "V"],
-                ["Current", fmt(elec.current, 2), "A"],
-                ["Power Consumption", fmt(elec.power, 2), "W"],
-                ["Cell Pairs", `${stack.cellPairs || 20}`, "pairs"],
-                ["Electrode Area (per cell)", fmt(stack.electrodeArea || 250, 0), "cm²"],
-                ["Residence Time", fmt(stack.residenceTime || 10.0, 1), "min"],
-                ["Flow Velocity", fmt(hydr.flowVelocity || 0.300, 3), "m/s"],
-                ["Pressure Drop", fmt(hydr.pressureDrop || 580.8, 1), "Pa"],
-                ["Pump Power", fmt(hydr.pumpPower || 0.138, 3), "W"],
-                ["Water Recovery", fmt(hydr.waterRecovery || 99.42, 2), "%"],
-                ["Cell Stack Dimensions (L x W x H)", `${stack.stackLength || 100} x ${stack.stackWidth || 50} x ${stack.stackHeight || 22}`, "mm"]
-            ],
-            theme: "grid",
-            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
-            styles: { fontSize: 8, cellPadding: 1.5 },
-            columnStyles: {
-                0: { fontStyle: "bold", cellWidth: 90 },
-                1: { cellWidth: 46, alignment: "right" },
-                2: { cellWidth: 46 }
-            }
-        });
+        // Process data extraction
+        const process = engData.process || {};
+        const isMultiStage = process.isMultiStage || engData.isMultiStage;
+        const stage1 = process.stages?.[0] || {};
+        const stage2 = process.stages?.[1] || {};
+        const overall = process.overall || {};
+
+        // 3. Stage 1 & Stage 2 Engineering Design Summary
+        if (isMultiStage) {
+            autoTable(doc, {
+                startY: startY,
+                head: [["Stage 1 Engineering Design (FCDI Bulk Desalination)", "", ""]],
+                body: [
+                    ["Parameter", "Stage 1 Value", "Unit"],
+                    ["Technology", "FCDI", "-"],
+                    ["Inlet TDS", fmt(stage1.inletTDS || fwTds, 1), "ppm"],
+                    ["Outlet TDS", fmt(stage1.outletTDS || 1941, 1), "ppm"],
+                    ["Operating Voltage", fmt(stage1.voltage || elec.voltage, 2), "V"],
+                    ["Operating Current", fmt(stage1.current || elec.current, 2), "A"],
+                    ["Power Consumption", fmt(stage1.power || elec.power, 2), "W"],
+                    ["Cell Pairs", `${stage1.cellPairs || stack.cellPairs || 36}`, "pairs"],
+                    ["Electrode Area", fmt(stage1.electrodeArea || stack.electrodeArea || 500, 0), "cm²"]
+                ],
+                theme: "grid",
+                headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
+                styles: { fontSize: 7.5, cellPadding: 1.4 },
+                columnStyles: { 0: { fontStyle: "bold", cellWidth: 90 }, 1: { cellWidth: 46, alignment: "right" }, 2: { cellWidth: 46 } }
+            });
+
+            startY = doc.lastAutoTable.finalY + 3;
+
+            autoTable(doc, {
+                startY: startY,
+                head: [["Stage 2 Engineering Design (EDI Polishing)", "", ""]],
+                body: [
+                    ["Parameter", "Stage 2 Value", "Unit"],
+                    ["Technology", "EDI", "-"],
+                    ["Inlet TDS", fmt(stage2.inletTDS || stage1.outletTDS || 1941, 1), "ppm"],
+                    ["Final Outlet TDS", fmt(stage2.outletTDS || targetTds, 1), "ppm"],
+                    ["Operating Voltage", fmt(stage2.voltage || 25.0, 2), "V"],
+                    ["Operating Current", fmt(stage2.current || 2.1, 2), "A"],
+                    ["Power Consumption", fmt(stage2.power || 52.5, 2), "W"],
+                    ["Cell Pairs", `${stage2.cellPairs || 50}`, "pairs"],
+                    ["Electrode Area", fmt(stage2.electrodeArea || 400, 0), "cm²"]
+                ],
+                theme: "grid",
+                headStyles: { fillColor: [124, 58, 237], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
+                styles: { fontSize: 7.5, cellPadding: 1.4 },
+                columnStyles: { 0: { fontStyle: "bold", cellWidth: 90 }, 1: { cellWidth: 46, alignment: "right" }, 2: { cellWidth: 46 } }
+            });
+
+            startY = doc.lastAutoTable.finalY + 3;
+
+            autoTable(doc, {
+                startY: startY,
+                head: [["Overall Plant Performance", "", ""]],
+                body: [
+                    ["Parameter", "Overall Value", "Unit"],
+                    ["Recommended Process", overall.recommendedProcess || "FCDI → EDI", "-"],
+                    ["Overall Feed TDS", fmt(overall.inletTDS || fwTds, 1), "ppm"],
+                    ["Overall Final Outlet TDS", fmt(overall.outletTDS || targetTds, 1), "ppm"],
+                    ["Overall Salt Removal Efficiency", fmt(overall.removalEfficiency || 99.9, 2), "%"],
+                    ["Total Plant Power", fmt(overall.totalPower || 61.86, 2), "W"],
+                    ["Overall Specific Energy (SEC)", fmt(overall.sec || sec, 4), "kWh/m³"],
+                    ["Overall Water Recovery", fmt(overall.waterRecovery || hydr.waterRecovery, 1), "%"]
+                ],
+                theme: "grid",
+                headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8.5 },
+                styles: { fontSize: 7.5, cellPadding: 1.4 },
+                columnStyles: { 0: { fontStyle: "bold", cellWidth: 90 }, 1: { cellWidth: 46, alignment: "right" }, 2: { cellWidth: 46 } }
+            });
+        } else {
+            autoTable(doc, {
+                startY: startY,
+                head: [["Engineering Design Summary", "", ""]],
+                body: [
+                    ["Parameter", "Recommended / Current Value", "Unit"],
+                    ["Operating Voltage", fmt(elec.voltage, 2), "V"],
+                    ["Current", fmt(elec.current, 2), "A"],
+                    ["Power Consumption", fmt(elec.power, 2), "W"],
+                    ["Cell Pairs", `${stack.cellPairs || 20}`, "pairs"],
+                    ["Electrode Area (per cell)", fmt(stack.electrodeArea || 250, 0), "cm²"],
+                    ["Residence Time", fmt(stack.residenceTime || 10.0, 1), "min"],
+                    ["Flow Velocity", fmt(hydr.flowVelocity || 0.300, 3), "m/s"],
+                    ["Pressure Drop", fmt(hydr.pressureDrop || 580.8, 1), "Pa"],
+                    ["Pump Power", fmt(hydr.pumpPower || 0.138, 3), "W"],
+                    ["Water Recovery", fmt(hydr.waterRecovery || 99.42, 2), "%"],
+                    ["Cell Stack Dimensions (L x W x H)", `${stack.stackLength || 100} x ${stack.stackWidth || 50} x ${stack.stackHeight || 22}`, "mm"]
+                ],
+                theme: "grid",
+                headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
+                styles: { fontSize: 8, cellPadding: 1.5 },
+                columnStyles: {
+                    0: { fontStyle: "bold", cellWidth: 90 },
+                    1: { cellWidth: 46, alignment: "right" },
+                    2: { cellWidth: 46 }
+                }
+            });
+        }
 
         //---------------------------------------------------------
         // PAGE 2: EQUATION EDITOR SUMMARY & OPTIMIZATION SUMMARY

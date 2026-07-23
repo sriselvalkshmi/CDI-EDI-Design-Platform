@@ -64,14 +64,16 @@ export default function EquipmentPanel() {
         );
     }
 
-    // Default inspection table driven from selectedEquipment & engineering single source of truth
+    // Build dynamic properties object using selectedEquipment directly
+    let displayProperties = { ...selectedEquipment };
+
     return (
         <div className="panel equipment-panel">
-            <h3 className="panel-title" style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1F2937" }}>{selectedEquipment.name}</h3>
+            <h3 className="panel-title" style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1F2937" }}>{displayProperties.name}</h3>
 
             <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
                 <tbody>
-                    {Object.entries(selectedEquipment).map(([key, value]) => {
+                    {Object.entries(displayProperties).map(([key, value]) => {
                         if (key === "name") return null;
                         return (
                             <tr key={key} style={{ borderBottom: "1px solid #E2E8F0" }}>

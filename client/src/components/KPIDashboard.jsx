@@ -20,15 +20,16 @@ export default function KPIDashboard() {
         );
     }
 
+    const processOverall = designResult?.process?.overall || {};
     const engineering = designResult?.engineering;
     const kpi = designResult?.kpi;
-    const outletTDS = format(kpi?.outletTDS);
-    const removalEff = format(kpi?.removalEfficiency);
-    const power = format(engineering?.power ?? kpi?.power);
-    const sec = format(kpi?.SEC, 4);
+    const outletTDS = format(processOverall?.outletTDS ?? kpi?.outletTDS);
+    const removalEff = format(processOverall?.removalEfficiency ?? kpi?.removalEfficiency);
+    const power = format(processOverall?.totalPower ?? engineering?.power ?? kpi?.power);
+    const sec = format(processOverall?.sec ?? kpi?.SEC, 4);
     const flowVel = format(engineering?.flowVelocity ?? kpi?.flowVelocity, 3);
     const pressDrop = format(engineering?.pressureDrop ?? kpi?.pressureDrop, 1);
-    const activeTech = engineering?.technology || kpi?.technology || "-";
+    const activeTech = processOverall?.recommendedProcess || processOverall?.technology || engineering?.technology || "FCDI → EDI";
 
     return (
         <div className="panel">

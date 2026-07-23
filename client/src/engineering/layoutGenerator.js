@@ -13,7 +13,8 @@ function generateLayout(
     engineering,
     feedWater,
     simulation,
-    technology = "CDI"
+    technology = "CDI",
+    processObj = null
 ) {
     const equipment = [];
     const pipes = [];
@@ -22,30 +23,26 @@ function generateLayout(
     const electrodeArea = Number(engineering?.electrodeArea ?? 250);
     const cellPairs = Number(engineering?.cellPairs ?? 36);
 
-    //--------------------------------------------------
-    // DYNAMIC SIZING CALCULATIONS
-    //--------------------------------------------------
-    // Scale reactor dimensions based on area and cell pairs
-    const reactorWidth = Math.max(140, Math.min(240, 180 * Math.sqrt(electrodeArea / 250)));
-    const reactorHeight = Math.max(120, Math.min(220, 160 * (cellPairs / 36)));
-    
-    const reactorX = 520;
-    const reactorY = 190 - reactorHeight / 2; // Center reactor around the y = 190 centerline
+    const isTwoStage = processObj?.isMultiStage || technology?.includes("Two-Stage") || (Number(feedWater?.tds || 500) > 3000) || engineering?.isMultiStage;
 
-    // Scale Feed and Product Tanks height based on flow rate as a visualization cue
+    const stage1Data = processObj?.stages?.[0] || {};
+    const stage2Data = processObj?.stages?.[1] || {};
+    const overall = processObj?.overall || {};
+
+    const reactorWidth = isTwoStage ? 140 : Math.max(140, Math.min(240, 180 * Math.sqrt(electrodeArea / 250)));
+    const reactorHeight = isTwoStage ? 130 : Math.max(120, Math.min(220, 160 * (cellPairs / 36)));
+
     const tankHeight = Math.max(100, Math.min(180, 140 * (flowRate / 10)));
     const tankY = 190 - tankHeight / 2;
 
-    //--------------------------------------------------
-    // FEED TANK
-    //--------------------------------------------------
+    // 1. FEED TANK
     equipment.push({
         id: "FT",
         type: "tank",
         name: "Feed Tank",
         x: 40,
         y: tankY,
-        width: 120,
+        width: 110,
         height: tankHeight,
         data: {
             tds: feedWater?.tds ?? 500,
@@ -55,31 +52,24 @@ function generateLayout(
         }
     });
 
-    //--------------------------------------------------
-    // FLOW METER
-    //--------------------------------------------------
+    // 2. FLOW METER & PUMP
     equipment.push({
         id: "FM",
         type: "instrument",
         name: "Flow Meter",
-        x: 220,
+        x: 190,
         y: 190,
-        radius: 18,
-        data: {
-            flowRate
-        }
+        radius: 16,
+        data: { flowRate }
     });
 
-    //--------------------------------------------------
-    // PUMP
-    //--------------------------------------------------
     equipment.push({
         id: "P101",
         type: "pump",
         name: "Feed Pump",
-        x: 340,
+        x: 270,
         y: 190,
-        radius: 30,
+        radius: 26,
         data: {
             pressure: feedWater?.pressure ?? 1,
             flowRate,
@@ -87,150 +77,134 @@ function generateLayout(
         }
     });
 
-    //--------------------------------------------------
-    // PRESSURE GAUGE
-    //--------------------------------------------------
-    equipment.push({
-        id: "PG",
-        type: "instrument",
-        name: "Pressure Gauge",
-        x: 340,
-        y: 110,
-        radius: 16,
-        data: {
-            pressure: feedWater?.pressure ?? 1
-        }
-    });
-
-    //--------------------------------------------------
-    // REACTOR
-    //--------------------------------------------------
-    equipment.push({
-        id: "REACTOR",
-        type: "reactor",
-        technology: technology,
-        name: technology + " Reactor",
-        x: reactorX,
-        y: reactorY,
-        width: reactorWidth,
-        height: reactorHeight,
-        data: {
-            voltage: engineering?.voltage ?? 1.2,
-            current: engineering?.current ?? 5,
-            electrodeArea,
-            cellPairs,
-            pressureDrop: engineering?.pressureDrop ?? 0
-        }
-    });
-
-    //--------------------------------------------------
-    // FCDI SLURRY SYSTEM
-    //--------------------------------------------------
-    if (technology === "FCDI") {
+    if (isTwoStage) {
+        // 3. FCDI REACTOR (STAGE 1)
+        const fcdiX = 350;
         equipment.push({
-            id: "SLURRY",
+            id: "FCDI_STAGE1",
+            type: "reactor",
+            technology: "FCDI",
+            name: "FCDI Reactor (Stage 1)",
+            x: fcdiX,
+            y: 190 - 65,
+            width: 140,
+            height: 130,
+            data: {
+                voltage: stage1Data.voltage || engineering?.voltage || 1.8,
+                current: stage1Data.current || engineering?.current || 5.2,
+                power: stage1Data.power || 9.36,
+                electrodeArea: stage1Data.electrodeArea || 500,
+                cellPairs: stage1Data.cellPairs || 36,
+                inletTDS: stage1Data.inletTDS || feedWater?.tds || 5000,
+                outletTDS: stage1Data.outletTDS || 1941,
+                removalEfficiency: stage1Data.removalEfficiency || 61.2
+            }
+        });
+
+        // 4. INTERMEDIATE TANK
+        const intX = 520;
+        equipment.push({
+            id: "INT_TANK",
             type: "tank",
-            name: "Slurry Tank",
-            x: reactorX - 50,
-            y: 20,
-            width: 90,
-            height: 70
+            name: "Intermediate Tank",
+            x: intX,
+            y: tankY,
+            width: 100,
+            height: tankHeight,
+            data: {
+                tds: stage1Data.outletTDS || 1941,
+                flowRate,
+                stage: "Intermediate (Stage 1 → Stage 2)"
+            }
+        });
+
+        // 5. EDI STACK (STAGE 2)
+        const ediX = 660;
+        equipment.push({
+            id: "EDI_STAGE2",
+            type: "edi_polishing",
+            technology: "EDI",
+            name: "EDI Stack (Stage 2)",
+            x: ediX,
+            y: 190 - 60,
+            width: 130,
+            height: 120,
+            data: {
+                voltage: stage2Data.voltage || 25.0,
+                current: stage2Data.current || 2.1,
+                power: stage2Data.power || 52.5,
+                electrodeArea: stage2Data.electrodeArea || 400,
+                cellPairs: stage2Data.cellPairs || 50,
+                inletTDS: stage2Data.inletTDS || 1941,
+                outletTDS: stage2Data.outletTDS || feedWater?.targetTds || 5,
+                removalEfficiency: stage2Data.removalEfficiency || 99.7
+            }
+        });
+
+        // 6. PRODUCT TANK
+        const prodX = 830;
+        equipment.push({
+            id: "PROD_TANK",
+            type: "tank",
+            name: "Product Tank",
+            x: prodX,
+            y: tankY,
+            width: 110,
+            height: tankHeight,
+            data: {
+                outletTDS: overall.outletTDS || stage2Data.outletTDS || feedWater?.targetTds || 5,
+                flowRate,
+                recovery: overall.waterRecovery || 90.25
+            }
+        });
+
+        // PIPES CONNECTIONS
+        pipes.push({ id: "PIPE1", points: [[150, 190], [244, 190]] });
+        pipes.push({ id: "PIPE2", points: [[296, 190], [fcdiX, 190]] });
+        pipes.push({ id: "PIPE3", points: [[fcdiX + 140, 190], [intX, 190]] });
+        pipes.push({ id: "PIPE4", points: [[intX + 100, 190], [ediX, 190]] });
+        pipes.push({ id: "PIPE5", points: [[ediX + 130, 190], [prodX, 190]] });
+
+    } else {
+        // SINGLE STAGE LAYOUT
+        const reactorX = 450;
+        equipment.push({
+            id: "REACTOR",
+            type: "reactor",
+            technology: technology,
+            name: technology + " Reactor",
+            x: reactorX,
+            y: 190 - reactorHeight / 2,
+            width: reactorWidth,
+            height: reactorHeight,
+            data: {
+                voltage: engineering?.voltage ?? 1.2,
+                current: engineering?.current ?? 5,
+                electrodeArea,
+                cellPairs,
+                outletTDS: engineering?.outletTDS || 50,
+                pressureDrop: engineering?.pressureDrop ?? 0
+            }
         });
 
         equipment.push({
-            id: "SPUMP",
-            type: "pump",
-            name: "Slurry Pump",
-            x: reactorX + reactorWidth - 80,
-            y: 55,
-            radius: 20
-        });
-    }
-
-    //--------------------------------------------------
-    // EDI ELECTRODES
-    //--------------------------------------------------
-    if (technology === "EDI") {
-        equipment.push({
-            id: "ANODE",
-            type: "electrode",
-            name: "Anode",
-            x: reactorX + 5,
-            y: reactorY,
-            width: 12,
-            height: reactorHeight
+            id: "PROD_TANK",
+            type: "tank",
+            name: "Product Tank",
+            x: 820,
+            y: tankY,
+            width: 110,
+            height: tankHeight,
+            data: {
+                outletTDS: engineering?.outletTDS ?? 50,
+                flowRate,
+                recovery: engineering?.waterRecovery ?? 95
+            }
         });
 
-        equipment.push({
-            id: "CATHODE",
-            type: "electrode",
-            name: "Cathode",
-            x: reactorX + reactorWidth - 17,
-            y: reactorY,
-            width: 12,
-            height: reactorHeight
-        });
-    }
-
-    //--------------------------------------------------
-    // PRODUCT TANK
-    //--------------------------------------------------
-    equipment.push({
-        id: "PROD_TANK",
-        type: "tank",
-        name: "Product Tank",
-        x: 850,
-        y: tankY,
-        width: 120,
-        height: tankHeight,
-        data: {
-            outletTDS: simulation?.outputTDS ?? 50,
-            flowRate,
-            recovery: simulation?.waterRecovery ?? 98
-        }
-    });
-
-    //--------------------------------------------------
-    // PIPES CONNECTIONS
-    //--------------------------------------------------
-    // Pipe from Feed Tank to Pump (FM at 220)
-    pipes.push({
-        id: "PIPE1",
-        points: [
-            [160, 190],
-            [310, 190]
-        ]
-    });
-
-    // Pipe from Pump to Reactor
-    pipes.push({
-        id: "PIPE2",
-        points: [
-            [370, 190],
-            [reactorX, 190]
-        ]
-    });
-
-    // Pipe from Reactor to Product Tank
-    pipes.push({
-        id: "PIPE3",
-        points: [
-            [reactorX + reactorWidth, 190],
-            [850, 190]
-        ]
-    });
-
-    // FCDI slurry loop
-    if (technology === "FCDI") {
-        pipes.push({
-            id: "SLURRY_LOOP",
-            points: [
-                [reactorX + reactorWidth - 80, 55],
-                [reactorX + reactorWidth - 80, reactorY],
-                [reactorX - 50, reactorY],
-                [reactorX - 50, 55]
-            ]
-        });
+        pipes.push({ id: "PIPE1", points: [[150, 190], [244, 190]] });
+        pipes.push({ id: "PIPE2", points: [[296, 190], [reactorX, 190]] });
+        pipes.push({ id: "PIPE3", points: [[reactorX + reactorWidth, 190], [820, 190]] });
     }
 
     return {

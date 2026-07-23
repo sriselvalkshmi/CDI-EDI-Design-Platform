@@ -13,10 +13,16 @@ export default function Sidebar() {
         optimizationInputs,
         recalculate,
         designGenerated,
-        user
+        designResult,
+        user,
+        optimizationStatus,
+        setOptimizationStatus,
+        optimizationError,
+        setOptimizationError
     } = useApp();
 
     function update(field, value) {
+        setOptimizationStatus("idle");
         setFeedWater(prev => ({
             ...prev,
             [field]: Number(value)
@@ -26,6 +32,7 @@ export default function Sidebar() {
     async function generateDesign() {
         try {
             setLoading(true);
+            setOptimizationStatus("idle");
             recalculate(optimizationInputs, technology);
             if (user) {
                 await auditLogger.logActivity(user.id, user.email, "Generate Design", "Dashboard", `Generated design for ${technology}`);
@@ -39,13 +46,37 @@ export default function Sidebar() {
 
     async function optimizeDesign() {
         try {
+            setOptimizationStatus("loading");
             setLoading(true);
-            recalculate(optimizationInputs, technology, true);
+            setOptimizationError(null);
+
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            const res = recalculate(optimizationInputs, technology, true);
+
+            const {
+                isLimitReached = false,
+                status = "OPTIMIZED",
+                recommendedProcess = ""
+            } = res || {};
+
+            const isMultiStageProcess = recommendedProcess?.includes("→") || res?.recommendedProcess?.includes("→");
+
+            if (isLimitReached && !isMultiStageProcess && status === "LIMIT_REACHED") {
+                setOptimizationStatus("LIMIT_REACHED");
+            } else if (res?.noImprovement || status === "NO_IMPROVEMENT") {
+                setOptimizationStatus("no_improvement");
+            } else {
+                setOptimizationStatus("success");
+            }
+
             if (user) {
                 await auditLogger.logActivity(user.id, user.email, "Apply Optimization", "Dashboard", `Optimized parameters for ${technology}`);
             }
         } catch (error) {
             console.error("Optimization Error:", error);
+            setOptimizationStatus("error");
+            setOptimizationError(error.message || "Optimization execution failed.");
         } finally {
             setLoading(false);
         }
@@ -53,6 +84,7 @@ export default function Sidebar() {
 
     const isViewer = user && user.role === "Viewer";
     const isResearcher = user && user.role === "Researcher";
+    const isLimitReachedState = optimizationStatus === "LIMIT_REACHED" || optimizationStatus === "LIMIT REACHED";
 
     return (
         <div className="sidebar">
@@ -147,7 +179,10 @@ export default function Sidebar() {
                 <select
                     value={technology}
                     disabled={isViewer}
-                    onChange={(e) => setTechnology(e.target.value)}
+                    onChange={(e) => {
+                        setOptimizationStatus("idle");
+                        setTechnology(e.target.value);
+                    }}
                 >
                     <option value="AUTO">AI Recommendation</option>
                     <option value="CDI">CDI</option>
@@ -168,10 +203,45 @@ export default function Sidebar() {
             <button
                 className="btn-optimize-design"
                 onClick={optimizeDesign}
-                disabled={loading || isViewer || isResearcher}
+                disabled={loading || optimizationStatus === "loading" || isViewer || isResearcher}
+                style={{
+                    backgroundColor: isLimitReachedState ? "#DC2626" : undefined,
+                    color: "#3e20e8ff"
+                }}
             >
-                {loading ? "Optimizing..." : "Apply Optimization"}
+                {optimizationStatus === "loading"
+                    ? "Applying Optimization..."
+                    : isLimitReachedState
+                    ? "Technology Limit Reached"
+                    : optimizationStatus === "success"
+                    ? "✓ Optimization Complete"
+                    : optimizationStatus === "no_improvement"
+                    ? "Current Design Optimal"
+                    : optimizationStatus === "error"
+                    ? "Optimization Failed"
+                    : "Apply Optimization"}
             </button>
+            {isLimitReachedState && (
+                <div style={{
+                    background: "#FEF2F2",
+                    border: "1px solid #FCA5A5",
+                    borderRadius: "6px",
+                    padding: "8px",
+                    marginTop: "6px",
+                    fontSize: "11px",
+                    color: "#991B1B",
+                    textAlign: "center",
+                    lineHeight: "1.4"
+                }}>
+                    <div><b>Target Not Achievable</b></div>
+                    <div>Upgrade Required: <b>{designResult?.validation?.recommendedProcess || "FCDI → EDI"}</b></div>
+                </div>
+            )}
+            {optimizationStatus === "error" && optimizationError && (
+                <div style={{ color: "#DC2626", fontSize: "11px", marginTop: "6px" }}>
+                    Optimization Failed: {optimizationError}
+                </div>
+            )}
         </div>
     );
 }

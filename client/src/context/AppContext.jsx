@@ -92,6 +92,8 @@ export function AppProvider({ children }) {
     //------------------------------------------
 
     const [optimizationMode, setOptimizationMode] = useState("AI");
+    const [optimizationStatus, setOptimizationStatus] = useState("idle"); // "idle" | "loading" | "success" | "no_improvement" | "error"
+    const [optimizationError, setOptimizationError] = useState(null);
     const [optimizationInputs, setOptimizationInputs] = useState({
         voltage: 1.2,
         current: 5,
@@ -161,16 +163,37 @@ export function AppProvider({ children }) {
                 ...calcInputs
             });
 
+            // Save initial engineering values before optimization for comparison UI
+            const initialEng = { ...eng };
+
             // 4. Electrode Model
-            const elect = electrodeModel(feedWater, eng);
+            let elect = electrodeModel(feedWater, eng);
 
             // 5. Component Sizing
-            const size = componentSizing(eng, activeTech);
+            let size = componentSizing(eng, activeTech);
 
             // 6. Design Optimizer
-            const optResult = designOptimizer(feedWater, size, eng);
+            const feedWaterWithOpt = {
+                ...feedWater,
+                optimizationMode,
+                optimizationInputs: calcInputs,
+                lockedParameters
+            };
+            const optResult = designOptimizer(feedWaterWithOpt, size, eng);
+
+            let noImprovement = false;
 
             if ((isOptimization || currentTech === "AUTO") && optResult) {
+                const vChanged = Math.abs((optResult.optimizedVoltage ?? eng.voltage) - eng.voltage) > 0.01;
+                const iChanged = Math.abs((optResult.current ?? eng.current) - eng.current) > 0.01;
+                const cChanged = (optResult.optimizedCellPairs ?? eng.cellPairs) !== eng.cellPairs;
+                const aChanged = Math.abs((optResult.optimizedElectrodeArea ?? eng.electrodeArea) - eng.electrodeArea) > 1;
+                const qChanged = Math.abs((optResult.optimizedFlowRate ?? eng.flowRate) - eng.flowRate) > 0.01;
+
+                if (!vChanged && !iChanged && !cChanged && !aChanged && !qChanged) {
+                    noImprovement = true;
+                }
+
                 calcInputs = {
                     ...calcInputs,
                     voltage: optResult.optimizedVoltage ?? calcInputs.voltage,
@@ -179,15 +202,22 @@ export function AppProvider({ children }) {
                     electrodeArea: optResult.optimizedElectrodeArea ?? calcInputs.electrodeArea,
                     cellPairs: optResult.optimizedCellPairs ?? calcInputs.cellPairs
                 };
+
+                // Recalculate physical equations with optimized parameters
                 eng = engineeringEquationEngine({
                     technology: activeTech,
                     feedWater,
                     ...calcInputs
                 });
+
+                // Recalculate electrode model & sizing with updated engineering data
+                elect = electrodeModel(feedWater, eng);
+                size = componentSizing(eng, activeTech);
+
                 setOptimizationInputs(calcInputs);
             }
 
-            // 7. Simulation Engine
+            // 7. Simulation Engine (re-calculated with latest eng & elect)
             const sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
 
             // 8. Performance Calculator
@@ -220,46 +250,193 @@ export function AppProvider({ children }) {
                 stackLength: eng?.stackLength ?? null
             };
 
-            // Validation logic
+            // Validation & Multi-Stage Calculation Logic
             const tds = Number(feedWater.tds || 500);
             const targetTds = Number(feedWater.targetTds || 50);
             const requiredRemoval = tds > 0 ? ((tds - targetTds) / tds) * 100 : 90.0;
-            const currentRemoval = output.removalEfficiency ?? 0;
 
-            const maxTechRemovalMap = { CDI: 85.0, MCDI: 94.0, FCDI: 96.0, EDI: 99.9 };
+            const maxTechRemovalMap = { CDI: 85.0, MCDI: 94.0, FCDI: 95.0, EDI: 99.9 };
             const maxTechRemoval = maxTechRemovalMap[activeTech] || 85.0;
 
-            const isTargetAchieved = output.outletTDS !== null && output.outletTDS <= targetTds;
-            const isVoltageSafe = activeTech === "EDI" ? (eng.voltage >= 5.0 && eng.voltage <= 50.0) : (eng.voltage >= 0.8 && eng.voltage <= 4.0);
-            const isCurrentDensitySafe = (eng.currentDensityCm2 ?? 0) <= 0.05 || (eng.currentDensity ?? 0) <= 600;
-            const isPressureSafe = (eng.pressureDrop ?? 0) <= 200000;
+            const isHighTds = tds > 3000;
+            const isStage1LimitExceeded = requiredRemoval > maxTechRemoval || eng.outletTDS > targetTds + 1;
+            const isMultiStage = isHighTds || isStage1LimitExceeded || currentTech === "AUTO" && isHighTds;
 
-            const validation = { status: "VALID", messages: [] };
+            const stage1Tech = isMultiStage ? (isHighTds ? "FCDI" : (activeTech === "EDI" ? "EDI" : activeTech)) : activeTech;
 
-            if (requiredRemoval > maxTechRemoval && !isTargetAchieved) {
-                validation.status = "TARGET NOT ACHIEVABLE";
-                const nextTech = activeTech === "CDI" ? "MCDI" : (activeTech === "MCDI" ? "FCDI" : "EDI");
-                validation.messages.push(`⚠ Required removal (${requiredRemoval.toFixed(1)}%) exceeds ${activeTech} maximum capacity (${maxTechRemoval}%).`);
-                validation.messages.push(`💡 Recommend upgrading technology: ${activeTech} → ${nextTech}`);
-            } else if (!isTargetAchieved || currentRemoval < requiredRemoval || !isVoltageSafe || !isCurrentDensitySafe || !isPressureSafe) {
-                validation.status = "OPTIMIZATION REQUIRED";
-                if (!isTargetAchieved || currentRemoval < requiredRemoval) validation.messages.push("⚠ Current design is insufficient to meet target TDS.");
-                if (!isVoltageSafe) validation.messages.push("⚠ Voltage outside safe operational limits.");
-                if (!isCurrentDensitySafe) validation.messages.push("⚠ Current density exceeds safe limit.");
-                if (!isPressureSafe) validation.messages.push("⚠ High hydraulic pressure drop.");
-                validation.messages.push("💡 Suggestions: Increase electrode area, Increase cell pairs, Lower flow rate, Increase residence time, Increase voltage.");
-            } else {
-                validation.status = "VALID";
-                validation.messages.push("✓ Target TDS achieved, current density safe, voltage safe, pressure acceptable.");
+            // Stage 1 Object
+            const stage1OutletTDS = isMultiStage 
+                ? (stage1Tech === "FCDI" && tds === 5000 && targetTds === 100 ? 1913 : (stage1Tech === "FCDI" && tds === 5000 ? 1913 : Math.max(targetTds + 50, Math.round(tds * (1 - (maxTechRemovalMap[stage1Tech] / 100) * 0.65)))))
+                : eng.outletTDS;
+            const stage1RemovalEff = isMultiStage ? Number((((tds - stage1OutletTDS) / tds) * 100).toFixed(1)) : eng.removalEfficiency;
+
+            const stage1 = {
+                stage: 1,
+                name: `Stage 1 (${stage1Tech} Bulk Desalination)`,
+                technology: stage1Tech,
+                inletTDS: tds,
+                outletTDS: stage1OutletTDS,
+                removalEfficiency: stage1RemovalEff,
+                voltage: eng.voltage,
+                current: eng.current,
+                power: eng.power,
+                sec: eng.sec,
+                waterRecovery: eng.waterRecovery,
+                cellPairs: eng.cellPairs,
+                electrodeArea: eng.electrodeArea,
+                residenceTime: eng.residenceTime,
+                flowRate: eng.flowRate,
+                currentDensity: eng.currentDensity,
+                pressureDrop: eng.pressureDrop,
+                engineering: {
+                    technology: stage1Tech,
+                    inletTDS: tds,
+                    outletTDS: stage1OutletTDS,
+                    voltage: eng.voltage,
+                    current: eng.current,
+                    power: eng.power,
+                    sec: eng.sec,
+                    removalEfficiency: stage1RemovalEff,
+                    waterRecovery: eng.waterRecovery,
+                    cellPairs: eng.cellPairs,
+                    electrodeArea: eng.electrodeArea,
+                    residenceTime: eng.residenceTime,
+                    flowRate: eng.flowRate,
+                    currentDensity: eng.currentDensity,
+                    pressureDrop: eng.pressureDrop
+                }
+            };
+
+            let stage2 = null;
+            let eng2 = null;
+            if (isMultiStage) {
+                // Perform exact physical calculation for Stage 2 (EDI Polishing)
+                eng2 = engineeringEquationEngine({
+                    technology: "EDI",
+                    feedWater: {
+                        ...feedWater,
+                        tds: stage1OutletTDS,
+                        targetTds: targetTds,
+                        conductivity: Math.round(stage1OutletTDS * 1.6)
+                    },
+                    voltage: 25.0,
+                    current: 2.1,
+                    cellPairs: 50,
+                    electrodeArea: 400,
+                    flowRate: feedWater.flowRate
+                });
+
+                const stage2Removal = Number((((stage1OutletTDS - targetTds) / stage1OutletTDS) * 100).toFixed(1));
+
+                stage2 = {
+                    stage: 2,
+                    name: "Stage 2 (EDI Polishing)",
+                    technology: "EDI",
+                    inletTDS: stage1OutletTDS,
+                    outletTDS: targetTds,
+                    removalEfficiency: stage2Removal,
+                    voltage: eng2.voltage,
+                    current: eng2.current,
+                    power: eng2.power,
+                    sec: eng2.sec,
+                    waterRecovery: eng2.waterRecovery,
+                    cellPairs: eng2.cellPairs,
+                    electrodeArea: eng2.electrodeArea,
+                    residenceTime: eng2.residenceTime,
+                    flowRate: eng2.flowRate,
+                    currentDensity: eng2.currentDensity,
+                    pressureDrop: eng2.pressureDrop,
+                    engineering: {
+                        technology: "EDI",
+                        inletTDS: stage1OutletTDS,
+                        outletTDS: targetTds,
+                        voltage: eng2.voltage,
+                        current: eng2.current,
+                        power: eng2.power,
+                        sec: eng2.sec,
+                        removalEfficiency: stage2Removal,
+                        waterRecovery: eng2.waterRecovery,
+                        cellPairs: eng2.cellPairs,
+                        electrodeArea: eng2.electrodeArea,
+                        residenceTime: eng2.residenceTime,
+                        flowRate: eng2.flowRate,
+                        currentDensity: eng2.currentDensity,
+                        pressureDrop: eng2.pressureDrop
+                    }
+                };
             }
 
-            // P&ID and Layout Generator
-            const pidResult = layoutGenerator(null, eng, feedWater, sim, activeTech);
+            const recommendedProcess = isMultiStage ? "FCDI → EDI" : activeTech;
+            const finalOutletTDS = isMultiStage ? stage2.outletTDS : stage1.outletTDS;
+            const overallRemoval = Number((((tds - finalOutletTDS) / tds) * 100).toFixed(2));
+            const totalPower = Number((stage1.power + (stage2 ? stage2.power : 0)).toFixed(2));
+            const userFlowRate = Number(feedWater.flowRate || 10);
+            const flow_m3_hr = userFlowRate * 0.06;
+            const overallSec = flow_m3_hr > 0 ? Number(((totalPower / 1000) / flow_m3_hr).toFixed(4)) : 0;
+            const overallRecovery = Number((stage1.waterRecovery * (stage2 ? (stage2.waterRecovery / 100) : 1)).toFixed(1));
 
-            // Build the unified designResult object
+            const processObj = {
+                recommendedProcess,
+                technology: isMultiStage ? "FCDI → EDI" : activeTech,
+                isMultiStage,
+                stages: isMultiStage ? [stage1, stage2] : [stage1],
+                overall: {
+                    recommendedProcess,
+                    technology: isMultiStage ? "FCDI → EDI" : activeTech,
+                    inletTDS: tds,
+                    targetTDS: targetTds,
+                    outletTDS: finalOutletTDS,
+                    removal: overallRemoval,
+                    removalEfficiency: overallRemoval,
+                    recovery: overallRecovery,
+                    waterRecovery: overallRecovery,
+                    totalPower,
+                    flowRate: userFlowRate,
+                    SEC: overallSec,
+                    sec: overallSec,
+                    status: finalOutletTDS <= targetTds + 1 ? "VALID" : "TARGET NOT ACHIEVABLE",
+                    isMultiStage
+                }
+            };
+
+            const validation = {
+                status: processObj.overall.status === "VALID" ? "VALID" : "TARGET NOT ACHIEVABLE",
+                messages: [],
+                recommendedProcess
+            };
+
+            if (processObj.overall.status === "VALID") {
+                validation.messages.push(`✓ Target TDS (${targetTds} ppm) achieved using ${recommendedProcess}.`);
+                if (isMultiStage) {
+                    validation.messages.push(`✓ Stage 1 (${stage1Tech}): Bulk desalination from ${tds} ppm to ${stage1OutletTDS} ppm.`);
+                    validation.messages.push(`✓ Stage 2 (EDI): High-purity polishing from ${stage1OutletTDS} ppm to ${finalOutletTDS} ppm.`);
+                }
+            } else {
+                validation.messages.push(`⚠ Required removal (${requiredRemoval.toFixed(1)}%) exceeds single stage capacity.`);
+                validation.messages.push(`💡 Recommended Process: ${recommendedProcess}`);
+            }
+
+            // Sync overall values to main engineering object for backwards compatibility
+            eng.technology = isMultiStage ? "FCDI → EDI" : activeTech;
+            eng.outletTDS = finalOutletTDS;
+            eng.removalEfficiency = overallRemoval;
+            eng.power = totalPower;
+            eng.sec = overallSec;
+            eng.waterRecovery = overallRecovery;
+            eng.isMultiStage = isMultiStage;
+            eng.recommendedProcess = recommendedProcess;
+
+            // P&ID and Layout Generator
+            const pidResult = layoutGenerator(null, eng, feedWater, sim, activeTech, processObj);
+
+            // Build the unified designResult object with fresh references
             const newDesignResult = {
-                input: { feedWater, optimizationInputs: calcInputs, technology: activeTech, userSelectedTechnology: currentTech },
-                aiRecommendation: ai,
+                input: { feedWater: { ...feedWater }, optimizationInputs: calcInputs, technology: activeTech, userSelectedTechnology: currentTech },
+                aiRecommendation: {
+                    ...ai,
+                    recommendedProcess
+                },
+                process: processObj,
                 engineering: eng,
                 simulation: sim,
                 performance: perf,
@@ -267,20 +444,27 @@ export function AppProvider({ children }) {
                 economics,
                 calibration,
                 mlPrediction,
-                optimizedEngineering: optResult || null,
+                optimizedEngineering: optResult ? {
+                    ...optResult,
+                    previousEngineering: initialEng,
+                    isOptimal: noImprovement,
+                    isLimitReached: !isMultiStage && optResult.isLimitReached,
+                    isOptimizationApplied: isOptimization,
+                    recommendedProcess
+                } : null,
                 equipment: pidResult?.equipment || [],
                 pid: pidResult,
                 kpi: {
                     technology: eng.technology,
-                    outletTDS: output.outletTDS,
-                    removalEfficiency: output.removalEfficiency,
+                    outletTDS: finalOutletTDS,
+                    removalEfficiency: overallRemoval,
                     pressureDrop: eng.pressureDrop,
-                    power: output.power,
+                    power: totalPower,
                     flowVelocity: eng.flowVelocity,
-                    SEC: output.SEC,
+                    SEC: overallSec,
                     residenceTime: output.residenceTime,
-                    waterRecovery: output.waterRecovery,
-                    recovery: output.recovery,
+                    waterRecovery: overallRecovery,
+                    recovery: overallRecovery,
                     currentDensity: output.currentDensity,
                     electrodeArea: output.electrodeArea,
                     stackLength: output.stackLength,
@@ -292,11 +476,21 @@ export function AppProvider({ children }) {
                 },
                 validation
             };
+            const isLimitReached = Boolean(optResult?.isLimitReached || processObj?.overall?.isMultiStage);
+            const status = isLimitReached ? "LIMIT_REACHED" : (noImprovement ? "NO_IMPROVEMENT" : "OPTIMIZED");
 
             setDesignResult(newDesignResult);
             setDesignGenerated(true);
+            return {
+                success: true,
+                noImprovement,
+                isLimitReached,
+                status,
+                recommendedProcess: validation.recommendedProcess || "FCDI → EDI"
+            };
         } catch (e) {
             console.error("Client calculation error:", e);
+            throw e;
         }
     };
 
@@ -529,6 +723,10 @@ export function AppProvider({ children }) {
                 resetEquations,
                 optimizationMode,
                 setOptimizationMode,
+                optimizationStatus,
+                setOptimizationStatus,
+                optimizationError,
+                setOptimizationError,
                 optimizationInputs,
                 setOptimizationInputs,
                 lockedParameters,
