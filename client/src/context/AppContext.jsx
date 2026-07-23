@@ -258,21 +258,16 @@ export function AppProvider({ children }) {
             const maxTechRemovalMap = { CDI: 85.0, MCDI: 94.0, FCDI: 95.0, EDI: 99.9 };
             const maxTechRemoval = maxTechRemovalMap[activeTech] || 85.0;
 
-            const isHighTds = tds > 3000;
-            const isStage1LimitExceeded = requiredRemoval > maxTechRemoval || eng.outletTDS > targetTds + 1;
-            const isMultiStage = isHighTds || isStage1LimitExceeded || currentTech === "AUTO" && isHighTds;
+            const isMultiStage = false;
+            const stage1Tech = activeTech;
 
-            const stage1Tech = isMultiStage ? (isHighTds ? "FCDI" : (activeTech === "EDI" ? "EDI" : activeTech)) : activeTech;
-
-            // Stage 1 Object
-            const stage1OutletTDS = isMultiStage 
-                ? (stage1Tech === "FCDI" && tds === 5000 && targetTds === 100 ? 1913 : (stage1Tech === "FCDI" && tds === 5000 ? 1913 : Math.max(targetTds + 50, Math.round(tds * (1 - (maxTechRemovalMap[stage1Tech] / 100) * 0.65)))))
-                : eng.outletTDS;
-            const stage1RemovalEff = isMultiStage ? Number((((tds - stage1OutletTDS) / tds) * 100).toFixed(1)) : eng.removalEfficiency;
+            // Single Technology Stage 1 Object
+            const stage1OutletTDS = eng.outletTDS;
+            const stage1RemovalEff = eng.removalEfficiency;
 
             const stage1 = {
                 stage: 1,
-                name: `Stage 1 (${stage1Tech} Bulk Desalination)`,
+                name: `${stage1Tech} Desalination`,
                 technology: stage1Tech,
                 inletTDS: tds,
                 outletTDS: stage1OutletTDS,
@@ -307,82 +302,22 @@ export function AppProvider({ children }) {
                 }
             };
 
-            let stage2 = null;
-            let eng2 = null;
-            if (isMultiStage) {
-                // Perform exact physical calculation for Stage 2 (EDI Polishing)
-                eng2 = engineeringEquationEngine({
-                    technology: "EDI",
-                    feedWater: {
-                        ...feedWater,
-                        tds: stage1OutletTDS,
-                        targetTds: targetTds,
-                        conductivity: Math.round(stage1OutletTDS * 1.6)
-                    },
-                    voltage: 25.0,
-                    current: 2.1,
-                    cellPairs: 50,
-                    electrodeArea: 400,
-                    flowRate: feedWater.flowRate
-                });
-
-                const stage2Removal = Number((((stage1OutletTDS - targetTds) / stage1OutletTDS) * 100).toFixed(1));
-
-                stage2 = {
-                    stage: 2,
-                    name: "Stage 2 (EDI Polishing)",
-                    technology: "EDI",
-                    inletTDS: stage1OutletTDS,
-                    outletTDS: targetTds,
-                    removalEfficiency: stage2Removal,
-                    voltage: eng2.voltage,
-                    current: eng2.current,
-                    power: eng2.power,
-                    sec: eng2.sec,
-                    waterRecovery: eng2.waterRecovery,
-                    cellPairs: eng2.cellPairs,
-                    electrodeArea: eng2.electrodeArea,
-                    residenceTime: eng2.residenceTime,
-                    flowRate: eng2.flowRate,
-                    currentDensity: eng2.currentDensity,
-                    pressureDrop: eng2.pressureDrop,
-                    engineering: {
-                        technology: "EDI",
-                        inletTDS: stage1OutletTDS,
-                        outletTDS: targetTds,
-                        voltage: eng2.voltage,
-                        current: eng2.current,
-                        power: eng2.power,
-                        sec: eng2.sec,
-                        removalEfficiency: stage2Removal,
-                        waterRecovery: eng2.waterRecovery,
-                        cellPairs: eng2.cellPairs,
-                        electrodeArea: eng2.electrodeArea,
-                        residenceTime: eng2.residenceTime,
-                        flowRate: eng2.flowRate,
-                        currentDensity: eng2.currentDensity,
-                        pressureDrop: eng2.pressureDrop
-                    }
-                };
-            }
-
-            const recommendedProcess = isMultiStage ? "FCDI → EDI" : activeTech;
-            const finalOutletTDS = isMultiStage ? stage2.outletTDS : stage1.outletTDS;
-            const overallRemoval = Number((((tds - finalOutletTDS) / tds) * 100).toFixed(2));
-            const totalPower = Number((stage1.power + (stage2 ? stage2.power : 0)).toFixed(2));
+            const recommendedProcess = activeTech;
+            const finalOutletTDS = stage1.outletTDS;
+            const overallRemoval = stage1.removalEfficiency;
+            const totalPower = eng.power;
             const userFlowRate = Number(feedWater.flowRate || 10);
-            const flow_m3_hr = userFlowRate * 0.06;
-            const overallSec = flow_m3_hr > 0 ? Number(((totalPower / 1000) / flow_m3_hr).toFixed(4)) : 0;
-            const overallRecovery = Number((stage1.waterRecovery * (stage2 ? (stage2.waterRecovery / 100) : 1)).toFixed(1));
+            const overallSec = eng.sec;
+            const overallRecovery = eng.waterRecovery;
 
             const processObj = {
                 recommendedProcess,
-                technology: isMultiStage ? "FCDI → EDI" : activeTech,
-                isMultiStage,
-                stages: isMultiStage ? [stage1, stage2] : [stage1],
+                technology: activeTech,
+                isMultiStage: false,
+                stages: [stage1],
                 overall: {
                     recommendedProcess,
-                    technology: isMultiStage ? "FCDI → EDI" : activeTech,
+                    technology: activeTech,
                     inletTDS: tds,
                     targetTDS: targetTds,
                     outletTDS: finalOutletTDS,
@@ -395,7 +330,7 @@ export function AppProvider({ children }) {
                     SEC: overallSec,
                     sec: overallSec,
                     status: finalOutletTDS <= targetTds + 1 ? "VALID" : "TARGET NOT ACHIEVABLE",
-                    isMultiStage
+                    isMultiStage: false
                 }
             };
 
@@ -406,14 +341,10 @@ export function AppProvider({ children }) {
             };
 
             if (processObj.overall.status === "VALID") {
-                validation.messages.push(`✓ Target TDS (${targetTds} ppm) achieved using ${recommendedProcess}.`);
-                if (isMultiStage) {
-                    validation.messages.push(`✓ Stage 1 (${stage1Tech}): Bulk desalination from ${tds} ppm to ${stage1OutletTDS} ppm.`);
-                    validation.messages.push(`✓ Stage 2 (EDI): High-purity polishing from ${stage1OutletTDS} ppm to ${finalOutletTDS} ppm.`);
-                }
+                validation.messages.push(`✓ Target TDS (${targetTds} ppm) achieved using single-stage ${activeTech}.`);
             } else {
-                validation.messages.push(`⚠ Required removal (${requiredRemoval.toFixed(1)}%) exceeds single stage capacity.`);
-                validation.messages.push(`💡 Recommended Process: ${recommendedProcess}`);
+                validation.messages.push(`⚠ Single-stage ${activeTech} maximum removal capacity reached (${maxTechRemoval}%). Target TDS (${targetTds} ppm) cannot be fully achieved.`);
+                validation.messages.push(`💡 Outlet TDS reached: ${finalOutletTDS} ppm.`);
             }
 
             // Sync overall values to main engineering object for backwards compatibility

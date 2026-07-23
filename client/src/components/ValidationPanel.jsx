@@ -10,17 +10,18 @@ export default function ValidationPanel() {
 
     const feedWater = designResult?.input?.feedWater || {};
     const engineering = designResult?.engineering || {};
-    const kpi = designResult?.kpi || {};
+    const process = designResult?.process || {};
+    const overall = process.overall || {};
     const validation = designResult?.validation || {};
 
     const inletTDS = Number(feedWater.tds || 500);
     const targetTDS = Number(feedWater.targetTds || 50);
 
     const requiredRemovalNum = inletTDS > 0 ? Math.max(0, ((inletTDS - targetTDS) / inletTDS) * 100) : 90.0;
-    const currentRemovalNum = Number(engineering.removalEfficiency ?? kpi.removalEfficiency ?? 0);
+    const currentRemovalNum = Number(overall.removalEfficiency ?? engineering.removalEfficiency ?? 0);
     
-    const tech = engineering.technology || "CDI";
-    const maxAchievableNum = tech === "EDI" ? 99.9 : (tech === "FCDI" ? 95.0 : (tech === "MCDI" ? 90.4 : 85.0));
+    const tech = overall.recommendedProcess || overall.technology || engineering.technology || "CDI";
+    const maxAchievableNum = tech.includes("EDI") ? 99.9 : (tech.includes("FCDI") ? 95.0 : (tech.includes("MCDI") ? 94.0 : 85.0));
 
     const status = validation.status || "VALID";
 

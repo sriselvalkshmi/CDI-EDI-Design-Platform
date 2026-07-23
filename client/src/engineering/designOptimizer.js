@@ -138,41 +138,19 @@ function optimize(
 
         if (bestResult) {
             if (isLimitExceeded) {
-                const stage1Outlet = Math.max(targetTDS + 100, Math.round(inletTDS * (1 - (maxRemoval / 100) * 0.65)));
-
-                const stage2Eng = calculateEngineering({
-                    technology: "EDI",
-                    feedWater: {
-                        ...feedWater,
-                        tds: stage1Outlet,
-                        targetTds: targetTDS
-                    },
-                    voltage: 25.0,
-                    current: 2.1,
-                    cellPairs: 50,
-                    electrodeArea: 400,
-                    flowRate: flowRateInput
-                });
-
                 bestResult.isLimitReached = true;
-                bestResult.isMultiStage = true;
+                bestResult.isMultiStage = false;
                 bestResult.status = "LIMIT_REACHED";
-                bestResult.recommendedProcess = "FCDI → EDI";
-                bestResult.score = "99.9%";
-                bestResult.outletTDS = targetTDS;
-                bestResult.predictedRemoval = Number((((inletTDS - targetTDS) / inletTDS) * 100).toFixed(2));
-                bestResult.removalEfficiency = bestResult.predictedRemoval;
-                bestResult.power = Number((bestResult.power + stage2Eng.power).toFixed(2));
-                bestResult.sec = Number((bestResult.power / (flowRateInput * 60)).toFixed(4));
-                bestResult.specificEnergy = bestResult.sec;
-                bestResult.reason = "Required removal exceeds single-stage technology capability. FCDI → EDI two-stage process required.";
+                bestResult.recommendedProcess = technology;
+                bestResult.score = "90%";
+                bestResult.reason = `Single-stage technology removal limit reached for ${technology}. Best achievable outlet TDS: ${bestResult.outletTDS} ppm.`;
             } else {
                 bestResult.isLimitReached = false;
                 bestResult.isMultiStage = false;
                 bestResult.status = "OPTIMIZED";
                 bestResult.score = isTargetAchieved ? "98%" : "85%";
                 bestResult.recommendedProcess = technology;
-                bestResult.reason = "Single-stage optimization completed successfully.";
+                bestResult.reason = `Single-stage ${technology} optimization completed successfully.`;
             }
         }
 

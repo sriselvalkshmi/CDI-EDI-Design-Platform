@@ -17,42 +17,27 @@ function aiRecommendation(feedWater = {}) {
     let reason = "";
 
     if (tds > 3000) {
-        // High TDS (>3000 ppm): Do NOT recommend MCDI.
-        const expectedOutletSingleStage = tds * (1 - maxFCDIRemoval / 100);
-        if (requiredRemoval > maxFCDIRemoval || expectedOutletSingleStage > targetTds) {
-            selectedTechnology = "FCDI + EDI (Two-Stage)";
-            recommendedProcess = "FCDI → EDI";
-            reason = "High feed TDS (>3000 ppm) with high removal requirement exceeds single-stage FCDI limits. Recommended process: FCDI → EDI — FCDI performs bulk desalination and EDI performs polishing as required removal exceeds single-stage capability.";
-        } else {
-            selectedTechnology = "FCDI";
-            recommendedProcess = "FCDI";
-            reason = "High feed TDS (>3000 ppm) stream favors Flowable Electrode CDI (FCDI) continuous slurry desalting.";
-        }
+        selectedTechnology = "FCDI";
+        recommendedProcess = "FCDI";
+        reason = "High feed TDS (>3000 ppm) stream favors Flowable Electrode CDI (FCDI) continuous slurry desalting as a single-stage process.";
     } else if (tds < 100 || targetTds < 10) {
         selectedTechnology = "EDI";
         recommendedProcess = "EDI";
-        reason = "Low feed TDS / ultra-pure polishing requirement is ideal for EDI resin-membrane stack.";
-    } else if (tds <= 1000) {
-        if (requiredRemoval > 85.0) {
+        reason = "Low feed TDS / ultra-pure polishing requirement favors Electrodeionization (EDI) as a single-stage process.";
+    } else if (tds < 1000) {
+        if (requiredRemoval > 75.0) {
             selectedTechnology = "MCDI";
             recommendedProcess = "MCDI";
-            reason = "Moderate salinity feed water with high removal target favors membrane-assisted CDI (MCDI).";
+            reason = "Low-to-moderate feed TDS (<1000 ppm) favors membrane-assisted CDI (MCDI) for high ion selectivity and energy efficiency.";
         } else {
             selectedTechnology = "CDI";
             recommendedProcess = "CDI";
-            reason = "Low-to-moderate salinity feed water is suitable for standard capacitive deionization (CDI).";
+            reason = "Low feed TDS is suitable for standard capacitive deionization (CDI).";
         }
     } else {
-        // 1000 - 3000 ppm
-        if (requiredRemoval > maxFCDIRemoval) {
-            selectedTechnology = "FCDI + EDI (Two-Stage)";
-            recommendedProcess = "FCDI → EDI";
-            reason = "Feed water salinity and target purity requirement exceeds single-stage capacity. Recommended process: FCDI → EDI — FCDI performs bulk desalination and EDI performs polishing as required removal exceeds single-stage capability.";
-        } else {
-            selectedTechnology = "FCDI";
-            recommendedProcess = "FCDI";
-            reason = "Salinity level favors Flowable Electrode CDI (FCDI) continuous desalting.";
-        }
+        selectedTechnology = "FCDI";
+        recommendedProcess = "FCDI";
+        reason = "Moderate-to-high feed TDS (1000–3000 ppm) favors Flowable Electrode CDI (FCDI) continuous desalting.";
     }
 
     const techForCalculation = selectedTechnology.includes("FCDI") ? "FCDI" : (selectedTechnology.includes("EDI") ? "EDI" : selectedTechnology);

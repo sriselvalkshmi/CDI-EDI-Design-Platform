@@ -162,7 +162,7 @@ export const generateEngineeringReportPDF = ({
 
         // Process data extraction
         const process = engData.process || {};
-        const isMultiStage = process.isMultiStage || engData.isMultiStage;
+        const isMultiStage = Boolean(process.isMultiStage);
         const stage1 = process.stages?.[0] || {};
         const stage2 = process.stages?.[1] || {};
         const overall = process.overall || {};

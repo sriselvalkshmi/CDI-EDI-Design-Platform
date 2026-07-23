@@ -211,14 +211,14 @@ export default function OptimizationPanel() {
                     <div style={{ background: "#FFFFFF", padding: "12px", borderRadius: "8px", border: "1px solid #FECACA", marginTop: "12px", marginBottom: "12px" }}>
                         <div style={{ fontSize: "12px", color: "#7F1D1D", fontWeight: "700", marginBottom: "6px" }}>Recommended process:</div>
                         <div style={{ fontSize: "16px", fontWeight: "800", color: "#2563EB", display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span>FCDI</span>
+                            <span>{process.stages?.[0]?.technology || (tech.includes("MCDI") ? "MCDI" : "FCDI")}</span>
                             <span style={{ fontSize: "16px", color: "#64748B" }}>↓</span>
                             <span>EDI</span>
                         </div>
                     </div>
 
                     <div style={{ fontSize: "12px", color: "#7F1D1D", lineHeight: "1.5" }}>
-                        <strong>Reason:</strong> Use FCDI for bulk desalination. Use EDI polishing to reach final target.
+                        <strong>Reason:</strong> Use {process.stages?.[0]?.technology || "MCDI"} for bulk desalination. Use EDI polishing to reach final target.
                     </div>
                 </div>
             )}

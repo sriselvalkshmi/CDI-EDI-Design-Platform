@@ -23,7 +23,7 @@ function generateLayout(
     const electrodeArea = Number(engineering?.electrodeArea ?? 250);
     const cellPairs = Number(engineering?.cellPairs ?? 36);
 
-    const isTwoStage = processObj?.isMultiStage || technology?.includes("Two-Stage") || (Number(feedWater?.tds || 500) > 3000) || engineering?.isMultiStage;
+    const isTwoStage = Boolean(processObj?.isMultiStage);
 
     const stage1Data = processObj?.stages?.[0] || {};
     const stage2Data = processObj?.stages?.[1] || {};
@@ -78,13 +78,14 @@ function generateLayout(
     });
 
     if (isTwoStage) {
-        // 3. FCDI REACTOR (STAGE 1)
+        // 3. STAGE 1 REACTOR (MCDI / FCDI)
         const fcdiX = 350;
+        const s1Tech = stage1Data.technology || (technology.includes("MCDI") ? "MCDI" : "FCDI");
         equipment.push({
-            id: "FCDI_STAGE1",
+            id: "REACTOR_STAGE1",
             type: "reactor",
-            technology: "FCDI",
-            name: "FCDI Reactor (Stage 1)",
+            technology: s1Tech,
+            name: `${s1Tech} Reactor (Stage 1)`,
             x: fcdiX,
             y: 190 - 65,
             width: 140,

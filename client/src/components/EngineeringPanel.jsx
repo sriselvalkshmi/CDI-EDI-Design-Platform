@@ -44,7 +44,7 @@ export default function EngineeringPanel() {
     const feedWater = designResult?.input?.feedWater || {};
     const targetTDS = feedWater.targetTds || 50;
     const process = designResult?.process || {};
-    const isMultiStage = Boolean(process.isMultiStage || engineering.isMultiStage || validation.recommendedProcess === "FCDI → EDI" || Number(feedWater.tds || 500) > 3000);
+    const isMultiStage = Boolean(process.isMultiStage);
 
     const stage1 = process.stages?.[0] || {
         technology: activeTech,
@@ -94,8 +94,9 @@ export default function EngineeringPanel() {
                         {/* STAGE 1 CARD */}
                         <div style={{ background: "#FFFFFF", border: "1.5px solid #2563EB", borderRadius: "8px", padding: "12px" }}>
                             <div style={{ fontSize: "13px", fontWeight: "700", color: "#2563EB", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>
-                                Stage 1: FCDI Bulk Desalination
+                                Stage 1: {stage1.technology || "MCDI"} Bulk Desalination
                             </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Technology:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{stage1.technology || "MCDI"}</span></div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Inlet TDS:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{stage1.inletTDS} ppm</span></div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Outlet TDS:</span><span style={{ fontWeight: "700", color: "#2563EB" }}>{stage1.outletTDS} ppm</span></div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Removal Efficiency:</span><span style={{ fontWeight: "700", color: "#16A34A" }}>{stage1.removalEfficiency}%</span></div>
