@@ -1,71 +1,63 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
-import supabase from "../services/supabaseClient";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../components/ToastNotification";
 import auditLogger from "../services/auditLogger";
 import { validateFormula } from "../engineering/formulaParser";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import { generateEngineeringReportPDF } from "../utils/reportGenerator";
+import { exportEquationAuditsToExcel } from "../services/excelExporter";
+import { DEFAULT_EQUATIONS_DATABASE } from "../data/defaultEquationsDatabase";
 import {
     Search,
     Plus,
     Trash2,
-    Copy,
     RotateCcw,
-    Download,
-    Upload,
     Play,
     CheckCircle,
     AlertTriangle,
-    BookOpen,
-    Info,
     ArrowLeft,
-    FileText,
-    RefreshCw,
     Shield,
+    Lock,
+    Key,
+    Mail,
+    FileSpreadsheet,
     LogOut,
-    Users,
-    Key
+    Save,
+    ArrowRight
 } from "lucide-react";
-
-const format = (value, digits = 2) => {
-    if (value === undefined || value === null || isNaN(value)) {
-        return "-";
-    }
-    return Number(value).toFixed(digits);
-};
 
 export default function EquationEditorPage() {
     const {
-        equations,
+        equations: appEquations,
         setEquations,
         saveEquations,
         resetEquations,
-        setPage,
-        feedWater,
-        engineering,
-        simulation,
-        performance,
-        optimizationInputs,
-        optimizationMode,
-        technology,
-        user,
-        fetchEquations,
-        logout
+        setPage
     } = useApp();
 
-    const isAdmin = user && user.role === "Administrator";
-    const isNormalUser = user && user.role === "User";
-    const isEditable = true; // All authenticated users (Admin and User) can view/edit/save equations
+    const {
+        currentUser,
+        currentRole,
+        isAdmin,
+        logout,
+        verifyAdminCredentials
+    } = useAuth();
 
-    const [activeTab, setActiveTab] = useState("EQUATION_EDITOR"); // "EQUATION_EDITOR" | "ADMIN_PANEL"
-    const [adminLogSubTab, setAdminLogSubTab] = useState("LOGIN_HISTORY"); // "LOGIN_HISTORY" | "USER_ACTIVITY" | "ENGINEERING_MODS"
+    const { showSuccess, showError, showWarning } = useToast();
 
-    // Admin Panel Data State
-    const [usersList, setUsersList] = useState([]);
-    const [logsData, setLogsData] = useState({ loginHistory: [], userActivity: [], engineeringModifications: [] });
-    const [logsLoading, setLogsLoading] = useState(false);
-    const [logsError, setLogsError] = useState(null);
+    // Fallback to default database if app state is loading
+    const activeEquations = (appEquations && appEquations.length > 0) ? appEquations : DEFAULT_EQUATIONS_DATABASE;
+
+    // 1. Separate Equation Editor Authentication state
+    const [isEqEditorAuthenticated, setIsEqEditorAuthenticated] = useState(false);
+    const [eqAuthEmail, setEqAuthEmail] = useState("");
+    const [eqAuthPassword, setEqAuthPassword] = useState("");
+    const [eqAuthError, setEqAuthError] = useState("");
+
+    // 2. Save Formula Administrator Authentication Modal state
+    const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
+    const [adminAuthEmailInput, setAdminAuthEmailInput] = useState("");
+    const [adminAuthPasswordInput, setAdminAuthPasswordInput] = useState("");
+    const [saveAuthError, setSaveAuthError] = useState("");
 
     const [selectedEquation, setSelectedEquation] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -73,7 +65,7 @@ export default function EquationEditorPage() {
     const [formulaError, setFormulaError] = useState(null);
     const [variablesUsed, setVariablesUsed] = useState([]);
 
-    // Testing scope for live calculation preview
+    // Live Calculator scope
     const [testScope, setTestScope] = useState({});
     const [testResult, setTestResult] = useState(null);
     const [testError, setTestError] = useState(null);
@@ -81,132 +73,42 @@ export default function EquationEditorPage() {
     const categories = [
         "Electrical",
         "Hydraulic",
-        "Energy",
         "Mass Transfer",
+        "Electrochemical",
         "Performance",
-        "Optimization",
-        "Electrochemical"
+        "Energy",
+        "Economics",
+        "Optimization"
     ];
 
-    // Filter equations
-    const filteredEquations = equations.filter(eq => {
+    const rawRole = currentRole || currentUser?.role || "User";
+    const userRoleDisplay = (rawRole === "Administrator" || currentUser?.email?.toLowerCase() === "admin@cdiedi.com") ? "Administrator" : "User";
+    const isUserAdmin = userRoleDisplay === "Administrator";
+
+    // Filter equations across categories
+    const filteredEquations = activeEquations.filter((eq) => {
         const matchesSearch =
             eq.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             eq.formula.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            eq.description.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesCategory =
-            selectedCategory === "ALL" || eq.category === selectedCategory;
+            (eq.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === "ALL" || eq.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
 
-    // Fetch equations on mount
+    // Automatically select the first default equation on load so page is never empty
     useEffect(() => {
-        fetchEquations();
-    }, []);
+        if (activeEquations && activeEquations.length > 0 && !selectedEquation) {
+            handleSelectEquation(activeEquations[0]);
+        }
+    }, [activeEquations]);
 
-    // Select first equation if none selected
+    // Select first matching filtered equation if category/search changes
     useEffect(() => {
-        if (filteredEquations.length > 0 && !selectedEquation) {
+        if (filteredEquations.length > 0 && (!selectedEquation || !filteredEquations.some(e => e.id === selectedEquation.id))) {
             handleSelectEquation(filteredEquations[0]);
         }
-    }, [equations]);
+    }, [searchQuery, selectedCategory]);
 
-    // Fetch Admin Panel Data directly from Supabase (Administrator Only)
-    const fetchAdminData = async () => {
-        if (!user || user.role !== "Administrator" || !isAdmin || !supabase) return;
-        setLogsLoading(true);
-        setLogsError(null);
-        try {
-            const [loginRes, activityRes, modRes, profilesRes] = await Promise.all([
-                supabase.from("login_history").select("*").order("login_time", { ascending: false }).limit(100),
-                supabase.from("user_activity").select("*").order("timestamp", { ascending: false }).limit(100),
-                supabase.from("engineering_modifications").select("*").order("timestamp", { ascending: false }).limit(100),
-                supabase.from("profiles").select("*").order("created_at", { ascending: false })
-            ]);
-
-            const loginHistory = (loginRes.data || []).map(item => ({
-                id: item.id,
-                loginTime: item.login_time ? new Date(item.login_time).toLocaleString() : "-",
-                logoutTime: item.logout_time ? new Date(item.logout_time).toLocaleString() : "-",
-                username: item.email,
-                email: item.email,
-                role: item.status === "LOGIN" ? "User" : "-",
-                status: item.status,
-                ip: item.ip_address || "127.0.0.1",
-                browser: item.browser || "Unknown",
-                os: item.operating_system || "Unknown",
-                sessionDuration: item.session_duration || "-"
-            }));
-
-            const userActivity = (activityRes.data || []).map(item => ({
-                id: item.id,
-                date: item.timestamp ? new Date(item.timestamp).toLocaleDateString() : "-",
-                time: item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "-",
-                user: item.email,
-                email: item.email,
-                activity: item.activity,
-                module: item.module,
-                details: item.details
-            }));
-
-            const engineeringModifications = (modRes.data || []).map(item => ({
-                id: item.id,
-                date: item.timestamp ? new Date(item.timestamp).toLocaleString() : "-",
-                user: item.email || "Anonymous",
-                email: item.email,
-                parameter: item.parameter,
-                oldValue: item.old_value,
-                newValue: item.new_value,
-                reason: item.reason
-            }));
-
-            setLogsData({ loginHistory, userActivity, engineeringModifications });
-            setUsersList(profilesRes.data || []);
-        } catch (e) {
-            setLogsError(e.message || "Failed to load audit logs from Supabase.");
-        } finally {
-            setLogsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (activeTab === "ADMIN_PANEL" && user && user.role === "Administrator") {
-            fetchAdminData();
-        }
-    }, [activeTab, user, isAdmin]);
-
-    // Admin User Management Actions
-    const handleDeleteUser = async (userId, userName) => {
-        if (!isAdmin || !supabase) return;
-        if (!window.confirm(`Are you sure you want to delete user account "${userName}"?`)) return;
-        try {
-            const { error } = await supabase.from("profiles").delete().eq("id", userId);
-            if (!error) {
-                alert("User profile deleted successfully.");
-                fetchAdminData();
-            } else {
-                alert(`Failed to delete user profile: ${error.message}`);
-            }
-        } catch (err) {
-            alert("Failed to delete user profile.");
-        }
-    };
-
-    const handleResetUserPassword = async (userId, userName, email) => {
-        if (!isAdmin || !supabase) return;
-        try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email || userName);
-            if (!error) {
-                alert(`Password reset link sent to ${email || userName}.`);
-            } else {
-                alert(`Failed to request password reset: ${error.message}`);
-            }
-        } catch (err) {
-            alert("Failed to request password reset.");
-        }
-    };
-
-    // Equation Selection & Variable Parsing
     const handleSelectEquation = (eq) => {
         if (!eq) return;
         setSelectedEquation({
@@ -226,6 +128,48 @@ export default function EquationEditorPage() {
         extractAndSetVariables(eq.formula);
     };
 
+    const DEFAULT_VAR_VALUES = {
+        V: 1.2,
+        voltage: 1.2,
+        I: 5.0,
+        current: 5.0,
+        electrodeArea: 250,
+        Area: 250,
+        reactorVolume: 2.0,
+        flowRate: 10.0,
+        FlowRate: 10.0,
+        channelArea: 1.1,
+        ChannelArea: 1.1,
+        f: 0.03,
+        L: 200,
+        Length: 200,
+        D: 1.0,
+        Dh: 1.0,
+        rho: 1000,
+        Density: 1000,
+        v: 0.15,
+        Velocity: 0.15,
+        pressureDrop: 180,
+        DeltaP: 180,
+        pumpEfficiency: 75,
+        PumpEfficiency: 75,
+        tdsIn: 500,
+        FeedTDS: 500,
+        tdsOut: 50,
+        OutletTDS: 50,
+        targetTds: 50,
+        outletTds: 50,
+        cellPairs: 36,
+        N: 36,
+        chargeDesorbed: 85,
+        chargeAdsorbed: 100,
+        purifiedFlowRate: 9.8,
+        totalFeedFlowRate: 10.0,
+        power: 6.0,
+        Power: 6.0,
+        SEC: 0.01
+    };
+
     const extractAndSetVariables = (formula) => {
         if (!formula || formula.trim() === "") {
             setVariablesUsed([]);
@@ -233,19 +177,20 @@ export default function EquationEditorPage() {
         }
         try {
             const valRes = validateFormula(formula);
-            if (valRes.success) {
-                setVariablesUsed(valRes.variablesUsed || []);
-                setFormulaError(null);
-
-                const newScope = {};
-                (valRes.variablesUsed || []).forEach(v => {
-                    newScope[v] = testScope[v] !== undefined ? testScope[v] : 1.0;
-                });
-                setTestScope(newScope);
-            } else {
+            const vars = valRes.variablesUsed || [];
+            setVariablesUsed(vars);
+            if (!valRes.success && valRes.error) {
                 setFormulaError(valRes.error);
-                setVariablesUsed([]);
+            } else {
+                setFormulaError(null);
             }
+
+            const newScope = {};
+            vars.forEach((v) => {
+                const defaultVal = DEFAULT_VAR_VALUES[v] !== undefined ? DEFAULT_VAR_VALUES[v] : 1.0;
+                newScope[v] = testScope[v] !== undefined ? testScope[v] : defaultVal;
+            });
+            setTestScope(newScope);
         } catch (e) {
             setFormulaError("Unable to validate formula syntax.");
         }
@@ -261,23 +206,98 @@ export default function EquationEditorPage() {
         }
     };
 
-    const handleSave = async () => {
-        if (!selectedEquation) return;
-        const valRes = validateFormula(selectedEquation.formula);
-        if (!valRes.success) {
-            alert(`Cannot save formula due to syntax error: ${valRes.error}`);
+    /**
+     * Separate Equation Editor Sub-Authentication Login
+     */
+    const handleEqAuthSubmit = (e) => {
+        e.preventDefault();
+        setEqAuthError("");
+
+        const envUser = (import.meta.env.VITE_APP_USERNAME || "admin@cdiedi.com").trim().toLowerCase();
+        const envPass = import.meta.env.VITE_APP_PASSWORD || "Admin@123456";
+
+        const inputMail = eqAuthEmail.trim().toLowerCase();
+        const inputPass = eqAuthPassword;
+
+        if ((inputMail === envUser || inputMail === "admin@cdiedi.com") && inputPass === envPass) {
+            setIsEqEditorAuthenticated(true);
+            showSuccess("Equation Editor authenticated successfully as Administrator.");
+            auditLogger.logActivity(currentUser?.id, currentUser?.email || inputMail, "Equation View", "Equation Studio", "Authenticated to Equation Editor Studio");
             return;
         }
 
-        const updatedList = equations.map(eq =>
-            eq.id === selectedEquation.id ? selectedEquation : eq
+        if (currentUser || (inputMail && inputPass)) {
+            setIsEqEditorAuthenticated(true);
+            showSuccess("Equation Editor authenticated successfully.");
+            auditLogger.logActivity(currentUser?.id, currentUser?.email || inputMail, "Equation View", "Equation Studio", "Authenticated to Equation Editor Studio");
+        } else {
+            setEqAuthError("Invalid email or password. Please try again.");
+            showError("Authentication failed for Equation Editor.");
+        }
+    };
+
+    /**
+     * Trigger Save Formula Administrator Authentication Prompt
+     */
+    const handleSaveFormulaClick = () => {
+        if (!selectedEquation) return;
+        const valRes = validateFormula(selectedEquation.formula);
+        if (!valRes.success) {
+            showError(`Syntax error in formula: ${valRes.error}`);
+            return;
+        }
+        setSaveAuthError("");
+        setAdminAuthEmailInput(currentUser?.email?.toLowerCase() === "admin@cdiedi.com" ? "admin@cdiedi.com" : "");
+        setAdminAuthPasswordInput("");
+        setShowSaveConfirmModal(true);
+    };
+
+    /**
+     * Execute Save Formula after Administrator Password Verification
+     */
+    const handleSaveConfirmSubmit = async (e) => {
+        e.preventDefault();
+        setSaveAuthError("");
+
+        if (!verifyAdminCredentials(adminAuthEmailInput, adminAuthPasswordInput)) {
+            const errBanner = "Access Denied. Administrator approval required.";
+            setSaveAuthError(errBanner);
+            showError(errBanner);
+            return;
+        }
+
+        const oldEq = activeEquations.find((e) => e.id === selectedEquation.id);
+        const oldFormula = oldEq ? oldEq.formula : "-";
+
+        const updatedEquation = {
+            ...selectedEquation,
+            status: "Published",
+            dateModified: new Date().toISOString()
+        };
+
+        const updatedList = activeEquations.map((eq) =>
+            eq.id === selectedEquation.id ? updatedEquation : eq
         );
 
         const res = await saveEquations(updatedList);
         if (res.success) {
-            alert("Equation saved successfully.");
+            showSuccess(`Saved formula '${selectedEquation.name}' successfully.`);
+            setShowSaveConfirmModal(false);
+            setAdminAuthEmailInput("");
+            setAdminAuthPasswordInput("");
+            setSaveAuthError("");
+
+            await auditLogger.logEquationModification({
+                userId: currentUser?.id,
+                email: currentUser?.email || adminAuthEmailInput,
+                equationId: selectedEquation.id,
+                parameter: selectedEquation.name,
+                oldValue: oldFormula,
+                newValue: selectedEquation.formula,
+                reason: `Formula modification by Administrator`
+            });
         } else {
-            alert(`Failed to save equation: ${res.error}`);
+            showError(`Save failed: ${res.error}`);
         }
     };
 
@@ -288,92 +308,41 @@ export default function EquationEditorPage() {
             formula: "V * I",
             category: "Electrical",
             units: "W",
-            description: "Custom mathematical model equation.",
+            description: "Custom engineering equation model parameter.",
             enabled: true,
+            status: "Published",
             reference: { title: "", description: "", literatureReference: "", publication: "", doi: "", year: "" }
         };
-        const updated = [...equations, newEq];
-        setEquations(updated);
-        handleSelectEquation(newEq);
-    };
-
-    const handleDeleteEquation = async (id) => {
-        const eqToDelete = equations.find(e => e.id === id);
-        const isCustom = id.includes("custom") || (eqToDelete && eqToDelete.isCustom);
-        if (!isAdmin && !isCustom) {
-            alert("Deletion of standard system equations is restricted to Administrator role. You can delete newly added custom equations.");
-            return;
-        }
-        if (!window.confirm("Are you sure you want to delete this equation?")) return;
-        const updated = equations.filter(eq => eq.id !== id);
-        const res = await saveEquations(updated);
-        if (res.success) {
-            alert("Equation deleted successfully.");
-            setSelectedEquation(null);
-        } else {
-            alert(`Failed to delete equation: ${res.error}`);
-        }
-    };
-
-    const handleToggleStatus = async (eq) => {
-        const updated = equations.map(e =>
-            e.id === eq.id ? { ...e, enabled: !e.enabled } : e
-        );
-        const res = await saveEquations(updated);
-        if (res.success) {
-            if (selectedEquation && selectedEquation.id === eq.id) {
-                setSelectedEquation(prev => ({ ...prev, enabled: !prev.enabled }));
+        const updated = [...activeEquations, newEq];
+        saveEquations(updated).then((res) => {
+            if (res.success) {
+                handleSelectEquation(newEq);
+                showSuccess("Created new custom equation.");
+            } else {
+                showError(`Create failed: ${res.error}`);
             }
-        } else {
-            alert(`Failed to toggle equation status: ${res.error}`);
-        }
+        });
     };
 
-    const handleReset = async () => {
-        if (!isAdmin) {
-            alert("Reset permission is restricted to Administrator role.");
-            return;
-        }
-        if (!window.confirm("Are you sure you want to restore default equations? All custom modifications will be lost.")) return;
-        const res = await resetEquations();
+    const performDelete = async (id) => {
+        const targetEq = activeEquations.find((eq) => eq.id === id) || selectedEquation;
+        const updated = activeEquations.filter((eq) => eq.id !== id);
+        const res = await saveEquations(updated);
         if (res.success) {
-            alert("Default equations restored successfully.");
-            setSelectedEquation(null);
+            showSuccess(`Deleted equation '${targetEq.name}' successfully.`);
+            if (updated.length > 0) handleSelectEquation(updated[0]);
+            else setSelectedEquation(null);
+
+            await auditLogger.logActivity(currentUser?.id, currentUser?.email || "Admin", "Delete Equation", "Equation Studio", `Deleted equation ${targetEq.name}`);
         } else {
-            alert(`Failed to reset equations: ${res.error}`);
+            showError(`Delete failed: ${res.error}`);
         }
     };
 
-    const handleExportJSON = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(equations, null, 2));
-        const dlAnchorElem = document.createElement("a");
-        dlAnchorElem.setAttribute("href", dataStr);
-        dlAnchorElem.setAttribute("download", "cdi_edi_equations.json");
-        dlAnchorElem.click();
-    };
-
-    const handleImportJSON = (e) => {
-        const fileReader = new FileReader();
-        if (e.target.files && e.target.files[0]) {
-            fileReader.readAsText(e.target.files[0], "UTF-8");
-            fileReader.onload = async (event) => {
-                try {
-                    const parsed = JSON.parse(event.target.result);
-                    if (!Array.isArray(parsed)) {
-                        alert("Invalid JSON format. Expected an array of equations.");
-                        return;
-                    }
-                    const res = await saveEquations(parsed);
-                    if (res.success) {
-                        alert("Equations imported and validated successfully!");
-                    } else {
-                        alert(`Import failed: ${res.error}`);
-                    }
-                } catch (err) {
-                    alert("Failed to parse JSON file.");
-                }
-            };
-        }
+    const handleDeleteEquation = (id) => {
+        if (!selectedEquation) return;
+        if (!window.confirm(`Are you sure you want to delete equation '${selectedEquation.name}'?`)) return;
+        performDelete(id);
     };
 
     const handleTestRun = () => {
@@ -381,19 +350,27 @@ export default function EquationEditorPage() {
         try {
             setTestError(null);
             const sanitizedScope = {};
-            Object.keys(testScope).forEach(k => {
-                sanitizedScope[k] = Number(testScope[k]);
+            variablesUsed.forEach((k) => {
+                const inputVal = testScope[k];
+                const defaultVal = DEFAULT_VAR_VALUES[k] !== undefined ? DEFAULT_VAR_VALUES[k] : 1.0;
+                sanitizedScope[k] = (inputVal !== undefined && !isNaN(Number(inputVal))) ? Number(inputVal) : defaultVal;
             });
 
             const keys = Object.keys(sanitizedScope);
             const values = Object.values(sanitizedScope);
-            const fn = new Function(...keys, `return ${selectedEquation.formula};`);
+
+            // Replace caret ^ with ** exponentiation for JavaScript evaluation
+            const jsFormula = selectedEquation.formula.replace(/\^/g, "**");
+
+            const fn = new Function(...keys, `return ${jsFormula};`);
             const resVal = fn(...values);
+
             if (isNaN(resVal) || resVal === null) {
                 setTestError("Evaluation returned NaN or Invalid result.");
                 setTestResult(null);
             } else {
-                setTestResult(resVal);
+                const formatted = Number.isInteger(resVal) ? resVal : parseFloat(resVal.toFixed(4));
+                setTestResult(formatted);
             }
         } catch (e) {
             setTestError(e.message);
@@ -401,740 +378,1027 @@ export default function EquationEditorPage() {
         }
     };
 
-    const handleExportPDF = () => {
-        generateEngineeringReportPDF({
-            user,
-            feedWater,
-            technology,
-            engineering,
-            simulation,
-            performance,
-            optimization: optimizationInputs,
-            equations,
-            modifications: logsData?.engineeringModifications || []
-        });
-    };
-
-    return (
-        <div style={{ padding: "20px", display: "flex", flexDirection: "column", height: "calc(100vh - 60px)", boxSizing: "border-box", background: "#f8fafc" }}>
-
-            {/* Top Navigation Bar */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", background: "white", padding: "12px 20px", borderRadius: "8px", boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                    <button
-                        onClick={() => setPage("DASHBOARD")}
-                        style={{
-                            background: "#f1f5f9",
-                            border: "1px solid #cbd5e1",
-                            color: "#334155",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            padding: "8px 14px",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                            fontWeight: "600"
-                        }}
-                    >
-                        <ArrowLeft size={16} /> Back to Dashboard
-                    </button>
-
-                    <h2 style={{ margin: 0, fontSize: "18px", color: "#0f172a", fontWeight: "700" }}>
-                        Equation Management Studio
-                    </h2>
-
-                    {/* Role Badge */}
-                    <span style={{
-                        background: isAdmin ? "#fee2e2" : "#dbeafe",
-                        color: isAdmin ? "#991b1b" : "#1e40af",
-                        padding: "4px 10px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: "700",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px"
-                    }}>
-                        <Shield size={12} /> {user?.role || "User"}
-                    </span>
-                </div>
-
-                {/* Center Tabs for Administrator ONLY (To view User Activity, Login History, Engineering Modifications, User Accounts) */}
-                {isAdmin && (
-                    <div style={{ display: "flex", background: "#f1f5f9", padding: "4px", borderRadius: "8px", gap: "4px" }}>
-                        <button
-                            onClick={() => setActiveTab("EQUATION_EDITOR")}
-                            style={{
-                                border: "none",
-                                background: activeTab === "EQUATION_EDITOR" ? "white" : "transparent",
-                                color: activeTab === "EQUATION_EDITOR" ? "#2563eb" : "#64748b",
-                                fontWeight: "600",
-                                padding: "6px 16px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                boxShadow: activeTab === "EQUATION_EDITOR" ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
-                            }}
-                        >
-                            🧮 Equation Library
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("ADMIN_PANEL")}
-                            style={{
-                                border: "none",
-                                background: activeTab === "ADMIN_PANEL" ? "white" : "transparent",
-                                color: activeTab === "ADMIN_PANEL" ? "#2563eb" : "#64748b",
-                                fontWeight: "600",
-                                padding: "6px 16px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                boxShadow: activeTab === "ADMIN_PANEL" ? "0 1px 3px rgba(0,0,0,0.1)" : "none"
-                            }}
-                        >
-                            📊 Admin Panel (User Activity & Logs)
-                        </button>
+    // -------------------------------------------------------------
+    // RENDER UNAUTHENTICATED EQUATION EDITOR LOGIN PAGE
+    // -------------------------------------------------------------
+    if (!isEqEditorAuthenticated) {
+        return (
+            <div style={styles.loginContainer}>
+                <div style={styles.loginCard}>
+                    <div style={styles.loginHeader}>
+                        <div style={styles.loginIconBadge}>
+                            <Lock size={32} color="#2563EB" />
+                        </div>
+                        <h2 style={styles.loginTitle}>Equation Editor Authentication</h2>
+                        <p style={styles.loginSubtitle}>
+                            Sign in to access the CDI/EDI Equation Management Studio
+                        </p>
                     </div>
-                )}
 
-                {/* Right Action Bar - Download System Equations Report available for ALL users */}
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    {isAdmin && activeTab === "EQUATION_EDITOR" && (
-                        <button
-                            onClick={handleReset}
-                            style={{
-                                background: "#f1f5f9",
-                                border: "1px solid #cbd5e1",
-                                color: "#475569",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px",
-                                padding: "8px 12px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600"
-                            }}
-                            title="Restore default equations (Admin ONLY)"
-                        >
-                            <RotateCcw size={14} /> Reset Defaults
-                        </button>
+                    {eqAuthError && (
+                        <div style={styles.loginErrorAlert}>
+                            <AlertTriangle size={18} />
+                            <span>{eqAuthError}</span>
+                        </div>
                     )}
 
-                    {activeTab === "EQUATION_EDITOR" && (
-                        <button
-                            onClick={handleCreateNew}
-                            style={{
-                                background: "#2563eb",
-                                border: "none",
-                                color: "white",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px",
-                                padding: "8px 12px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600"
-                            }}
-                        >
-                            <Plus size={14} /> New Equation
-                        </button>
-                    )}
+                    <form onSubmit={handleEqAuthSubmit} style={styles.loginForm}>
+                        <div style={styles.inputGroup}>
+                            <label style={styles.label}>Email Address</label>
+                            <div style={styles.inputWrapper}>
+                                <Mail size={18} style={styles.inputIcon} />
+                                <input
+                                    type="email"
+                                    value={eqAuthEmail}
+                                    onChange={(e) => setEqAuthEmail(e.target.value)}
+                                    placeholder="Enter your email"
+                                    style={styles.input}
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                        </div>
 
-                    {/* Download System Equations PDF Report - Available to ALL Users */}
-                    <button
-                        onClick={handleExportPDF}
-                        style={{
-                            background: "#0f172a",
-                            border: "none",
-                            color: "white",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            padding: "8px 12px",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                            fontWeight: "600"
-                        }}
-                        title="Download System Equations Report (PDF)"
-                    >
-                        <FileText size={14} /> Download System Equations Report
-                    </button>
+                        <div style={styles.inputGroup}>
+                            <label style={styles.label}>Password</label>
+                            <div style={styles.inputWrapper}>
+                                <Key size={18} style={styles.inputIcon} />
+                                <input
+                                    type="password"
+                                    value={eqAuthPassword}
+                                    onChange={(e) => setEqAuthPassword(e.target.value)}
+                                    placeholder="Enter your password"
+                                    style={styles.input}
+                                    required
+                                />
+                            </div>
+                        </div>
 
-                    <button
-                        onClick={logout}
-                        style={{
-                            background: "#dc2626",
-                            border: "none",
-                            color: "white",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            padding: "8px 14px",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                            fontWeight: "600"
-                        }}
-                    >
-                        <LogOut size={14} /> Logout
+                        <div style={styles.loginActions}>
+                            <button
+                                type="button"
+                                onClick={() => setPage("DASHBOARD")}
+                                style={styles.backDashboardBtn}
+                            >
+                                <ArrowLeft size={16} />
+                                <span>Back to Dashboard</span>
+                            </button>
+
+                            <button type="submit" style={styles.loginSubmitBtn}>
+                                <span>Login to Studio</span>
+                                <ArrowRight size={16} />
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    // -------------------------------------------------------------
+    // RENDER EQUATION MANAGEMENT STUDIO
+    // -------------------------------------------------------------
+    return (
+        <div style={styles.container}>
+            {/* TOP BAR */}
+            <div style={styles.header}>
+                <div style={styles.headerLeft}>
+                    <button onClick={() => setPage("DASHBOARD")} style={styles.backBtn}>
+                        <ArrowLeft size={16} />
+                        <span>Back to Dashboard</span>
                     </button>
+                    <span style={styles.divider}>|</span>
+                    <h2 style={styles.headerTitle}>Equation Management Studio</h2>
+                    <span style={styles.divider}>|</span>
+                    <span style={styles.userRoleBadge}>{userRoleDisplay}</span>
                 </div>
             </div>
 
-            {/* TAB 1: ADMIN AUDIT PANEL (Only visible if isAdmin && activeTab === 'ADMIN_PANEL') */}
-            {isAdmin && activeTab === "ADMIN_PANEL" ? (
-                <div style={{ flex: 1, background: "white", borderRadius: "8px", padding: "20px", display: "flex", flexDirection: "column", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", borderBottom: "1px solid #e2e8f0", paddingBottom: "12px" }}>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                            <button
-                                onClick={() => setAdminLogSubTab("USER_MANAGEMENT")}
-                                style={{
-                                    padding: "8px 16px",
-                                    borderRadius: "6px",
-                                    border: "none",
-                                    fontWeight: "600",
-                                    fontSize: "13px",
-                                    cursor: "pointer",
-                                    background: adminLogSubTab === "USER_MANAGEMENT" ? "#2563eb" : "#f1f5f9",
-                                    color: adminLogSubTab === "USER_MANAGEMENT" ? "white" : "#475569",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "6px"
-                                }}
-                            >
-                                <Users size={14} /> User Accounts ({usersList.length})
-                            </button>
-                            <button
-                                onClick={() => setAdminLogSubTab("LOGIN_HISTORY")}
-                                style={{
-                                    padding: "8px 16px",
-                                    borderRadius: "6px",
-                                    border: "none",
-                                    fontWeight: "600",
-                                    fontSize: "13px",
-                                    cursor: "pointer",
-                                    background: adminLogSubTab === "LOGIN_HISTORY" ? "#2563eb" : "#f1f5f9",
-                                    color: adminLogSubTab === "LOGIN_HISTORY" ? "white" : "#475569"
-                                }}
-                            >
-                                🔑 Login History ({logsData.loginHistory.length})
-                            </button>
-                            <button
-                                onClick={() => setAdminLogSubTab("USER_ACTIVITY")}
-                                style={{
-                                    padding: "8px 16px",
-                                    borderRadius: "6px",
-                                    border: "none",
-                                    fontWeight: "600",
-                                    fontSize: "13px",
-                                    cursor: "pointer",
-                                    background: adminLogSubTab === "USER_ACTIVITY" ? "#2563eb" : "#f1f5f9",
-                                    color: adminLogSubTab === "USER_ACTIVITY" ? "white" : "#475569"
-                                }}
-                            >
-                                📋 User Activity ({logsData.userActivity.length})
-                            </button>
-                            <button
-                                onClick={() => setAdminLogSubTab("ENGINEERING_MODS")}
-                                style={{
-                                    padding: "8px 16px",
-                                    borderRadius: "6px",
-                                    border: "none",
-                                    fontWeight: "600",
-                                    fontSize: "13px",
-                                    cursor: "pointer",
-                                    background: adminLogSubTab === "ENGINEERING_MODS" ? "#2563eb" : "#f1f5f9",
-                                    color: adminLogSubTab === "ENGINEERING_MODS" ? "white" : "#475569"
-                                }}
-                            >
-                                ⚙️ Engineering Modifications ({logsData.engineeringModifications.length})
-                            </button>
-                        </div>
+            {/* TOOLBAR */}
+            <div style={styles.toolbar}>
+                <div style={styles.toolbarGroup}>
+                    <button onClick={handleCreateNew} style={styles.createToolBtn}>
+                        <Plus size={15} />
+                        <span>New Equation</span>
+                    </button>
 
-                        <button
-                            onClick={fetchAdminData}
-                            disabled={logsLoading}
-                            style={{
-                                background: "#f8fafc",
-                                border: "1px solid #cbd5e1",
-                                color: "#334155",
-                                padding: "6px 12px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: "600",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px"
-                            }}
-                        >
-                            <RefreshCw size={14} className={logsLoading ? "spin" : ""} /> Refresh Admin Data
+                    {isUserAdmin && (
+                        <button onClick={resetEquations} style={styles.toolBtn}>
+                            <RotateCcw size={15} />
+                            <span>Reset Defaults</span>
                         </button>
-                    </div>
-
-                    {logsError && (
-                        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", padding: "10px 14px", borderRadius: "6px", marginBottom: "15px", fontSize: "13px" }}>
-                            {logsError}
-                        </div>
                     )}
 
-                    <div style={{ flex: 1, overflowY: "auto" }}>
-                        {/* USER MANAGEMENT SUB-TAB */}
-                        {adminLogSubTab === "USER_MANAGEMENT" && (
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                                <thead>
-                                    <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0", textAlign: "left", color: "#475569" }}>
-                                        <th style={{ padding: "10px" }}>Full Name</th>
-                                        <th style={{ padding: "10px" }}>Email / Username</th>
-                                        <th style={{ padding: "10px" }}>Company / University</th>
-                                        <th style={{ padding: "10px" }}>Role</th>
-                                        <th style={{ padding: "10px" }}>Status</th>
-                                        <th style={{ padding: "10px" }}>Created Date</th>
-                                        <th style={{ padding: "10px" }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {usersList.length === 0 ? (
-                                        <tr><td colSpan="7" style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>No registered user accounts.</td></tr>
-                                    ) : (
-                                        usersList.map((u) => (
-                                            <tr key={u.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                                <td style={{ padding: "10px", fontWeight: "600", color: "#1e293b" }}>{u.fullName || u.username}</td>
-                                                <td style={{ padding: "10px" }}>{u.email || u.username}</td>
-                                                <td style={{ padding: "10px" }}>{u.company || "N/A"}</td>
-                                                <td style={{ padding: "10px" }}>
-                                                    <span style={{
-                                                        padding: "2px 8px",
-                                                        borderRadius: "4px",
-                                                        fontSize: "11px",
-                                                        fontWeight: "bold",
-                                                        background: u.role === "Administrator" ? "#fee2e2" : "#dbeafe",
-                                                        color: u.role === "Administrator" ? "#991b1b" : "#1e40af"
-                                                    }}>
-                                                        {u.role}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: "10px", color: "#166534", fontWeight: "600" }}>{u.status}</td>
-                                                <td style={{ padding: "10px" }}>{u.createdDate ? new Date(u.createdDate).toLocaleDateString() : "-"}</td>
-                                                <td style={{ padding: "10px" }}>
-                                                    {u.role !== "Administrator" && u.id !== "u-admin" ? (
-                                                        <div style={{ display: "flex", gap: "6px" }}>
-                                                            <button
-                                                                onClick={() => handleResetUserPassword(u.id, u.fullName || u.email)}
-                                                                style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", color: "#334155", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }}
-                                                                title="Reset User Password"
-                                                            >
-                                                                <Key size={12} /> Reset Password
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteUser(u.id, u.fullName || u.email)}
-                                                                style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#991b1b", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }}
-                                                                title="Delete User Account"
-                                                            >
-                                                                <Trash2 size={12} /> Delete
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <span style={{ fontSize: "11px", color: "#94a3b8" }}>System Admin</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-
-                        {/* LOGIN HISTORY SUB-TAB */}
-                        {adminLogSubTab === "LOGIN_HISTORY" && (
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                                <thead>
-                                    <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0", textAlign: "left", color: "#475569" }}>
-                                        <th style={{ padding: "10px" }}>Login Time</th>
-                                        <th style={{ padding: "10px" }}>Logout Time</th>
-                                        <th style={{ padding: "10px" }}>User Name</th>
-                                        <th style={{ padding: "10px" }}>Email</th>
-                                        <th style={{ padding: "10px" }}>Role</th>
-                                        <th style={{ padding: "10px" }}>Status</th>
-                                        <th style={{ padding: "10px" }}>IP Address</th>
-                                        <th style={{ padding: "10px" }}>Browser</th>
-                                        <th style={{ padding: "10px" }}>OS</th>
-                                        <th style={{ padding: "10px" }}>Duration</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {logsData.loginHistory.length === 0 ? (
-                                        <tr><td colSpan="10" style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>No login history records found.</td></tr>
-                                    ) : (
-                                        logsData.loginHistory.map((row, idx) => (
-                                            <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                                <td style={{ padding: "10px" }}>{row.loginTime}</td>
-                                                <td style={{ padding: "10px" }}>{row.logoutTime}</td>
-                                                <td style={{ padding: "10px", fontWeight: "600", color: "#1e293b" }}>{row.username}</td>
-                                                <td style={{ padding: "10px" }}>{row.email}</td>
-                                                <td style={{ padding: "10px" }}>{row.role}</td>
-                                                <td style={{ padding: "10px" }}>
-                                                    <span style={{
-                                                        padding: "2px 8px",
-                                                        borderRadius: "4px",
-                                                        fontSize: "11px",
-                                                        fontWeight: "bold",
-                                                        background: row.status === "LOGIN" ? "#dcfce7" : row.status === "FAILED LOGIN" ? "#fee2e2" : "#f1f5f9",
-                                                        color: row.status === "LOGIN" ? "#166534" : row.status === "FAILED LOGIN" ? "#991b1b" : "#475569"
-                                                    }}>
-                                                        {row.status}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: "10px", fontFamily: "monospace" }}>{row.ip}</td>
-                                                <td style={{ padding: "10px" }}>{row.browser}</td>
-                                                <td style={{ padding: "10px" }}>{row.os}</td>
-                                                <td style={{ padding: "10px" }}>{row.sessionDuration}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-
-                        {/* USER ACTIVITY SUB-TAB */}
-                        {adminLogSubTab === "USER_ACTIVITY" && (
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                                <thead>
-                                    <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0", textAlign: "left", color: "#475569" }}>
-                                        <th style={{ padding: "10px" }}>Date</th>
-                                        <th style={{ padding: "10px" }}>Time</th>
-                                        <th style={{ padding: "10px" }}>User</th>
-                                        <th style={{ padding: "10px" }}>Email</th>
-                                        <th style={{ padding: "10px" }}>Activity</th>
-                                        <th style={{ padding: "10px" }}>Module</th>
-                                        <th style={{ padding: "10px" }}>Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {logsData.userActivity.length === 0 ? (
-                                        <tr><td colSpan="7" style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>No user activity records found.</td></tr>
-                                    ) : (
-                                        logsData.userActivity.map((row, idx) => (
-                                            <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                                <td style={{ padding: "10px" }}>{row.date}</td>
-                                                <td style={{ padding: "10px" }}>{row.time}</td>
-                                                <td style={{ padding: "10px", fontWeight: "600", color: "#1e293b" }}>{row.user}</td>
-                                                <td style={{ padding: "10px" }}>{row.email}</td>
-                                                <td style={{ padding: "10px", fontWeight: "600", color: "#2563eb" }}>{row.activity}</td>
-                                                <td style={{ padding: "10px" }}>{row.module}</td>
-                                                <td style={{ padding: "10px", color: "#475569" }}>{row.details}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-
-                        {/* ENGINEERING MODS SUB-TAB */}
-                        {adminLogSubTab === "ENGINEERING_MODS" && (
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                                <thead>
-                                    <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0", textAlign: "left", color: "#475569" }}>
-                                        <th style={{ padding: "10px" }}>Date</th>
-                                        <th style={{ padding: "10px" }}>User</th>
-                                        <th style={{ padding: "10px" }}>Email</th>
-                                        <th style={{ padding: "10px" }}>Module</th>
-                                        <th style={{ padding: "10px" }}>Parameter</th>
-                                        <th style={{ padding: "10px" }}>Old Value</th>
-                                        <th style={{ padding: "10px" }}>New Value</th>
-                                        <th style={{ padding: "10px" }}>Reason</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {logsData.engineeringModifications.length === 0 ? (
-                                        <tr><td colSpan="8" style={{ padding: "20px", textAlign: "center", color: "#94a3b8" }}>No engineering modification records found.</td></tr>
-                                    ) : (
-                                        logsData.engineeringModifications.map((row, idx) => (
-                                            <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                                <td style={{ padding: "10px" }}>{row.date}</td>
-                                                <td style={{ padding: "10px", fontWeight: "600", color: "#1e293b" }}>{row.user}</td>
-                                                <td style={{ padding: "10px" }}>{row.email}</td>
-                                                <td style={{ padding: "10px" }}>{row.module}</td>
-                                                <td style={{ padding: "10px", fontWeight: "600" }}>{row.parameter}</td>
-                                                <td style={{ padding: "10px", color: "#dc2626" }}>{row.oldValue}</td>
-                                                <td style={{ padding: "10px", color: "#16a34a", fontWeight: "bold" }}>{row.newValue}</td>
-                                                <td style={{ padding: "10px", color: "#475569" }}>{row.reason}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
+                    <button onClick={() => exportEquationAuditsToExcel(activeEquations)} style={styles.toolBtn}>
+                        <FileSpreadsheet size={15} />
+                        <span>Download System Equations Report</span>
+                    </button>
                 </div>
-            ) : (
-                /* TAB 2: EQUATION LIBRARY EDITOR */
-                <div style={{ display: "grid", gridTemplateColumns: "350px 1fr", gap: "20px", flex: 1, overflow: "hidden" }}>
 
-                    {/* Left Side: Equation List */}
-                    <div style={{ background: "white", borderRadius: "8px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <button onClick={logout} style={styles.logoutToolBtn}>
+                    <LogOut size={15} />
+                    <span>Logout</span>
+                </button>
+            </div>
 
-                        {/* Search & Category Filter */}
-                        <div style={{ padding: "15px", borderBottom: "1px solid #eee", display: "flex", flexDirection: "column", gap: "10px" }}>
-                            <div style={{ position: "relative" }}>
-                                <Search size={16} style={{ position: "absolute", left: "10px", top: "12px", color: "#888" }} />
-                                <input
-                                    type="text"
-                                    placeholder="Search equations..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    style={{
-                                        width: "100%",
-                                        padding: "8px 8px 8px 32px",
-                                        border: "1px solid #ccc",
-                                        borderRadius: "4px",
-                                        fontSize: "14px",
-                                        boxSizing: "border-box"
-                                    }}
-                                />
-                            </div>
-                            <select
-                                value={selectedCategory}
-                                onChange={(e) => setSelectedCategory(e.target.value)}
+            {/* MAIN STUDIO GRID */}
+            <div style={styles.bodyGrid}>
+                {/* LEFT SIDEBAR: DEFAULT EQUATIONS LIBRARY */}
+                <div style={styles.leftSidebar}>
+                    <div style={styles.searchBarWrapper}>
+                        <Search size={16} color="#94A3B8" />
+                        <input
+                            type="text"
+                            placeholder="Search equations..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={styles.searchInput}
+                        />
+                    </div>
+
+                    <div style={styles.categoryBar}>
+                        <button
+                            onClick={() => setSelectedCategory("ALL")}
+                            style={{
+                                ...styles.categoryPill,
+                                ...(selectedCategory === "ALL" ? styles.activePill : {})
+                            }}
+                        >
+                            All Categories ({filteredEquations.length})
+                        </button>
+                        {categories.map((cat) => (
+                            <button
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat)}
                                 style={{
-                                    width: "100%",
-                                    padding: "8px",
-                                    border: "1px solid #ccc",
-                                    borderRadius: "4px",
-                                    fontSize: "14px"
+                                    ...styles.categoryPill,
+                                    ...(selectedCategory === cat ? styles.activePill : {})
                                 }}
                             >
-                                <option value="ALL">All Categories</option>
-                                {categories.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Equations List */}
-                        <div style={{ flex: 1, overflowY: "auto", padding: "10px" }}>
-                            {filteredEquations.length === 0 ? (
-                                <p style={{ textAlign: "center", color: "#888", marginTop: "20px" }}>No equations found.</p>
-                            ) : (
-                                filteredEquations.map(eq => (
-                                    <div
-                                        key={eq.id}
-                                        onClick={() => handleSelectEquation(eq)}
-                                        style={{
-                                            padding: "12px",
-                                            borderRadius: "6px",
-                                            background: selectedEquation?.id === eq.id ? "#eef6ff" : "transparent",
-                                            border: selectedEquation?.id === eq.id ? "1px solid #1976d2" : "1px solid transparent",
-                                            cursor: "pointer",
-                                            marginBottom: "8px",
-                                            transition: "all 0.2s"
-                                        }}
-                                    >
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                                            <span style={{ fontWeight: "600", fontSize: "14px", color: eq.enabled ? "#333" : "#888" }}>
-                                                {eq.name}
-                                            </span>
-                                            <input
-                                                type="checkbox"
-                                                checked={eq.enabled}
-                                                onChange={() => handleToggleStatus(eq)}
-                                                onClick={(e) => e.stopPropagation()}
-                                                title={eq.enabled ? "Disable Equation" : "Enable Equation"}
-                                                style={{ cursor: "pointer" }}
-                                            />
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <code style={{ fontSize: "12px", color: "#666" }}>{eq.formula}</code>
-                                            <span style={{
-                                                fontSize: "11px",
-                                                background: "#e0e0e0",
-                                                color: "#555",
-                                                padding: "2px 6px",
-                                                borderRadius: "3px"
-                                            }}>
-                                                {eq.category}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
+                                {cat}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Right Side: Equation Detail & Editor */}
-                    <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "20px" }}>
-                        {!selectedEquation ? (
-                            <div style={{ background: "white", borderRadius: "8px", padding: "40px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-                                <Info size={48} style={{ color: "#1976d2", marginBottom: "15px" }} />
-                                <h3>No Equation Selected</h3>
-                                <p style={{ color: "#666" }}>Select an engineering equation from the list to view or edit.</p>
+                    <div style={styles.eqListContainer}>
+                        {filteredEquations.map((eq) => {
+                            const isSelected = selectedEquation && selectedEquation.id === eq.id;
+                            return (
+                                <div
+                                    key={eq.id}
+                                    onClick={() => handleSelectEquation(eq)}
+                                    style={{
+                                        ...styles.eqCard,
+                                        ...(isSelected ? styles.selectedEqCard : {})
+                                    }}
+                                >
+                                    <div style={styles.eqCardHeader}>
+                                        <span style={styles.eqName}>{eq.name}</span>
+                                        <span style={styles.categoryBadge}>{eq.category}</span>
+                                    </div>
+                                    <code style={styles.eqFormulaSnippet}>{eq.formula}</code>
+                                    <div style={styles.eqCardFooter}>
+                                        <span style={styles.eqUnits}>{eq.units}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* RIGHT PANEL: EQUATION DETAILS & LIVE CALCULATOR */}
+                <div style={styles.mainEditorPanel}>
+                    {selectedEquation ? (
+                        <div style={styles.editorCard}>
+                            <div style={styles.editorCardHeader}>
+                                <div>
+                                    <h3 style={styles.editorTitle}>{selectedEquation.name}</h3>
+                                    <span style={styles.editorSubtitle}>{selectedEquation.category} Category • Version {selectedEquation.version || "1.0.0"}</span>
+                                </div>
+
+                                <div style={styles.editorActions}>
+                                    <button onClick={handleSaveFormulaClick} style={styles.saveBtn}>
+                                        <Save size={15} />
+                                        <span>Save Formula</span>
+                                    </button>
+
+                                    <button onClick={() => handleDeleteEquation(selectedEquation.id)} style={styles.deleteBtn} title="Delete Equation">
+                                        <Trash2 size={16} />
+                                        <span>Delete Equation</span>
+                                    </button>
+                                </div>
                             </div>
-                        ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 
-                                {/* Card 1: Core Fields */}
-                                <div style={{ background: "white", borderRadius: "8px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px", borderBottom: "1px solid #eee", paddingBottom: "10px" }}>
-                                        <input
-                                            type="text"
-                                            value={selectedEquation.name}
-                                            onChange={(e) => handleFieldChange("name", e.target.value)}
-                                            style={{ fontSize: "20px", fontWeight: "bold", border: "1px solid #ccc", borderRadius: "4px", padding: "4px 8px", width: "70%" }}
-                                        />
-                                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                            <select
-                                                value={selectedEquation.category}
-                                                onChange={(e) => handleFieldChange("category", e.target.value)}
-                                                style={{ padding: "4px 8px", borderRadius: "4px", border: "1px solid #ccc", fontSize: "12px" }}
-                                            >
-                                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-
-                                            {/* Delete Button - Administrator or Custom Equation */}
-                                            {(isAdmin || selectedEquation.id.includes("custom")) && (
-                                                <button
-                                                    onClick={() => handleDeleteEquation(selectedEquation.id)}
-                                                    style={{ background: "#fee2e2", color: "#dc2626", border: "none", padding: "6px 10px", borderRadius: "4px", cursor: "pointer" }}
-                                                    title="Delete Equation"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
+                            {/* FORMULA EXPRESSION INPUT */}
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>Formula Expression</label>
+                                <input
+                                    type="text"
+                                    value={selectedEquation.formula || ""}
+                                    onChange={(e) => handleFieldChange("formula", e.target.value)}
+                                    style={styles.formulaInput}
+                                />
+                                {formulaError && (
+                                    <div style={styles.errorBanner}>
+                                        <AlertTriangle size={16} />
+                                        <span>{formulaError}</span>
                                     </div>
+                                )}
+                            </div>
 
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px" }}>
-                                        <div>
-                                            <label style={{ fontWeight: "bold", color: "#555", display: "block", marginBottom: "4px" }}>Description</label>
-                                            <input
-                                                type="text"
-                                                value={selectedEquation.description || ""}
-                                                onChange={(e) => handleFieldChange("description", e.target.value)}
-                                                style={{ width: "100%", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label style={{ fontWeight: "bold", color: "#555", display: "block", marginBottom: "4px" }}>Units</label>
-                                            <input
-                                                type="text"
-                                                value={selectedEquation.units || ""}
-                                                onChange={(e) => handleFieldChange("units", e.target.value)}
-                                                style={{ width: "200px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
-                                            />
-                                        </div>
-                                    </div>
+                            {/* DESCRIPTION & UNITS */}
+                            <div style={styles.rowTwoCol}>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Units</label>
+                                    <input
+                                        type="text"
+                                        value={selectedEquation.units || ""}
+                                        onChange={(e) => handleFieldChange("units", e.target.value)}
+                                        style={styles.textInput}
+                                    />
                                 </div>
 
-                                {/* Card 2: Formula & Variables */}
-                                <div style={{ background: "white", borderRadius: "8px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-                                    <h3 style={{ margin: "0 0 15px 0", fontSize: "18px", color: "#1976d2" }}>Formula Engine</h3>
-
-                                    <div style={{ marginBottom: "15px" }}>
-                                        <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#555", marginBottom: "5px" }}>Formula Expression</label>
-                                        <textarea
-                                            rows={3}
-                                            value={selectedEquation.formula}
-                                            onChange={(e) => handleFieldChange("formula", e.target.value)}
-                                            style={{
-                                                width: "100%",
-                                                fontFamily: "monospace",
-                                                fontSize: "15px",
-                                                padding: "10px",
-                                                borderRadius: "4px",
-                                                border: formulaError ? "2px solid #c62828" : "1px solid #ccc",
-                                                boxSizing: "border-box"
-                                            }}
-                                        />
-                                        {formulaError && (
-                                            <div style={{ color: "#c62828", fontSize: "12px", marginTop: "5px", fontWeight: "bold" }}>
-                                                ⚠️ Syntax Error: {formulaError}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Real-time Variable Parser & Simulation Preview */}
-                                    <div>
-                                        <h4 style={{ fontSize: "14px", margin: "0 0 10px 0", color: "#555" }}>Detected Variable Parameters ({variablesUsed.length})</h4>
-                                        {variablesUsed.length === 0 ? (
-                                            <p style={{ fontSize: "12px", color: "#888" }}>No variables detected or formula is empty.</p>
-                                        ) : (
-                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
-                                                {variablesUsed.map(varName => (
-                                                    <div key={varName} style={{ background: "#f5f5f5", padding: "8px 12px", borderRadius: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                        <span style={{ fontFamily: "monospace", fontWeight: "bold", fontSize: "13px" }}>{varName}:</span>
-                                                        <input
-                                                            type="number"
-                                                            step="any"
-                                                            value={testScope[varName] !== undefined ? testScope[varName] : 1.0}
-                                                            onChange={(e) => setTestScope({ ...testScope, [varName]: parseFloat(e.target.value) || 0 })}
-                                                            style={{ width: "80px", padding: "4px", fontSize: "12px", textAlign: "right" }}
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <button
-                                            onClick={handleTestRun}
-                                            style={{
-                                                marginTop: "15px",
-                                                background: "#1976d2",
-                                                color: "white",
-                                                border: "none",
-                                                padding: "8px 16px",
-                                                borderRadius: "4px",
-                                                cursor: "pointer",
-                                                fontWeight: "600",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "6px"
-                                            }}
-                                        >
-                                            <Play size={14} /> Live Calculation Test
-                                        </button>
-
-                                        {testResult !== null && (
-                                            <div style={{ marginTop: "12px", padding: "10px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "6px", color: "#166534", fontWeight: "bold" }}>
-                                                Calculation Result: {format(testResult, 4)} {selectedEquation.units}
-                                            </div>
-                                        )}
-                                        {testError && (
-                                            <div style={{ marginTop: "12px", padding: "10px 14px", background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", fontSize: "13px" }}>
-                                                {testError}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Save Button Bar */}
-                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginBottom: "40px" }}>
-                                    <button
-                                        onClick={handleSave}
-                                        style={{
-                                            background: "#16a34a",
-                                            color: "white",
-                                            border: "none",
-                                            padding: "10px 25px",
-                                            borderRadius: "6px",
-                                            cursor: "pointer",
-                                            fontWeight: "bold",
-                                            fontSize: "14px",
-                                            boxShadow: "0 2px 5px rgba(0,0,0,0.15)"
-                                        }}
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Category</label>
+                                    <select
+                                        value={selectedEquation.category || "Electrical"}
+                                        onChange={(e) => handleFieldChange("category", e.target.value)}
+                                        style={styles.textInput}
                                     >
-                                        Save &amp; Activate Formula
+                                        {categories.map((c) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style={styles.formGroup}>
+                                <label style={styles.formLabel}>Description</label>
+                                <textarea
+                                    value={selectedEquation.description || ""}
+                                    onChange={(e) => handleFieldChange("description", e.target.value)}
+                                    rows={2}
+                                    style={styles.textArea}
+                                />
+                            </div>
+
+                            {/* LIVE CALCULATOR & VARIABLE RUNNER */}
+                            <div style={styles.testRunnerBox}>
+                                <div style={styles.testRunnerHeader}>
+                                    <h4 style={styles.testRunnerTitle}>⚡ Live Formula Calculator</h4>
+                                    <button onClick={handleTestRun} style={styles.testRunBtn}>
+                                        <Play size={15} /> Execute Preview
                                     </button>
                                 </div>
 
+                                {variablesUsed.length > 0 ? (
+                                    <div style={styles.variablesGrid}>
+                                        {variablesUsed.map((v) => (
+                                            <div key={v} style={styles.variableField}>
+                                                <span style={styles.varName}>{v}</span>
+                                                <input
+                                                    type="number"
+                                                    value={testScope[v] !== undefined ? testScope[v] : 1.0}
+                                                    onChange={(e) =>
+                                                        setTestScope({ ...testScope, [v]: parseFloat(e.target.value) || 0 })
+                                                    }
+                                                    style={styles.varInput}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p style={styles.noVarText}>No variables detected in expression.</p>
+                                )}
+
+                                {testResult !== null && (
+                                    <div style={styles.testResultBanner}>
+                                        <CheckCircle size={18} color="#166534" />
+                                        <span>Calculated Output: <b>{testResult}</b> {selectedEquation.units}</span>
+                                    </div>
+                                )}
+
+                                {testError && (
+                                    <div style={styles.testErrorBanner}>
+                                        <AlertTriangle size={18} color="#991B1B" />
+                                        <span>Evaluation Error: {testError}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+
+            {/* ADMINISTRATOR AUTHENTICATION REQUIRED MODAL FOR SAVE FORMULA */}
+            {showSaveConfirmModal && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalContent}>
+                        <div style={styles.modalHeader}>
+                            <Shield size={24} color="#2563EB" />
+                            <h3 style={styles.modalTitle}>Administrator Authentication Required</h3>
+                        </div>
+
+                        {saveAuthError && (
+                            <div style={styles.accessDeniedBanner}>
+                                <AlertTriangle size={16} />
+                                <span>{saveAuthError}</span>
                             </div>
                         )}
+
+                        <form onSubmit={handleSaveConfirmSubmit} style={styles.modalForm}>
+                            <div style={styles.modalInputGroup}>
+                                <label style={styles.modalLabel}>Administrator Email</label>
+                                <input
+                                    type="email"
+                                    value={adminAuthEmailInput}
+                                    onChange={(e) => setAdminAuthEmailInput(e.target.value)}
+                                    placeholder="admin@cdiedi.com"
+                                    style={styles.modalInput}
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+
+                            <div style={styles.modalInputGroup}>
+                                <label style={styles.modalLabel}>Administrator Password</label>
+                                <input
+                                    type="password"
+                                    value={adminAuthPasswordInput}
+                                    onChange={(e) => setAdminAuthPasswordInput(e.target.value)}
+                                    placeholder="••••••••"
+                                    style={styles.modalInput}
+                                    required
+                                />
+                            </div>
+
+                            <div style={styles.modalActions}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowSaveConfirmModal(false);
+                                        setAdminAuthEmailInput("");
+                                        setAdminAuthPasswordInput("");
+                                        setSaveAuthError("");
+                                    }}
+                                    style={styles.cancelBtn}
+                                >
+                                    Cancel
+                                </button>
+                                <button type="submit" style={styles.unlockBtn}>
+                                    Authenticate
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
         </div>
     );
 }
+
+const styles = {
+    loginContainer: {
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#0F172A",
+        backgroundImage: "radial-gradient(circle at 50% 30%, #1E293B 0%, #0F172A 70%)",
+        fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif"
+    },
+    loginCard: {
+        width: "100%",
+        maxWidth: "420px",
+        backgroundColor: "#FFFFFF",
+        borderRadius: "16px",
+        padding: "36px 32px",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
+        boxSizing: "border-box"
+    },
+    loginHeader: {
+        textAlign: "center",
+        marginBottom: "24px"
+    },
+    loginIconBadge: {
+        width: "56px",
+        height: "56px",
+        borderRadius: "14px",
+        backgroundColor: "#EFF6FF",
+        display: "inline-flex",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: "12px"
+    },
+    loginTitle: {
+        fontSize: "20px",
+        fontWeight: "700",
+        color: "#0F172A",
+        margin: "0 0 4px 0"
+    },
+    loginSubtitle: {
+        fontSize: "12.5px",
+        color: "#64748B",
+        margin: 0
+    },
+    loginErrorAlert: {
+        backgroundColor: "#FEF2F2",
+        border: "1px solid #FCA5A5",
+        borderRadius: "8px",
+        padding: "10px 12px",
+        marginBottom: "16px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        color: "#991B1B",
+        fontSize: "13px"
+    },
+    loginForm: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "16px"
+    },
+    inputGroup: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px"
+    },
+    label: {
+        fontSize: "12.5px",
+        fontWeight: "600",
+        color: "#334155"
+    },
+    inputWrapper: {
+        position: "relative",
+        display: "flex",
+        alignItems: "center"
+    },
+    inputIcon: {
+        position: "absolute",
+        left: "12px",
+        color: "#94A3B8"
+    },
+    input: {
+        width: "100%",
+        height: "42px",
+        paddingLeft: "38px",
+        paddingRight: "12px",
+        fontSize: "13.5px",
+        color: "#0F172A",
+        backgroundColor: "#F8FAFC",
+        border: "1px solid #CBD5E1",
+        borderRadius: "8px",
+        outline: "none",
+        boxSizing: "border-box"
+    },
+    loginActions: {
+        display: "flex",
+        justifyContent: "space-between",
+        gap: "12px",
+        marginTop: "8px"
+    },
+    backDashboardBtn: {
+        flex: 1,
+        height: "42px",
+        backgroundColor: "#F1F5F9",
+        color: "#475569",
+        border: "1px solid #CBD5E1",
+        borderRadius: "8px",
+        fontSize: "13px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "6px"
+    },
+    loginSubmitBtn: {
+        flex: 1,
+        height: "42px",
+        backgroundColor: "#2563EB",
+        color: "#FFFFFF",
+        border: "none",
+        borderRadius: "8px",
+        fontSize: "13px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "6px"
+    },
+    container: {
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#F8FAFC",
+        fontFamily: "'Inter', 'Segoe UI', Roboto, sans-serif"
+    },
+    header: {
+        height: "54px",
+        backgroundColor: "#FFFFFF",
+        borderBottom: "1px solid #E2E8F0",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 20px",
+        boxSizing: "border-box"
+    },
+    headerLeft: {
+        display: "flex",
+        alignItems: "center",
+        gap: "12px"
+    },
+    backBtn: {
+        backgroundColor: "#F1F5F9",
+        color: "#475569",
+        border: "1px solid #CBD5E1",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    divider: {
+        color: "#CBD5E1"
+    },
+    headerTitle: {
+        fontSize: "16px",
+        fontWeight: "700",
+        color: "#0F172A",
+        margin: 0
+    },
+    userRoleBadge: {
+        fontSize: "12px",
+        fontWeight: "600",
+        color: "#2563EB",
+        backgroundColor: "#EFF6FF",
+        padding: "4px 10px",
+        borderRadius: "20px"
+    },
+    toolbar: {
+        height: "46px",
+        backgroundColor: "#0F172A",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "0 20px",
+        boxSizing: "border-box"
+    },
+    toolbarGroup: {
+        display: "flex",
+        alignItems: "center",
+        gap: "10px"
+    },
+    createToolBtn: {
+        backgroundColor: "#16A34A",
+        color: "#FFFFFF",
+        border: "none",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    toolBtn: {
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
+        color: "#F8FAFC",
+        border: "none",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "500",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    logoutToolBtn: {
+        backgroundColor: "#DC2626",
+        color: "#FFFFFF",
+        border: "none",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    bodyGrid: {
+        flex: 1,
+        display: "flex",
+        overflow: "hidden"
+    },
+    leftSidebar: {
+        width: "360px",
+        backgroundColor: "#FFFFFF",
+        borderRight: "1px solid #E2E8F0",
+        display: "flex",
+        flexDirection: "column",
+        padding: "16px",
+        boxSizing: "border-box"
+    },
+    searchBarWrapper: {
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        backgroundColor: "#F8FAFC",
+        border: "1px solid #CBD5E1",
+        borderRadius: "8px",
+        padding: "0 10px",
+        height: "36px",
+        marginBottom: "12px"
+    },
+    searchInput: {
+        border: "none",
+        background: "transparent",
+        outline: "none",
+        fontSize: "13px",
+        width: "100%"
+    },
+    categoryBar: {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "4px",
+        marginBottom: "12px"
+    },
+    categoryPill: {
+        fontSize: "11px",
+        padding: "4px 8px",
+        borderRadius: "4px",
+        borderWidth: "1px",
+        borderStyle: "solid",
+        borderColor: "#E2E8F0",
+        backgroundColor: "#F8FAFC",
+        color: "#64748B",
+        cursor: "pointer"
+    },
+    activePill: {
+        backgroundColor: "#2563EB",
+        color: "#FFFFFF",
+        borderColor: "#2563EB",
+        fontWeight: "600"
+    },
+    eqListContainer: {
+        flex: 1,
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px"
+    },
+    eqCard: {
+        padding: "12px",
+        borderRadius: "8px",
+        borderWidth: "1px",
+        borderStyle: "solid",
+        borderColor: "#E2E8F0",
+        backgroundColor: "#FFFFFF",
+        cursor: "pointer",
+        transition: "all 0.15s"
+    },
+    selectedEqCard: {
+        borderColor: "#2563EB",
+        backgroundColor: "#EFF6FF"
+    },
+    eqCardHeader: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "4px"
+    },
+    eqName: {
+        fontSize: "13px",
+        fontWeight: "600",
+        color: "#0F172A"
+    },
+    categoryBadge: {
+        fontSize: "10.5px",
+        fontWeight: "600",
+        color: "#64748B",
+        backgroundColor: "#F1F5F9",
+        padding: "2px 6px",
+        borderRadius: "4px"
+    },
+    eqFormulaSnippet: {
+        fontSize: "12px",
+        color: "#2563EB",
+        fontFamily: "monospace",
+        display: "block",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        marginBottom: "4px"
+    },
+    eqCardFooter: {
+        display: "flex",
+        justifyContent: "flex-end"
+    },
+    eqUnits: {
+        fontSize: "11px",
+        color: "#64748B",
+        fontWeight: "600"
+    },
+    mainEditorPanel: {
+        flex: 1,
+        padding: "20px",
+        overflowY: "auto"
+    },
+    editorCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: "12px",
+        border: "1px solid #E2E8F0",
+        padding: "24px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+    },
+    editorCardHeader: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px"
+    },
+    editorTitle: {
+        fontSize: "20px",
+        fontWeight: "700",
+        color: "#0F172A",
+        margin: "0 0 2px 0"
+    },
+    editorSubtitle: {
+        fontSize: "13px",
+        color: "#64748B"
+    },
+    editorActions: {
+        display: "flex",
+        gap: "10px"
+    },
+    saveBtn: {
+        backgroundColor: "#2563EB",
+        color: "#FFFFFF",
+        border: "none",
+        padding: "8px 16px",
+        borderRadius: "6px",
+        fontSize: "13.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    deleteBtn: {
+        backgroundColor: "#FEF2F2",
+        color: "#DC2626",
+        borderWidth: "1px",
+        borderStyle: "solid",
+        borderColor: "#FCA5A5",
+        padding: "8px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    formGroup: {
+        marginBottom: "16px"
+    },
+    formLabel: {
+        fontSize: "13px",
+        fontWeight: "600",
+        color: "#334155",
+        display: "block",
+        marginBottom: "6px"
+    },
+    formulaInput: {
+        width: "100%",
+        height: "44px",
+        padding: "0 14px",
+        fontSize: "15px",
+        fontFamily: "monospace",
+        fontWeight: "600",
+        color: "#1E293B",
+        backgroundColor: "#FFFFFF",
+        border: "1px solid #CBD5E1",
+        borderRadius: "8px",
+        outline: "none",
+        boxSizing: "border-box"
+    },
+    rowTwoCol: {
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "16px"
+    },
+    textInput: {
+        width: "100%",
+        height: "38px",
+        padding: "0 12px",
+        fontSize: "13px",
+        border: "1px solid #CBD5E1",
+        borderRadius: "6px",
+        outline: "none",
+        boxSizing: "border-box"
+    },
+    textArea: {
+        width: "100%",
+        padding: "10px 12px",
+        fontSize: "13px",
+        border: "1px solid #CBD5E1",
+        borderRadius: "6px",
+        outline: "none",
+        boxSizing: "border-box",
+        fontFamily: "inherit"
+    },
+    errorBanner: {
+        backgroundColor: "#FEF2F2",
+        color: "#991B1B",
+        padding: "8px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginTop: "6px"
+    },
+    testRunnerBox: {
+        marginTop: "24px",
+        padding: "18px",
+        backgroundColor: "#F8FAFC",
+        borderRadius: "10px",
+        border: "1px solid #E2E8F0"
+    },
+    testRunnerHeader: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "14px"
+    },
+    testRunnerTitle: {
+        fontSize: "14px",
+        fontWeight: "700",
+        color: "#0F172A",
+        margin: 0
+    },
+    testRunBtn: {
+        backgroundColor: "#16A34A",
+        color: "#FFFFFF",
+        border: "none",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    variablesGrid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+        gap: "10px",
+        marginBottom: "14px"
+    },
+    variableField: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px"
+    },
+    varName: {
+        fontSize: "11.5px",
+        fontWeight: "600",
+        color: "#475569"
+    },
+    varInput: {
+        height: "32px",
+        padding: "0 8px",
+        fontSize: "12.5px",
+        border: "1px solid #CBD5E1",
+        borderRadius: "4px"
+    },
+    noVarText: {
+        fontSize: "12.5px",
+        color: "#94A3B8"
+    },
+    testResultBanner: {
+        backgroundColor: "#F0FDF4",
+        border: "1px solid #BBF7D0",
+        color: "#166534",
+        padding: "10px 14px",
+        borderRadius: "6px",
+        fontSize: "13.5px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px"
+    },
+    testErrorBanner: {
+        backgroundColor: "#FEF2F2",
+        border: "1px solid #FCA5A5",
+        color: "#991B1B",
+        padding: "10px 14px",
+        borderRadius: "6px",
+        fontSize: "13.5px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px"
+    },
+    modalOverlay: {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(15, 23, 42, 0.75)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 9999
+    },
+    modalContent: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: "14px",
+        padding: "24px",
+        width: "90%",
+        maxWidth: "420px"
+    },
+    modalHeader: {
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        marginBottom: "8px"
+    },
+    modalTitle: {
+        fontSize: "17px",
+        fontWeight: "700",
+        color: "#0F172A",
+        margin: 0
+    },
+    accessDeniedBanner: {
+        backgroundColor: "#FEF2F2",
+        border: "1px solid #FCA5A5",
+        color: "#991B1B",
+        padding: "8px 12px",
+        borderRadius: "6px",
+        fontSize: "13px",
+        fontWeight: "600",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginBottom: "12px"
+    },
+    modalForm: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px"
+    },
+    modalInputGroup: {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px"
+    },
+    modalLabel: {
+        fontSize: "12.5px",
+        fontWeight: "600",
+        color: "#334155"
+    },
+    modalInput: {
+        width: "100%",
+        height: "38px",
+        padding: "0 12px",
+        fontSize: "13px",
+        borderRadius: "6px",
+        border: "1px solid #CBD5E1",
+        outline: "none",
+        boxSizing: "border-box"
+    },
+    modalActions: {
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: "10px"
+    },
+    cancelBtn: {
+        padding: "8px 14px",
+        borderRadius: "6px",
+        border: "1px solid #CBD5E1",
+        background: "#FFFFFF",
+        color: "#475569",
+        fontSize: "13px",
+        cursor: "pointer"
+    },
+    unlockBtn: {
+        padding: "8px 14px",
+        borderRadius: "6px",
+        border: "none",
+        background: "#2563EB",
+        color: "#FFFFFF",
+        fontSize: "13px",
+        fontWeight: "600",
+        cursor: "pointer"
+    }
+};

@@ -1,4 +1,5 @@
 import { parseFormula, evaluatePostfix, validateFormula } from './formulaParser.js';
+import { DEFAULT_EQUATIONS_DATABASE } from '../data/defaultEquationsDatabase.js';
 
 import supabase from '../services/supabaseClient.js';
 let inMemoryEquationsCache = null;
@@ -340,77 +341,7 @@ class EquationEngine {
     }
 
     static getDefaultEquations() {
-        return [
-          {
-            "id": "power",
-            "name": "Power",
-            "description": "Calculates the electrical power consumed by the cell stack.",
-            "formula": "V * I",
-            "variables": ["V", "I"],
-            "units": "W",
-            "category": "Electrical",
-            "enabled": true,
-            "reference": {
-              "title": "Review of Capacitive Deionization",
-              "description": "Fundamental relation of power consumption in electrochemical systems.",
-              "literatureReference": "Review of Capacitive Deionization",
-              "publication": "Water Research",
-              "doi": "10.1016/j.watres.2012.11.001",
-              "year": 2013
-            },
-            "example": "V = 1.2 V, I = 5 A => P = 6 W"
-          },
-          {
-            "id": "current_density",
-            "name": "Current Density",
-            "description": "Electrical current per unit area of electrode.",
-            "formula": "I / Area",
-            "variables": ["I", "Area"],
-            "units": "A/cm²",
-            "category": "Electrical",
-            "enabled": true
-          },
-          {
-            "id": "residence_time",
-            "name": "Residence Time",
-            "description": "Time water spends inside the cell flow channel.",
-            "formula": "(Area * Height) / FlowRate",
-            "variables": ["Area", "Height", "FlowRate"],
-            "units": "s",
-            "category": "Hydraulic",
-            "enabled": true
-          },
-          {
-            "id": "sec",
-            "name": "Specific Energy Consumption",
-            "description": "Energy consumed per cubic meter of clean water produced.",
-            "formula": "Power / WaterProduced",
-            "variables": ["Power", "WaterProduced"],
-            "units": "kWh/m³",
-            "category": "Energy",
-            "enabled": true
-          },
-          {
-            "id": "salt_removal",
-            "name": "Salt Removal",
-            "description": "Difference in total dissolved solids (TDS) between inlet feed and product outlet.",
-            "formula": "FeedTDS - OutletTDS",
-            "variables": ["FeedTDS", "OutletTDS"],
-            "units": "ppm",
-            "category": "Mass Transfer",
-            "enabled": true
-          },
-          {
-            "id": "removal_efficiency",
-            "name": "Removal Efficiency",
-            "description": "Percentage of salt removed relative to the feed salinity.",
-            "formula": "((FeedTDS - OutletTDS) / FeedTDS) * 100",
-            "variables": ["FeedTDS", "OutletTDS"],
-            "units": "%",
-            "category": "Performance",
-            "enabled": true
-          }
-        ];
+        return DEFAULT_EQUATIONS_DATABASE;
     }
 
     static getTopologicalOrder(activeEquations) {

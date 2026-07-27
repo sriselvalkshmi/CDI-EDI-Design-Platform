@@ -18,12 +18,12 @@ import layoutGenerator from "../engineering/layoutGenerator";
 import performanceCalculator from "../engineering/performanceCalculator";
 import designOptimizer from "../engineering/designOptimizer";
 import EquationEngine from "../engineering/equationEngine";
+import { DEFAULT_EQUATIONS_DATABASE } from "../data/defaultEquationsDatabase";
 import aiRecommendation from "../engineering/aiRecommendation";
 import analyzeWaterChemistry from "../engineering/waterChemistry";
 import calculateEconomics from "../engineering/economicEngine";
 import calibrateEquations from "../engineering/experimentalCalibration";
 import predictActualPerformance from "../engineering/mlCorrectionEngine";
-
 
 const componentSizing = typeof componentSizingModule === "function" ? componentSizingModule : componentSizingModule.calculate;
 
@@ -141,7 +141,9 @@ export function AppProvider({ children }) {
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [page, setPage] = useState("DASHBOARD");
-    const [equations, setEquations] = useState([]);
+    
+    // Initialize equations state with default populated database immediately
+    const [equations, setEquations] = useState(() => DEFAULT_EQUATIONS_DATABASE);
     const [designGenerated, setDesignGenerated] = useState(false);
 
     // Client-side engineering calculation engine
@@ -253,13 +255,9 @@ export function AppProvider({ children }) {
             // Validation & Multi-Stage Calculation Logic
             const tds = Number(feedWater.tds || 500);
             const targetTds = Number(feedWater.targetTds || 50);
-            const requiredRemoval = tds > 0 ? ((tds - targetTds) / tds) * 100 : 90.0;
 
             const maxTechRemovalMap = { CDI: 85.0, MCDI: 94.0, FCDI: 95.0, EDI: 99.9 };
             const maxTechRemoval = maxTechRemovalMap[activeTech] || 85.0;
-
-            const isMultiStage = false;
-            const stage1Tech = activeTech;
 
             // Single Technology Stage 1 Object
             const stage1OutletTDS = eng.outletTDS;
@@ -267,8 +265,8 @@ export function AppProvider({ children }) {
 
             const stage1 = {
                 stage: 1,
-                name: `${stage1Tech} Desalination`,
-                technology: stage1Tech,
+                name: `${activeTech} Desalination`,
+                technology: activeTech,
                 inletTDS: tds,
                 outletTDS: stage1OutletTDS,
                 removalEfficiency: stage1RemovalEff,
@@ -283,23 +281,7 @@ export function AppProvider({ children }) {
                 flowRate: eng.flowRate,
                 currentDensity: eng.currentDensity,
                 pressureDrop: eng.pressureDrop,
-                engineering: {
-                    technology: stage1Tech,
-                    inletTDS: tds,
-                    outletTDS: stage1OutletTDS,
-                    voltage: eng.voltage,
-                    current: eng.current,
-                    power: eng.power,
-                    sec: eng.sec,
-                    removalEfficiency: stage1RemovalEff,
-                    waterRecovery: eng.waterRecovery,
-                    cellPairs: eng.cellPairs,
-                    electrodeArea: eng.electrodeArea,
-                    residenceTime: eng.residenceTime,
-                    flowRate: eng.flowRate,
-                    currentDensity: eng.currentDensity,
-                    pressureDrop: eng.pressureDrop
-                }
+                engineering: { ...eng }
             };
 
             const recommendedProcess = activeTech;
@@ -347,20 +329,19 @@ export function AppProvider({ children }) {
                 validation.messages.push(`💡 Outlet TDS reached: ${finalOutletTDS} ppm.`);
             }
 
-            // Sync overall values to main engineering object for backwards compatibility
-            eng.technology = isMultiStage ? "FCDI → EDI" : activeTech;
+            // Sync overall values to main engineering object
+            eng.technology = activeTech;
             eng.outletTDS = finalOutletTDS;
             eng.removalEfficiency = overallRemoval;
             eng.power = totalPower;
             eng.sec = overallSec;
             eng.waterRecovery = overallRecovery;
-            eng.isMultiStage = isMultiStage;
             eng.recommendedProcess = recommendedProcess;
 
             // P&ID and Layout Generator
             const pidResult = layoutGenerator(null, eng, feedWater, sim, activeTech, processObj);
 
-            // Build the unified designResult object with fresh references
+            // Build the unified designResult object
             const newDesignResult = {
                 input: { feedWater: { ...feedWater }, optimizationInputs: calcInputs, technology: activeTech, userSelectedTechnology: currentTech },
                 aiRecommendation: {
@@ -379,7 +360,6 @@ export function AppProvider({ children }) {
                     ...optResult,
                     previousEngineering: initialEng,
                     isOptimal: noImprovement,
-                    isLimitReached: !isMultiStage && optResult.isLimitReached,
                     isOptimizationApplied: isOptimization,
                     recommendedProcess
                 } : null,
@@ -407,7 +387,7 @@ export function AppProvider({ children }) {
                 },
                 validation
             };
-            const isLimitReached = Boolean(optResult?.isLimitReached || processObj?.overall?.isMultiStage);
+            const isLimitReached = Boolean(optResult?.isLimitReached);
             const status = isLimitReached ? "LIMIT_REACHED" : (noImprovement ? "NO_IMPROVEMENT" : "OPTIMIZED");
 
             setDesignResult(newDesignResult);
@@ -417,7 +397,7 @@ export function AppProvider({ children }) {
                 noImprovement,
                 isLimitReached,
                 status,
-                recommendedProcess: validation.recommendedProcess || "FCDI → EDI"
+                recommendedProcess: validation.recommendedProcess || "CDI"
             };
         } catch (e) {
             console.error("Client calculation error:", e);
@@ -425,14 +405,16 @@ export function AppProvider({ children }) {
         }
     };
 
-
-
     const fetchEquations = async () => {
         try {
             const eqList = await EquationEngine.loadEquationsAsync();
-            setEquations(eqList || []);
+            if (eqList && eqList.length > 0) {
+                setEquations(eqList);
+            } else {
+                setEquations(DEFAULT_EQUATIONS_DATABASE);
+            }
         } catch (e) {
-            console.error("Error fetching equations:", e);
+            setEquations(DEFAULT_EQUATIONS_DATABASE);
         }
     };
 
@@ -452,7 +434,7 @@ export function AppProvider({ children }) {
     const resetEquations = async () => {
         try {
             const defaultEqs = EquationEngine.resetToDefaults();
-            setEquations(defaultEqs);
+            setEquations(defaultEqs || DEFAULT_EQUATIONS_DATABASE);
             if (user) {
                 await auditLogger.logActivity(user.id, user.email, "Reset Equation Library", "Equation Editor", "Restored default equations library");
             }
@@ -470,7 +452,7 @@ export function AppProvider({ children }) {
         }
 
         let role = "User";
-        let fullName = sbUser.user_metadata?.full_name || "Engineer";
+        let fullName = sbUser.user_metadata?.full_name || "User";
 
         try {
             const { data: profileData } = await supabase
@@ -503,15 +485,15 @@ export function AppProvider({ children }) {
         setUser({
             id: sbUser.id,
             email: sbUser.email,
-            fullName,
-            role
+            fullName: sbUser.email === "admin@cdiedi.com" ? "Administrator" : fullName,
+            role: (role === "Administrator" || sbUser.email === "admin@cdiedi.com") ? "Administrator" : "User"
         });
         setIsAuthenticated(true);
     };
 
     const login = async (email, password) => {
         if (!isSupabaseConfigured) {
-            throw new Error("Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in client/.env.");
+            throw new Error("Supabase credentials missing.");
         }
         try {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -535,7 +517,7 @@ export function AppProvider({ children }) {
 
     const register = async ({ fullName, email, password }) => {
         if (!isSupabaseConfigured) {
-            throw new Error("Supabase credentials missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in client/.env.");
+            throw new Error("Supabase credentials missing.");
         }
         try {
             const { data, error } = await supabase.auth.signUp({
@@ -548,7 +530,6 @@ export function AppProvider({ children }) {
             if (error) throw error;
 
             if (data?.user) {
-                // Upsert profile in Supabase profiles table
                 await supabase.from("profiles").upsert([{
                     id: data.user.id,
                     full_name: fullName,
@@ -590,6 +571,11 @@ export function AppProvider({ children }) {
             return { success: false, error: e.message };
         }
     };
+
+    // Load equations on mount
+    useEffect(() => {
+        fetchEquations();
+    }, []);
 
     // Check Supabase Auth Session on mount
     useEffect(() => {
