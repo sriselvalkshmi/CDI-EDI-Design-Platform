@@ -126,9 +126,6 @@ export default function LoginPage() {
                         <ShieldCheck size={34} color="#2563EB" />
                     </div>
                     <h1 style={styles.title}>CDI / EDI Design Platform</h1>
-                    <p style={styles.subtitle}>
-                        Enterprise Access Portal
-                    </p>
                 </div>
 
                 {/* TAB SWITCHER */}
