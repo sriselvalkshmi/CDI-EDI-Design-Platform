@@ -2,10 +2,11 @@ import React from "react";
 import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { generateEngineeringReportPDF } from "../utils/reportGenerator";
-import { Shield, Calculator, FileText, LogOut, User } from "lucide-react";
+import { Shield, Calculator, FileText, LogOut, User, LayoutDashboard } from "lucide-react";
 
 export default function Navbar() {
     const {
+        page,
         setPage,
         user: appUser,
         designResult,
@@ -35,7 +36,13 @@ export default function Navbar() {
     return (
         <header className="navbar" style={styles.navContainer}>
             <div style={styles.brandGroup}>
-                <h1 style={styles.navTitle}>CDI / EDI Design Platform</h1>
+                <h1
+                    style={{ ...styles.navTitle, cursor: "pointer" }}
+                    onClick={() => setPage("DASHBOARD")}
+                    title="Click to go to Main Dashboard"
+                >
+                    CDI / EDI Design Platform
+                </h1>
 
                 {/* ROLE ONLY DISPLAY (NO PERSONAL NAME) */}
                 <div style={styles.userBadgeBox}>
@@ -45,6 +52,17 @@ export default function Navbar() {
             </div>
 
             <div style={styles.userSection}>
+                {page === "EQUATION_EDITOR" && (
+                    <button
+                        onClick={() => setPage("DASHBOARD")}
+                        style={styles.mainDashBtn}
+                        title="Return to Main Engineering Dashboard"
+                    >
+                        <LayoutDashboard size={15} />
+                        <span>Main Dashboard</span>
+                    </button>
+                )}
+
                 <button
                     onClick={handleExportReport}
                     style={styles.reportBtn}
@@ -55,24 +73,35 @@ export default function Navbar() {
                 </button>
 
                 <button
-                    onClick={() => setPage("EQUATION_EDITOR")}
-                    style={styles.equationBtn}
+                    onClick={() => setPage(page === "EQUATION_EDITOR" ? "DASHBOARD" : "EQUATION_EDITOR")}
+                    style={page === "EQUATION_EDITOR" ? styles.activeEqBtn : styles.equationBtn}
                     title="Equation Editor & Formulas"
                 >
                     <Calculator size={15} />
                     <span>Equation Editor</span>
                 </button>
 
-                {/* HIDE ADMIN DASHBOARD BUTTON FOR USERS - ONLY RENDER FOR ADMINISTRATORS */}
+                {/* ONLY RENDER ONE BUTTON FOR ADMINISTRATORS: ADMIN DASHBOARD OR MAIN DASHBOARD */}
                 {userRole === "Administrator" && (
-                    <button
-                        onClick={() => setPage("ADMIN_DASHBOARD")}
-                        style={styles.adminBtn}
-                        title="Enterprise Security & Admin Dashboard"
-                    >
-                        <Shield size={15} />
-                        <span>Admin Dashboard</span>
-                    </button>
+                    page === "ADMIN_DASHBOARD" ? (
+                        <button
+                            onClick={() => setPage("DASHBOARD")}
+                            style={styles.mainDashBtn}
+                            title="Return to Main Engineering Dashboard"
+                        >
+                            <LayoutDashboard size={15} />
+                            <span>Main Dashboard</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setPage("ADMIN_DASHBOARD")}
+                            style={styles.adminBtn}
+                            title="Enterprise Security & Admin Dashboard"
+                        >
+                            <Shield size={15} />
+                            <span>Admin Dashboard</span>
+                        </button>
+                    )
                 )}
 
                 <button
@@ -131,6 +160,19 @@ const styles = {
         alignItems: "center",
         gap: "10px"
     },
+    mainDashBtn: {
+        backgroundColor: "#0F172A",
+        color: "#FFFFFF",
+        border: "none",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
     reportBtn: {
         backgroundColor: "#F1F5F9",
         color: "#334155",
@@ -157,10 +199,36 @@ const styles = {
         alignItems: "center",
         gap: "6px"
     },
+    activeEqBtn: {
+        backgroundColor: "#2563EB",
+        color: "#FFFFFF",
+        border: "1px solid #2563EB",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
     adminBtn: {
         backgroundColor: "#2563EB",
         color: "#FFFFFF",
         border: "none",
+        padding: "6px 12px",
+        borderRadius: "6px",
+        fontSize: "12.5px",
+        fontWeight: "600",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px"
+    },
+    activeAdminBtn: {
+        backgroundColor: "#1E40AF",
+        color: "#FFFFFF",
+        border: "1px solid #1D4ED8",
         padding: "6px 12px",
         borderRadius: "6px",
         fontSize: "12.5px",

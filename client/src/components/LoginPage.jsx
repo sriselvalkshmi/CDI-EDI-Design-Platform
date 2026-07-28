@@ -47,12 +47,8 @@ export default function LoginPage() {
         try {
             const res = await login(identifier, password, rememberMe);
             if (res.success) {
-                showSuccess(`Welcome back, ${res.user.fullName || "Administrator"}!`);
-                if (res.user.role === "Administrator" || res.user.email === "admin@cdiedi.com" || identifier.trim().toLowerCase() === "admin@cdiedi.com") {
-                    setPage("ADMIN_DASHBOARD");
-                } else {
-                    setPage("DASHBOARD");
-                }
+                showSuccess(`Welcome back, ${res.user.fullName || "User"}!`);
+                setPage("DASHBOARD");
             }
         } finally {
             setIsSubmitting(false);

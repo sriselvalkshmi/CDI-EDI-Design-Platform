@@ -25,7 +25,8 @@ import {
     FileText,
     Calculator,
     RotateCcw,
-    History
+    History,
+    LayoutDashboard
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -760,6 +761,19 @@ const styles = {
         display: "flex",
         alignItems: "center",
         gap: "12px"
+    },
+    backDashBtn: {
+        backgroundColor: "#0F172A",
+        color: "#FFFFFF",
+        border: "none",
+        padding: "10px 16px",
+        borderRadius: "8px",
+        fontWeight: "600",
+        fontSize: "13px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px"
     },
     exportBtn: {
         backgroundColor: "#2563EB",
