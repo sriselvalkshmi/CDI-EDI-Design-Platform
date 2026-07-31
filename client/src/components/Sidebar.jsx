@@ -180,8 +180,10 @@ export default function Sidebar() {
                     value={technology}
                     disabled={isViewer}
                     onChange={(e) => {
+                        const newTech = e.target.value;
                         setOptimizationStatus("idle");
-                        setTechnology(e.target.value);
+                        setTechnology(newTech);
+                        recalculate(optimizationInputs, newTech);
                     }}
                 >
                     <option value="AUTO">AI Recommendation</option>

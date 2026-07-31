@@ -44,10 +44,21 @@ export default function OptimizationPanel() {
 
     function updateParameter(parameter, value) {
         setOptimizationStatus("idle");
-        setOptimizationInputs(prev => ({
-            ...prev,
-            [parameter]: value === "" ? "" : Number(value)
-        }));
+        const valNum = value === "" ? "" : Number(value);
+        const updatedInputs = {
+            ...optimizationInputs,
+            [parameter]: valNum
+        };
+        setOptimizationInputs(updatedInputs);
+
+        // Instant live recalculation & schematic update
+        try {
+            if (valNum !== "") {
+                recalculate(updatedInputs, technology);
+            }
+        } catch (e) {
+            // Ignore transient invalid inputs
+        }
     }
 
     async function handleApplyOptimization() {
@@ -133,7 +144,7 @@ export default function OptimizationPanel() {
                 }}>
                     <span>Calculated: {format(engValue)} {units}</span>
                     {!isDisabled && (
-                        <span style={{ color: "#2563EB", fontWeight: "600" }}>Manual Input</span>
+                        <span style={{ color: "#2563EB", fontWeight: "600" }}>Live Parameter Update</span>
                     )}
                 </div>
             </div>
@@ -185,7 +196,7 @@ export default function OptimizationPanel() {
                 {loading && <span style={{ color: "#2563EB", fontSize: "12px", fontWeight: "600" }}>⚡ Recalculating...</span>}
             </div>
 
-            {/* Issue 1: Large Warning Card when Target Cannot Be Achieved */}
+            {/* Warning Card when Target Cannot Be Achieved */}
             {isLimitReached && (
                 <div style={{
                     background: "#FEF2F2",
@@ -285,7 +296,7 @@ export default function OptimizationPanel() {
                 </select>
             </div>
 
-            {/* Issue 2: Disable / Hide Manual Controls when Limit Reached */}
+            {/* Manual Controls for Live Dynamic Parameter Overrides */}
             {isLimitReached ? (
                 <div style={{
                     background: "#F8FAFC",
@@ -304,15 +315,18 @@ export default function OptimizationPanel() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "2px", marginBottom: "12px" }}>
                     <ParameterCardRow label="Operating Voltage" parameter="voltage" units="V" step="0.1" min="0.5" max="50" />
                     <ParameterCardRow label="Operating Current" parameter="current" units="A" step="0.1" min="0.1" max="100" />
-                    <ParameterCardRow label="Cell Pairs" parameter="cellPairs" units="pairs" step="1" min="1" max="500" />
+                    <ParameterCardRow label="Cell Pairs (Electrodes)" parameter="cellPairs" units="pairs" step="1" min="1" max="500" />
                     <ParameterCardRow label="Electrode Area" parameter="electrodeArea" units="cm²" step="10" min="10" max="5000" />
+                    <ParameterCardRow label="Electrode Thickness" parameter="electrodeThickness" units="mm" step="0.05" min="0.1" max="10" />
+                    <ParameterCardRow label="Relative Spacing (Spacer)" parameter="spacerThickness" units="mm" step="0.05" min="0.1" max="10" />
+                    <ParameterCardRow label="Membrane Thickness" parameter="membraneThickness" units="mm" step="0.01" min="0.05" max="2" />
                     <ParameterCardRow label="Feed Flow Rate" parameter="flowRate" units="L/min" step="1" min="1" max="500" />
                     <ParameterCardRow label="Flow Velocity" parameter="flowVelocity" units="m/s" step="0.01" min="0.01" max="5" />
                     <ParameterCardRow label="Residence Time" parameter="residenceTime" units="min" step="0.1" min="0.1" max="60" />
                 </div>
             )}
 
-            {/* Issue 6: Optimization button behavior */}
+            {/* Apply Optimization Button */}
             <button
                 className="btn-optimize-design"
                 onClick={handleApplyOptimization}

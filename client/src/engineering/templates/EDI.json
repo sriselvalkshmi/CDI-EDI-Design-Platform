@@ -1,0 +1,117 @@
+{
+  "technology": "EDI",
+  "name": "Electrodeionization (EDI)",
+  "description": "Continuous EDI module with mixed-bed ion-exchange resins packed between CEM and AEM membranes under DC electric field for ultra-pure water production.",
+  "standard": "ISO 10628 / ISA 5.1",
+  "flowPath": [
+    "Feed",
+    "Anode",
+    "CEM",
+    "Resin Chamber",
+    "AEM",
+    "Cathode",
+    "Product Water"
+  ],
+  "layers": [
+    {
+      "id": "anode_terminal",
+      "name": "Anode (+) Terminal",
+      "type": "electrode",
+      "polarity": "positive",
+      "material": "Dimensional Stable Anode (Platinized Titanium)",
+      "color": "#DC2626",
+      "stroke": "#991B1B",
+      "symbol": "ANODE_TERMINAL"
+    },
+    {
+      "id": "cem_membrane",
+      "name": "Cation Exchange Membrane (CEM)",
+      "type": "membrane",
+      "membraneType": "CEM",
+      "material": "Sulfonated Homogeneous CEM",
+      "color": "#10B981",
+      "stroke": "#059669",
+      "symbol": "MEMBRANE_CEM"
+    },
+    {
+      "id": "resin_bed",
+      "name": "Mixed-Bed Ion Exchange Resin Chamber",
+      "type": "resin_chamber",
+      "material": "Nuclear-Grade Strong Acid Cation & Strong Base Anion Resin Beads",
+      "color": "#FEF3C7",
+      "stroke": "#F59E0B",
+      "symbol": "RESIN_BEADS"
+    },
+    {
+      "id": "aem_membrane",
+      "name": "Anion Exchange Membrane (AEM)",
+      "type": "membrane",
+      "membraneType": "AEM",
+      "material": "Quaternary Ammonium Homogeneous AEM",
+      "color": "#F59E0B",
+      "stroke": "#D97706",
+      "symbol": "MEMBRANE_AEM"
+    },
+    {
+      "id": "cathode_terminal",
+      "name": "Cathode (-) Terminal",
+      "type": "electrode",
+      "polarity": "negative",
+      "material": "Stainless Steel 316L Cathode",
+      "color": "#2563EB",
+      "stroke": "#1D4ED8",
+      "symbol": "CATHODE_TERMINAL"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "FEED_TANK",
+      "name": "EDI Feed Pre-treatment Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "FRP Composite Tank",
+      "manufacturer": "Evoqua / DuPont Water Solutions",
+      "specs": {
+        "feedTDSLimit": "< 40 ppm (RO Permeate)",
+        "silicaLimit": "< 0.5 ppm"
+      }
+    },
+    {
+      "id": "EDI_PUMP",
+      "name": "EDI Booster Pump",
+      "type": "pump",
+      "symbol": "ISA_CENTRIFUGAL_PUMP",
+      "material": "Sanitary Stainless Steel 316L",
+      "manufacturer": "Grundfos High Pressure",
+      "specs": {
+        "pumpType": "Multi-stage Centrifugal",
+        "outletPressure": "3.5 - 5.0 bar"
+      }
+    },
+    {
+      "id": "EDI_STACK",
+      "name": "EDI Resin Stack Module",
+      "type": "reactor",
+      "symbol": "ISA_EDI_MODULE_STACK",
+      "material": "Mixed Ion Exchange Resin & Ion Exchange Membranes",
+      "manufacturer": "IONPURE / SnowPure EDI",
+      "specs": {
+        "waterResistivity": "15 - 18.2 MΩ·cm",
+        "silicaRemoval": ">99.5%",
+        "resinRegeneration": "Continuous In-situ Water Splitting (Electrolytic)"
+      }
+    },
+    {
+      "id": "PROD_TANK",
+      "name": "Ultra-Pure Water Storage Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "PVDF / High Purity Stainless Steel",
+      "manufacturer": "PureWater Storage Inc.",
+      "specs": {
+        "waterGrade": "Type I Ultra-Pure / WFI Grade",
+        "blanketGas": "Nitrogen Sealed"
+      }
+    }
+  ]
+}

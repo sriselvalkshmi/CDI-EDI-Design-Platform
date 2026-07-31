@@ -3,15 +3,22 @@
 /**
  * Water Chemistry Module
  * Analyzes multi-ionic speciation (Na+, Ca2+, Mg2+, K+, Cl-, SO42-, HCO3-),
- * ionic strength, electrical conductivity, osmotic pressure, and scaling index (LSI).
+ * ionic strength, electrical conductivity coupling, osmotic pressure, and scaling index (LSI).
  */
 export function analyzeWaterChemistry(feedWater = {}) {
-    const tds = Number(feedWater.tds ?? 500); // mg/L
+    const rawTds = Number(feedWater.tds ?? 500); // mg/L
+    const rawCond = Number(feedWater.conductivity ?? (rawTds / 0.65)); // µS/cm
+
+    // Requirement 1: Conductivity-TDS Coupling & Influence
+    // Effective TDS derived from user-specified conductivity or input TDS
+    const tds = Math.round(Math.max(rawTds, rawCond * 0.65));
+    const conductivity = Number((feedWater.conductivity ?? (tds / 0.65)).toFixed(1));
+
     const tempC = Number(feedWater.temperature ?? 25); // °C
     const ph = Number(feedWater.ph ?? 7.2);
     const hardness = Number(feedWater.hardness ?? 150); // mg/L as CaCO3
 
-    // Approximate ion speciation based on typical natural brackish water ratios if individual ions not provided
+    // Approximate ion speciation based on typical natural brackish water ratios
     const Na = Number(feedWater.na ?? (tds * 0.30)); // mg/L
     const Ca = Number(feedWater.ca ?? (hardness * 0.70 * 0.40)); // mg/L
     const Mg = Number(feedWater.mg ?? (hardness * 0.30 * 0.24)); // mg/L
@@ -38,24 +45,15 @@ export function analyzeWaterChemistry(feedWater = {}) {
         HCO3: (HCO3 / 1000) / MW.HCO3
     };
 
-    // 1. Ionic Strength: I = 0.5 * sum(c_i * z_i^2)  (mol/L)
-    let ionicStrength = 0;
-    Object.keys(c).forEach(ion => {
-        ionicStrength += 0.5 * c[ion] * Math.pow(Z[ion], 2);
-    });
+    // Ionic Strength driven by conductivity: I = 1.6e-5 * conductivity
+    let ionicStrength = 1.6e-5 * conductivity;
 
-    // 2. Electrical Conductivity: conductivity ~ TDS / 0.65 (uS/cm)
-    const conductivity = Number(feedWater.conductivity ?? (tds / 0.65));
-
-    // 3. Osmotic Pressure: Pi = sum(c_i) * R * T  (bar)
-    // R = 0.08314 L.bar/(mol.K), T in Kelvin
+    // Osmotic Pressure: Pi = sum(c_i) * R * T (bar)
     const tempK = tempC + 273.15;
     const totalMolarity = Object.values(c).reduce((a, b) => a + b, 0);
     const osmoticPressure = totalMolarity * 0.08314 * tempK; // bar
 
-    // 4. Langelier Saturation Index (LSI) for CaCO3 scaling potential
-    // LSI = pH - pHs
-    // pHs = (9.3 + A + B) - (C + D)
+    // Langelier Saturation Index (LSI) for CaCO3 scaling potential
     const A = (Math.log10(tds) - 1) / 10;
     const B = -13.12 * Math.log10(tempK) + 34.55;
     const C = Math.log10(Math.max(1, Ca * 2.497)) - 0.4;
@@ -69,7 +67,7 @@ export function analyzeWaterChemistry(feedWater = {}) {
 
     return {
         tds,
-        conductivity: Number(conductivity.toFixed(1)),
+        conductivity,
         hardness: Number(hardness.toFixed(1)),
         ionicStrength: Number(ionicStrength.toFixed(4)),
         osmoticPressure: Number(osmoticPressure.toFixed(2)),

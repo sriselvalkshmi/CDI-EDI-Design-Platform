@@ -169,11 +169,14 @@ function generateLayout(
     } else {
         // SINGLE STAGE LAYOUT
         const reactorX = 450;
+        const isEdi = technology === "EDI";
         equipment.push({
             id: "REACTOR",
             type: "reactor",
             technology: technology,
-            name: technology + " Reactor",
+            name: isEdi ? "Electrodeionization (EDI) Module" : (technology + " Reactor"),
+            material: isEdi ? "Titanium Grade 2 / FRP Composite" : "316L Stainless / Polymer",
+            designStandard: isEdi ? "ASTM / ISO 10628 / IEC" : "ISO 10628 / ISA 5.1 / ASME Sec VIII",
             x: reactorX,
             y: 190 - reactorHeight / 2,
             width: reactorWidth,
@@ -184,7 +187,11 @@ function generateLayout(
                 electrodeArea,
                 cellPairs,
                 outletTDS: engineering?.outletTDS || 50,
-                pressureDrop: engineering?.pressureDrop ?? 0
+                pressureDrop: engineering?.pressureDrop ?? 0,
+                electrodeMaterial: isEdi ? "Titanium Grade 2 (Mixed Metal Oxide Coating)" : "Activated Porous Carbon",
+                spacerType: isEdi ? "Mixed-Bed Resin Chamber" : "Flow Mesh Spacer",
+                resinVolumeLiters: engineering?.resinVolumeLiters ?? 0,
+                resinWeightKg: engineering?.resinWeightKg ?? 0
             }
         });
 

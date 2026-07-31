@@ -2,7 +2,7 @@
 
 /**
  * Dynamic CDI / MCDI / FCDI / EDI Simulation Engine
- * Simulates Adsorption -> Saturation -> Desorption -> Regeneration dynamic cycles.
+ * Simulates Exponential Adsorption Kinetics -> Saturation -> Breakthrough -> Reversed Polarity Desorption.
  * Supports Multi-Stage Desalination architecture (Single, Two-Stage, Three-Stage).
  */
 function simulate(
@@ -11,12 +11,15 @@ function simulate(
     parameters = {}
 ) {
     const eng = parameters.engineering || {};
-    const inputTDS = Number(feedWater.tds ?? 500);
+    const rawInputTDS = Number(feedWater.tds ?? 500);
+    const rawCond = Number(feedWater.conductivity ?? (rawInputTDS / 0.65));
+    const inputTDS = Math.round(Math.max(rawInputTDS, rawCond * 0.65)); // Conductivity-coupled TDS
     const targetTDS = Number(feedWater.targetTds ?? 50);
     const flowRate = Number(eng.flowRate ?? feedWater.flowRate ?? 10); // L/min
 
     const voltageValue = Number(eng.voltage ?? 1.2);
-    const currentValue = Number(eng.current ?? 5.0);
+    // Requirement 3: Current Graph Peak synchronized with operating current KPI (0.13 - 0.15 A)
+    const currentValue = Number(eng.current ?? 0.13);
     const outletTDS = Number(eng.outletTDS ?? (inputTDS * 0.1));
     const removalEfficiency = Number(eng.removalEfficiency ?? (((inputTDS - outletTDS) / inputTDS) * 100));
 
@@ -41,18 +44,19 @@ function simulate(
         timeArr.push(t);
 
         if (step <= adsorptionSteps) {
-            // Adsorption Phase (0 -> saturation)
-            const frac = step / adsorptionSteps;
-            // Exponential saturation kinetics
-            const satFactor = Math.pow(frac, 0.8);
-            const currentTds = inputTDS - (inputTDS - outletTDS) * (1 - 0.2 * satFactor);
+            // Adsorption Phase (Exponential Adsorption Kinetics C(t) = Cout + (Cin-Cout)*(1 - exp(-k*t)))
+            const ka = 0.25; // kinetic constant
+            const expDecay = Math.exp(-ka * t);
+            const currentTds = Math.max(outletTDS, outletTDS + (inputTDS - outletTDS) * expDecay);
             const currentVolt = voltageValue;
-            const currentAmp = currentValue * (1 - 0.3 * frac);
-            const loading = baseSac * frac;
-            const lambda = Math.max(50, baseLambda - 10 * frac);
+            // Peak current strictly synchronized with operating current (currentValue)
+            const currentAmp = Math.max(0.02, currentValue * Math.exp(-0.08 * t));
+            // Electrode adsorption loading growth
+            const loading = baseSac * (1 - Math.exp(-0.2 * t));
+            const lambda = Math.max(50, baseLambda - 5 * (t / 10));
 
             voltageArr.push(Number(currentVolt.toFixed(2)));
-            currentArr.push(Number(currentAmp.toFixed(2)));
+            currentArr.push(Number(currentAmp.toFixed(3)));
             tdsArr.push(Number(currentTds.toFixed(1)));
             conductivityArr.push(Number((currentTds / 0.65).toFixed(1)));
             electrodeLoadingArr.push(Number(loading.toFixed(2)));
@@ -66,16 +70,16 @@ function simulate(
             const currentVolt = -voltageValue * revFactor;
             
             // Reversed Discharging Current Polarity (-I decaying as double-layer discharges)
-            const currentAmp = -currentValue * revFactor * Math.max(0.05, 1.0 - frac);
+            const currentAmp = -currentValue * revFactor * Math.exp(-0.35 * (step - adsorptionSteps));
             
-            // Brine Peak Concentration Flush (TDS > feedTDS)
-            const brinePeak = inputTDS + 1.2 * (inputTDS - outletTDS) * Math.exp(-2.5 * frac);
+            // Exponential Brine Peak Concentration Flush (TDS > feedTDS)
+            const brinePeak = inputTDS + 1.8 * (inputTDS - outletTDS) * Math.exp(-0.6 * (step - adsorptionSteps));
             const currentTds = Math.max(inputTDS, brinePeak);
-            const loading = baseSac * (1.0 - frac);
+            const loading = baseSac * Math.exp(-0.3 * (step - adsorptionSteps));
             const lambda = 0; // Desorption phase
 
             voltageArr.push(Number(currentVolt.toFixed(2)));
-            currentArr.push(Number(currentAmp.toFixed(2)));
+            currentArr.push(Number(currentAmp.toFixed(3)));
             tdsArr.push(Number(currentTds.toFixed(1)));
             conductivityArr.push(Number((currentTds / 0.65).toFixed(1)));
             electrodeLoadingArr.push(Number(loading.toFixed(2)));
@@ -83,8 +87,7 @@ function simulate(
         }
     }
 
-
-    // Step 3: Multi-Stage Desalination Architecture Determination
+    // Multi-Stage Desalination Architecture Determination
     const requiredRemoval = inputTDS > 0 ? ((inputTDS - targetTDS) / inputTDS) * 100 : 90;
     const stages = [];
 
@@ -106,7 +109,6 @@ function simulate(
         stages.push({ stage: 2, technology: "EDI", feedTds: stage1Outlet, outletTds: stage2Outlet, removal: 85.0 });
     } else {
         stages.push({ stage: 1, technology, feedTds: inputTDS, outletTds: outletTDS, removal: removalEfficiency });
-
     }
 
     return {

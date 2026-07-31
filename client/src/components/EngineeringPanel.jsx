@@ -146,11 +146,13 @@ export default function EngineeringPanel() {
                     </div>
 
                     <div style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px" }}>
-                        <div style={{ fontSize: "13px", fontWeight: "600", color: "#2563EB", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>Stack Geometry</div>
+                        <div style={{ fontSize: "13px", fontWeight: "600", color: "#2563EB", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>Stack Geometry &amp; Membranes</div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Technology:</span><span style={{ fontWeight: "700", color: "#2563EB" }}>{activeTech}</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Cell Pairs:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{cellPairs}</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Electrode Area:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{electrodeArea} cm²</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Residence Time:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{residenceTime} min</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Membrane Thickness:</span><span style={{ fontWeight: "700", color: "#16A34A" }}>{engineering.membraneThickness || (activeTech === "CDI" ? "None" : "0.15")} mm</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Hydrodynamic Passage:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{residenceTime} min</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Cycle Step Duration:</span><span style={{ fontWeight: "700", color: "#2563EB" }}>{engineering.cycleStepDuration || 10.0} min</span></div>
                     </div>
 
                     <div style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px" }}>
@@ -165,7 +167,11 @@ export default function EngineeringPanel() {
                         <div style={{ fontSize: "13px", fontWeight: "600", color: "#2563EB", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>Desalination Performance</div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Outlet TDS:</span><span style={{ fontWeight: "700", color: "#2563EB" }}>{outletTDS} ppm</span></div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Removal Efficiency:</span><span style={{ fontWeight: "700", color: "#16A34A" }}>{removalEff} %</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>SAC:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{sac} mg/g</span></div>
+                        {activeTech === "EDI" ? (
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Current Efficiency:</span><span style={{ fontWeight: "700", color: "#16A34A" }}>{format(engineering.currentEfficiency || engineering.chargeEfficiency || 98.0)} %</span></div>
+                        ) : (
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>SAC:</span><span style={{ fontWeight: "700", color: "#1F2937" }}>{sac} mg/g</span></div>
+                        )}
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "4px 0" }}><span style={{ color: "#6B7280" }}>Specific Energy:</span><span style={{ fontWeight: "700", color: "#2563EB" }}>{sec} kWh/m³</span></div>
                     </div>
                 </div>
@@ -174,7 +180,7 @@ export default function EngineeringPanel() {
             {/* Recommended Process Architecture Banner */}
             <div style={{ background: "#F8FAFC", border: "1px solid #CBD5E1", borderRadius: "8px", padding: "14px", marginTop: "12px" }}>
                 <h4 style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "700", color: "#0F172A", display: "flex", alignItems: "center", gap: "8px" }}>
-                    ⚙ Process Architecture: <span style={{ color: "#2563EB" }}>{overall.recommendedProcess || "FCDI → EDI"}</span>
+                    ⚙ Process Architecture: <span style={{ color: "#2563EB" }}>{overall.recommendedProcess || (activeTech === "EDI" ? "Continuous Electrodeionization" : "Single-Stage Desalination")}</span>
                 </h4>
 
                 {isMultiStage ? (
@@ -199,9 +205,13 @@ export default function EngineeringPanel() {
                     </div>
                 ) : (
                     <div style={{ background: "#FFFFFF", border: "1px solid #16A34A", borderRadius: "6px", padding: "10px" }}>
-                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#16A34A", textTransform: "uppercase" }}>Single-Stage Desalination</div>
+                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#16A34A", textTransform: "uppercase" }}>
+                            {activeTech === "EDI" ? "Continuous Electrodeionization" : "Single-Stage Desalination"}
+                        </div>
                         <div style={{ fontSize: "13px", fontWeight: "700", color: "#1F2937", marginTop: "2px" }}>Technology: {activeTech}</div>
-                        <div style={{ fontSize: "11.5px", color: "#4B5563", marginTop: "2px" }}>Purpose: Direct desalination to target</div>
+                        <div style={{ fontSize: "11.5px", color: "#4B5563", marginTop: "2px" }}>
+                            Purpose: {activeTech === "EDI" ? "Continuous Ion Removal & Chemical-Free Polishing" : "Direct desalination to target"}
+                        </div>
                         <div style={{ fontSize: "11.5px", color: "#16A34A", fontWeight: "600", marginTop: "2px" }}>Final Outlet: {outletTDS} ppm</div>
                     </div>
                 )}

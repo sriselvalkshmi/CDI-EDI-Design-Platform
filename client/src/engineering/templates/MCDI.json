@@ -1,0 +1,109 @@
+{
+  "technology": "MCDI",
+  "name": "Membrane Capacitive Deionization (MCDI)",
+  "description": "Enhanced MCDI stack featuring Anion Exchange Membrane (AEM) and Cation Exchange Membrane (CEM) adjacent to carbon electrodes to prevent co-ion repulsion.",
+  "standard": "ISO 10628 / ISA 5.1",
+  "flowPath": ["Feed Tank", "Feed Pump", "MCDI Stack", "Outlet"],
+  "layers": [
+    {
+      "id": "aem_membrane",
+      "name": "Anion Exchange Membrane (AEM)",
+      "type": "membrane",
+      "membraneType": "AEM",
+      "material": "Cross-linked Quaternary Ammonium Polymer",
+      "color": "#F59E0B",
+      "stroke": "#D97706",
+      "symbol": "MEMBRANE_AEM"
+    },
+    {
+      "id": "anode_carbon",
+      "name": "Positive Electrode (Anode)",
+      "type": "electrode",
+      "polarity": "positive",
+      "material": "Activated Carbon / Graphene",
+      "color": "#1E293B",
+      "stroke": "#0F172A",
+      "symbol": "ELECTRODE_ANODE"
+    },
+    {
+      "id": "spacer_channel",
+      "name": "Flow Spacer Channel",
+      "type": "spacer",
+      "material": "Woven Polypropylene Mesh",
+      "color": "#E0F2FE",
+      "stroke": "#0284C7",
+      "symbol": "SPACER_MESH"
+    },
+    {
+      "id": "cathode_carbon",
+      "name": "Negative Electrode (Cathode)",
+      "type": "electrode",
+      "polarity": "negative",
+      "material": "Activated Carbon / Graphene",
+      "color": "#334155",
+      "stroke": "#1E293B",
+      "symbol": "ELECTRODE_CATHODE"
+    },
+    {
+      "id": "cem_membrane",
+      "name": "Cation Exchange Membrane (CEM)",
+      "type": "membrane",
+      "membraneType": "CEM",
+      "material": "Sulfonated Poly ether ether ketone (SPEEK)",
+      "color": "#10B981",
+      "stroke": "#059669",
+      "symbol": "MEMBRANE_CEM"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "FEED_TANK",
+      "name": "Feed Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "HDPE Polyethylene",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric (1.0 bar)",
+        "temperatureRange": "5 - 45 °C"
+      }
+    },
+    {
+      "id": "FEED_PUMP",
+      "name": "Feed Pump",
+      "type": "pump",
+      "symbol": "ISA_CENTRIFUGAL_PUMP",
+      "material": "316L Stainless Steel",
+      "manufacturer": "Grundfos CR Series",
+      "specs": {
+        "pumpType": "High Pressure Centrifugal",
+        "efficiency": "82%",
+        "motorPower": "1.5 kW"
+      }
+    },
+    {
+      "id": "MCDI_STACK",
+      "name": "MCDI Stack Module",
+      "type": "reactor",
+      "symbol": "ISA_MCDI_CELL_STACK",
+      "material": "Ion Exchange Membranes + Carbon Composite",
+      "manufacturer": "IonDesal Systems",
+      "specs": {
+        "membraneSelectivity": ">98%",
+        "operatingVoltage": "1.4 - 1.6 VDC",
+        "chargeEfficiency": "85 - 92%"
+      }
+    },
+    {
+      "id": "PROD_TANK",
+      "name": "Product Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "Food Grade Polyethylene",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric"
+      }
+    }
+  ]
+}

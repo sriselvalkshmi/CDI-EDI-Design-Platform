@@ -232,23 +232,32 @@ export const generateEngineeringReportPDF = ({
                 columnStyles: { 0: { fontStyle: "bold", cellWidth: 90 }, 1: { cellWidth: 46, alignment: "right" }, 2: { cellWidth: 46 } }
             });
         } else {
+            const isEDI = (recTech === "EDI" || technology === "EDI");
+            const bodyRows = [
+                ["Parameter", "Recommended / Current Value", "Unit"],
+                ["Technology / Process", isEDI ? "Continuous Electrodeionization (EDI)" : technology, "-"],
+                ["Operating Voltage", fmt(elec.voltage, 2), "V"],
+                ["Current", fmt(elec.current, 2), "A"],
+                ["Power Consumption", fmt(elec.power, 2), "W"],
+                ["Cell Pairs", `${stack.cellPairs || 20}`, "pairs"],
+                ["Electrode Area (per cell)", fmt(stack.electrodeArea || 250, 0), "cm²"],
+                ["Electrode Material", isEDI ? "Titanium Grade 2 (MMO Coated)" : "Activated Porous Carbon", "-"],
+                ["Spacer / Chamber Type", isEDI ? "Mixed-Bed Resin Chamber" : "Flow Mesh Spacer", "-"],
+                ["Resin Volume & Mass", isEDI ? `${engData.resinVolumeLiters || ((stack.cellPairs * stack.electrodeArea * 0.5)/1000).toFixed(2)} L (${engData.resinWeightKg || (((stack.cellPairs * stack.electrodeArea * 0.5)/1000)*0.75).toFixed(2)} kg)` : "N/A", "-"],
+                ["Residence Time", fmt(stack.residenceTime || 10.0, 1), "min"],
+                ["Flow Velocity", fmt(hydr.flowVelocity || 0.300, 3), "m/s"],
+                ["Pressure Drop", fmt(hydr.pressureDrop || 580.8, 1), "Pa"],
+                ["Outlet TDS", fmt(outletTds, 1), "ppm"],
+                ["Removal Efficiency", fmt(removalEff, 2), "%"],
+                [isEDI ? "Current Efficiency" : "Salt Adsorption Capacity (SAC)", isEDI ? `${fmt(engData.currentEfficiency || 98.0, 1)} %` : fmt(elecProps.sac, 2), isEDI ? "%" : "mg/g"],
+                ["Water Recovery", fmt(hydr.waterRecovery || 99.42, 2), "%"],
+                ["Cell Stack Dimensions (L x W x H)", `${stack.stackLength || 100} x ${stack.stackWidth || 50} x ${stack.stackHeight || 22}`, "mm"]
+            ];
+
             autoTable(doc, {
                 startY: startY,
                 head: [["Engineering Design Summary", "", ""]],
-                body: [
-                    ["Parameter", "Recommended / Current Value", "Unit"],
-                    ["Operating Voltage", fmt(elec.voltage, 2), "V"],
-                    ["Current", fmt(elec.current, 2), "A"],
-                    ["Power Consumption", fmt(elec.power, 2), "W"],
-                    ["Cell Pairs", `${stack.cellPairs || 20}`, "pairs"],
-                    ["Electrode Area (per cell)", fmt(stack.electrodeArea || 250, 0), "cm²"],
-                    ["Residence Time", fmt(stack.residenceTime || 10.0, 1), "min"],
-                    ["Flow Velocity", fmt(hydr.flowVelocity || 0.300, 3), "m/s"],
-                    ["Pressure Drop", fmt(hydr.pressureDrop || 580.8, 1), "Pa"],
-                    ["Pump Power", fmt(hydr.pumpPower || 0.138, 3), "W"],
-                    ["Water Recovery", fmt(hydr.waterRecovery || 99.42, 2), "%"],
-                    ["Cell Stack Dimensions (L x W x H)", `${stack.stackLength || 100} x ${stack.stackWidth || 50} x ${stack.stackHeight || 22}`, "mm"]
-                ],
+                body: bodyRows,
                 theme: "grid",
                 headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9 },
                 styles: { fontSize: 8, cellPadding: 1.5 },

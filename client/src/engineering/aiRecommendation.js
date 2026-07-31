@@ -15,29 +15,61 @@ function aiRecommendation(feedWater = {}) {
     let selectedTechnology = "CDI";
     let recommendedProcess = "CDI";
     let reason = "";
+    let criteria = [];
 
     if (tds > 3000) {
         selectedTechnology = "FCDI";
         recommendedProcess = "FCDI";
-        reason = "High feed TDS (>3000 ppm) stream favors Flowable Electrode CDI (FCDI) continuous slurry desalting as a single-stage process.";
-    } else if (tds < 100 || targetTds < 10) {
+        reason = "High feed TDS stream favors Flowable Electrode CDI (FCDI) continuous slurry desalting.";
+        criteria = [
+            `Feed TDS is high (${tds} ppm).`,
+            `Target TDS is ${targetTds} ppm.`,
+            "Continuous slurry circulation eliminates batch capacity exhaustion.",
+            "High salt loading capacity suitable for high salinity brackish streams."
+        ];
+    } else if (tds <= 500 || targetTds <= 10) {
         selectedTechnology = "EDI";
-        recommendedProcess = "EDI";
-        reason = "Low feed TDS / ultra-pure polishing requirement favors Electrodeionization (EDI) as a single-stage process.";
+        recommendedProcess = "Continuous Electrodeionization (EDI)";
+        reason = `EDI selected because feed TDS is already low (${tds} ppm) and required polishing to ${targetTds} ppm demands continuous high-purity ion removal without chemical regeneration.`;
+        criteria = [
+            `Feed TDS is low (${tds} ppm).`,
+            `Required polishing to ${targetTds} ppm.`,
+            "High-purity / ultra-pure product water required.",
+            "Continuous operation preferred over batch adsorption cycles.",
+            "No chemical regeneration required (electrolytic water splitting H+/OH-).",
+            "Lowest operating cost (OPEX) for high-purity polishing."
+        ];
     } else if (tds < 1000) {
         if (requiredRemoval > 75.0) {
             selectedTechnology = "MCDI";
             recommendedProcess = "MCDI";
-            reason = "Low-to-moderate feed TDS (<1000 ppm) favors membrane-assisted CDI (MCDI) for high ion selectivity and energy efficiency.";
+            reason = "Low-to-moderate feed TDS favors membrane-assisted CDI (MCDI) for high ion selectivity and energy efficiency.";
+            criteria = [
+                `Feed TDS is moderate (${tds} ppm).`,
+                `High removal required (${requiredRemoval.toFixed(1)}%).`,
+                "Ion exchange membranes block co-ion repulsion.",
+                "Higher charge efficiency (>85%) and recovery."
+            ];
         } else {
             selectedTechnology = "CDI";
             recommendedProcess = "CDI";
-            reason = "Low feed TDS is suitable for standard capacitive deionization (CDI).";
+            reason = "Low-to-moderate feed TDS is suitable for standard capacitive deionization (CDI).";
+            criteria = [
+                `Feed TDS is ${tds} ppm.`,
+                `Moderate removal requirement (${requiredRemoval.toFixed(1)}%).`,
+                "Lowest capital expenditure (CAPEX).",
+                "Simple non-membrane cell construction."
+            ];
         }
     } else {
         selectedTechnology = "FCDI";
         recommendedProcess = "FCDI";
-        reason = "Moderate-to-high feed TDS (1000–3000 ppm) favors Flowable Electrode CDI (FCDI) continuous desalting.";
+        reason = "Moderate-to-high feed TDS favors Flowable Electrode CDI (FCDI) continuous desalting.";
+        criteria = [
+            `Feed TDS is ${tds} ppm.`,
+            "High salinity tolerance.",
+            "Continuous non-stop desalination loop."
+        ];
     }
 
     const techForCalculation = selectedTechnology.includes("FCDI") ? "FCDI" : (selectedTechnology.includes("EDI") ? "EDI" : selectedTechnology);
@@ -53,8 +85,9 @@ function aiRecommendation(feedWater = {}) {
         selectedTechnology,
         technology: selectedTechnology,
         recommendedProcess,
-        confidence: 95,
+        confidence: 96.5,
         reason,
+        criteria,
         voltage: eng.voltage,
         current: eng.current,
         cellPairs: eng.cellPairs,

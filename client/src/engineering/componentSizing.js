@@ -118,6 +118,10 @@ function calculate(feedWater, technology) {
     // RETURN
     //--------------------------------------------------
 
+    const isEdi = technology === "EDI";
+    const resinVolumeLiters = isEdi ? Number(((cellPairs * electrodeArea * (spacerThickness / 10)) / 1000).toFixed(2)) : 0;
+    const resinWeightKg = isEdi ? Number((resinVolumeLiters * 0.75).toFixed(2)) : 0;
+
     return {
 
         technology,
@@ -148,7 +152,19 @@ function calculate(feedWater, technology) {
 
         outletDiameter: 25,
 
-        cellPairs
+        cellPairs,
+
+        electrodeMaterial: isEdi ? "Titanium Grade 2 (Mixed Metal Oxide Coating)" : "Activated Porous Carbon",
+
+        anodeType: isEdi ? "Titanium MMO Anode" : "Porous Carbon Anode",
+
+        cathodeType: isEdi ? "Titanium MMO Cathode" : "Porous Carbon Cathode",
+
+        spacerType: isEdi ? "Mixed-Bed Resin Chamber" : "Flow Mesh Spacer",
+
+        resinVolumeLiters,
+
+        resinWeightKg
 
     };
 }

@@ -1,0 +1,91 @@
+{
+  "technology": "CDI",
+  "name": "Capacitive Deionization (CDI)",
+  "description": "Standard CDI cell structure featuring porous carbon electrodes separated by open flow spacer channels.",
+  "standard": "ISO 10628 / ISA 5.1",
+  "flowPath": ["Feed Tank", "Feed Pump", "CDI Cell", "Outlet"],
+  "layers": [
+    {
+      "id": "anode_carbon",
+      "name": "Positive Electrode (Anode)",
+      "type": "electrode",
+      "polarity": "positive",
+      "material": "Activated Carbon / CNT",
+      "color": "#1E293B",
+      "stroke": "#0F172A",
+      "symbol": "ELECTRODE_ANODE"
+    },
+    {
+      "id": "spacer_channel",
+      "name": "Flow Spacer Channel",
+      "type": "spacer",
+      "material": "Woven Nylon Mesh",
+      "color": "#E0F2FE",
+      "stroke": "#0284C7",
+      "symbol": "SPACER_MESH"
+    },
+    {
+      "id": "cathode_carbon",
+      "name": "Negative Electrode (Cathode)",
+      "type": "electrode",
+      "polarity": "negative",
+      "material": "Activated Carbon / CNT",
+      "color": "#334155",
+      "stroke": "#1E293B",
+      "symbol": "ELECTRODE_CATHODE"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "FEED_TANK",
+      "name": "Feed Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "HDPE Polyethylene",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric (1.0 bar)",
+        "temperatureRange": "5 - 45 °C",
+        "liquidLevel": "Continuous float sensor"
+      }
+    },
+    {
+      "id": "FEED_PUMP",
+      "name": "Feed Pump",
+      "type": "pump",
+      "symbol": "ISA_CENTRIFUGAL_PUMP",
+      "material": "316L Stainless Steel / PTFE",
+      "manufacturer": "Grundfos CR Series",
+      "specs": {
+        "pumpType": "Variable Speed Centrifugal",
+        "efficiency": "78%",
+        "motorPower": "0.75 - 2.2 kW"
+      }
+    },
+    {
+      "id": "CDI_STACK",
+      "name": "CDI Module Stack",
+      "type": "reactor",
+      "symbol": "ISA_CDI_CELL_STACK",
+      "material": "Titanium Current Collectors & Carbon Electrodes",
+      "manufacturer": "CleanWater Tech CDI",
+      "specs": {
+        "cellArchitecture": "Flow-Through / Parallel Plate",
+        "operatingVoltage": "1.2 VDC",
+        "reversalPeriod": "300 seconds"
+      }
+    },
+    {
+      "id": "PROD_TANK",
+      "name": "Product Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "Food Grade Polyethylene",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric",
+        "outletControl": "Automated Solenoid Valve"
+      }
+    }
+  ]
+}

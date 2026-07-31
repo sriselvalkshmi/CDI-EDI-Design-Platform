@@ -1,0 +1,143 @@
+{
+  "technology": "FCDI",
+  "name": "Flow-Electrode Capacitive Deionization (FCDI)",
+  "description": "Continuous desalination platform utilizing circulating flow-electrodes (carbon slurry suspension) in dual recirculation loops.",
+  "standard": "ISO 10628 / ISA 5.1",
+  "flowPath": [
+    "Slurry Tank A",
+    "Slurry Pump A",
+    "Flow Anode Channel",
+    "Ion Exchange Membrane (AEM)",
+    "Water Channel",
+    "Ion Exchange Membrane (CEM)",
+    "Flow Cathode Channel",
+    "Slurry Pump B",
+    "Slurry Tank B",
+    "Return Loop"
+  ],
+  "layers": [
+    {
+      "id": "slurry_anode",
+      "name": "Flowing Anode Slurry Channel",
+      "type": "flow_electrode",
+      "polarity": "positive",
+      "material": "10-15 wt% Carbon Slurry in Saltwater",
+      "color": "#1E1B4B",
+      "stroke": "#312E81",
+      "symbol": "SLURRY_CHANNEL"
+    },
+    {
+      "id": "iem_anode",
+      "name": "Ion Exchange Membrane (AEM)",
+      "type": "membrane",
+      "membraneType": "AEM",
+      "material": "Anion Exchange Membrane",
+      "color": "#F59E0B",
+      "stroke": "#D97706",
+      "symbol": "MEMBRANE_AEM"
+    },
+    {
+      "id": "water_channel",
+      "name": "Central Water Channel",
+      "type": "spacer",
+      "material": "Desalination Flow Stream",
+      "color": "#3B82F6",
+      "stroke": "#1D4ED8",
+      "symbol": "WATER_CHANNEL"
+    },
+    {
+      "id": "iem_cathode",
+      "name": "Ion Exchange Membrane (CEM)",
+      "type": "membrane",
+      "membraneType": "CEM",
+      "material": "Cation Exchange Membrane",
+      "color": "#10B981",
+      "stroke": "#059669",
+      "symbol": "MEMBRANE_CEM"
+    },
+    {
+      "id": "slurry_cathode",
+      "name": "Flowing Cathode Slurry Channel",
+      "type": "flow_electrode",
+      "polarity": "negative",
+      "material": "10-15 wt% Carbon Slurry in Saltwater",
+      "color": "#172554",
+      "stroke": "#1E3A8A",
+      "symbol": "SLURRY_CHANNEL"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "SLURRY_TANK_A",
+      "name": "Slurry Tank A (Anolyte)",
+      "type": "slurry_tank",
+      "symbol": "ISA_AGITATED_TANK",
+      "material": "Polypropylene with Mechanical Agitator",
+      "manufacturer": "MixerTech Slurry Systems",
+      "specs": {
+        "slurryDensity": "1.08 g/cm³",
+        "mixerSpeed": "250 RPM",
+        "carbonContent": "12 wt% Carbon Black/Activated Carbon"
+      }
+    },
+    {
+      "id": "SLURRY_PUMP_A",
+      "name": "Slurry Pump A",
+      "type": "slurry_pump",
+      "symbol": "ISA_PERISTALTIC_PUMP",
+      "material": "Peristaltic / Heavy Duty Hose Pump",
+      "manufacturer": "Watson-Marlow Industrial",
+      "specs": {
+        "pumpType": "Slurry Peristaltic",
+        "abrasionResistance": "High"
+      }
+    },
+    {
+      "id": "FCDI_REACTOR",
+      "name": "FCDI Flow Cell Reactor",
+      "type": "reactor",
+      "symbol": "ISA_FCDI_FLOW_CELL",
+      "material": "Acrylic End Plates & Graphitized Current Collectors",
+      "manufacturer": "NextGen Water FCDI",
+      "specs": {
+        "operationMode": "Continuous Desalination",
+        "slurryFlowVelocity": "0.1 - 0.5 m/s",
+        "continuousRemoval": ">95%"
+      }
+    },
+    {
+      "id": "SLURRY_PUMP_B",
+      "name": "Slurry Pump B",
+      "type": "slurry_pump",
+      "symbol": "ISA_PERISTALTIC_PUMP",
+      "material": "Peristaltic / Heavy Duty Hose Pump",
+      "manufacturer": "Watson-Marlow Industrial",
+      "specs": {
+        "pumpType": "Slurry Peristaltic"
+      }
+    },
+    {
+      "id": "SLURRY_TANK_B",
+      "name": "Slurry Tank B (Catholyte)",
+      "type": "slurry_tank",
+      "symbol": "ISA_AGITATED_TANK",
+      "material": "Polypropylene with Mechanical Agitator",
+      "manufacturer": "MixerTech Slurry Systems",
+      "specs": {
+        "slurryDensity": "1.08 g/cm³",
+        "mixerSpeed": "250 RPM"
+      }
+    },
+    {
+      "id": "PROD_TANK",
+      "name": "Product Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "Food Grade Polyethylene",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric"
+      }
+    }
+  ]
+}
