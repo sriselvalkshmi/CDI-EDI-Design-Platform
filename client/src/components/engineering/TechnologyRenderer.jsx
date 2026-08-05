@@ -6,7 +6,6 @@ import MCDISchematic from "./MCDISchematic";
 import FCDISchematic from "./FCDISchematic";
 import EDISchematic from "./EDISchematic";
 import MultiStageSchematic from "./MultiStageSchematic";
-import EngineeringBOM from "./EngineeringBOM";
 import EquipmentInspectorModal from "./EquipmentInspectorModal";
 import TechComparisonModal from "./TechComparisonModal";
 import { BarChart2, GitMerge, RotateCcw, Activity } from "lucide-react";
@@ -15,7 +14,7 @@ import { BarChart2, GitMerge, RotateCcw, Activity } from "lucide-react";
  * TechnologyRenderer
  * Master technology renderer delegating schematics dynamically to CDISchematic,
  * MCDISchematic, FCDISchematic, EDISchematic, or MultiStageSchematic.
- * Includes automated Engineering Bill of Materials (BOM) schedule and TechErrorBoundary protection.
+ * Includes TechErrorBoundary protection.
  */
 export default function TechnologyRenderer({
     technology = "CDI",
@@ -318,15 +317,6 @@ export default function TechnologyRenderer({
                         )}
                     </svg>
                 </div>
-
-                {/* AUTOMATED ENGINEERING BILL OF MATERIALS (BOM) */}
-                <EngineeringBOM
-                    technology={activeTech}
-                    labels={labels}
-                    feedWater={feedWater}
-                    engineering={engineering}
-                    optimization={optimization}
-                />
 
                 {/* Hover Specs Tooltip */}
                 {hoverSpec && (
