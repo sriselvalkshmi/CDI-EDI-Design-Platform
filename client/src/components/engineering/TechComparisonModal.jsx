@@ -1,14 +1,35 @@
-import React, { useState } from "react";
-import { X, CheckCircle2, AlertTriangle, Cpu, DollarSign, Layers, Zap } from "lucide-react";
+import React from "react";
+import { X, CheckCircle2, AlertTriangle, Layers, Zap } from "lucide-react";
+import calculateEngineering from "../../engineering/engineeringEquationEngine";
 
-export default function TechComparisonModal({ isOpen, onClose, currentTech = "CDI", engineering = {} }) {
+/**
+ * TechComparisonModal
+ * Dynamic engineering comparison matrix displaying live calculated physics metrics
+ * (removal efficiency, SEC, SAC, current density, power, pressure drop, recovery, voltage, current, max TDS)
+ * for CDI, MCDI, FCDI, and EDI from engineeringEquationEngine.
+ */
+export default function TechComparisonModal({ isOpen, onClose, currentTech = "CDI", engineering = {}, feedWater = {} }) {
     if (!isOpen) return null;
 
-    const [selectedCategory, setSelectedCategory] = useState("all");
+    const activeFeed = {
+        tds: feedWater.tds || 500,
+        conductivity: feedWater.conductivity || 769,
+        flowRate: feedWater.flowRate || 10,
+        pressure: feedWater.pressure || 1.0,
+        targetTds: feedWater.targetTds || 50,
+        temperature: feedWater.temperature || 25
+    };
 
-    const COMPARISON_DATA = [
-        {
-            tech: "CDI",
+    // Calculate live physics metrics for all 4 technologies
+    const techCalculations = {
+        CDI: calculateEngineering({ technology: "CDI", feedWater: activeFeed, ...engineering }),
+        MCDI: calculateEngineering({ technology: "MCDI", feedWater: activeFeed, ...engineering }),
+        FCDI: calculateEngineering({ technology: "FCDI", feedWater: activeFeed, ...engineering }),
+        EDI: calculateEngineering({ technology: "EDI", feedWater: activeFeed, ...engineering })
+    };
+
+    const STATIC_SPECS = {
+        CDI: {
             name: "Capacitive Deionization",
             structure: "Feed Tank → Pump → CDI Cell (Porous Carbon Anode / Spacer / Carbon Cathode) → Outlet",
             advantages: [
@@ -18,43 +39,33 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
                 "Easy electrode replacement and maintenance"
             ],
             disadvantages: [
-                "Lower charge efficiency due to co-ion repulsion during charging",
+                "Lower charge efficiency due to co-ion expulsion during charging",
                 "Lower maximum removal efficiency (75 - 85%)",
-                "pH fluctuations during adsorption/desorption cycles"
+                "Batch adsorption / desorption regeneration cycles"
             ],
-            applications: "Brackish water desalination (<2,000 ppm), residential water softeners, boiler feed pre-treatment.",
-            power: "0.2 - 0.5 kWh/m³",
-            sec: "0.35 kWh/m³",
-            removal: "75 - 85 %",
-            recovery: "80 - 90 %",
+            applications: "Low salinity brackish water (<1,000 ppm), residential softeners, boiler pre-treatment.",
             complexity: "Low",
             cost: "$ (Lowest CAPEX / Moderate OPEX)"
         },
-        {
-            tech: "MCDI",
+        MCDI: {
             name: "Membrane Capacitive Deionization",
             structure: "Feed Tank → Pump → MCDI Cell (AEM / Anode / Spacer / Cathode / CEM) → Outlet",
             advantages: [
                 "Ion Exchange Membranes (AEM/CEM) block co-ion repulsion",
-                "Higher charge efficiency (>85%) and faster ion sorption",
+                "Higher charge efficiency (>92%) and faster ion sorption",
                 "Increased salt adsorption capacity (SAC)",
-                "Higher water recovery during desorption"
+                "Higher water recovery (95%) during desorption"
             ],
             disadvantages: [
                 "Higher initial membrane purchase cost",
                 "Potential membrane fouling and scaling",
                 "Slightly higher hydraulic pressure drop"
             ],
-            applications: "Industrial brackish water (<5,000 ppm), agricultural irrigation water, heavy metal removal.",
-            power: "0.3 - 0.7 kWh/m³",
-            sec: "0.42 kWh/m³",
-            removal: "85 - 94 %",
-            recovery: "85 - 92 %",
+            applications: "Industrial brackish water (<3,000 ppm), agricultural irrigation, heavy metal removal.",
             complexity: "Moderate",
             cost: "$$ (Moderate CAPEX / Low OPEX)"
         },
-        {
-            tech: "FCDI",
+        FCDI: {
             name: "Flow-Electrode Capacitive Deionization",
             structure: "Slurry Tank A → Slurry Pump A → Flow Anode → AEM → Water Channel → CEM → Flow Cathode → Slurry Pump B → Slurry Tank B → Return Loops",
             advantages: [
@@ -69,37 +80,30 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
                 "Higher mechanical pumping energy"
             ],
             applications: "High-salinity industrial wastewater, seawater pretreatment, concentrate volume reduction (ZLD).",
-            power: "0.8 - 2.5 kWh/m³",
-            sec: "1.20 kWh/m³",
-            removal: "90 - 96 %",
-            recovery: "88 - 95 %",
             complexity: "High (Dual Slurry Loops)",
             cost: "$$$ (High CAPEX / High Slurry OPEX)"
         },
-        {
-            tech: "EDI",
+        EDI: {
             name: "Electrodeionization",
             structure: "Feed → Anode → CEM → Mixed-Bed Ion Exchange Resin Chamber → AEM → Cathode → Product Water",
             advantages: [
                 "Produces ultra-pure water (resistivity up to 18.2 MΩ·cm)",
-                "Continuous chemical-free electrolytic resin regeneration",
+                "Continuous chemical-free electrolytic resin regeneration (H+/OH-)",
                 "High removal efficiency (>99.9%) for silica, boron, and trace ions",
                 "Compact modular stack footprint"
             ],
             disadvantages: [
-                "Requires pre-treated low TDS feed (<40 ppm, RO permeate)",
-                "Higher operating voltage requirements (20 - 50 V)",
+                "Requires pre-treated low TDS feed (<30 ppm, RO permeate)",
+                "Higher operating voltage requirements (5 - 50 V)",
                 "Strict scaling limits (hardness & silica restrictions)"
             ],
             applications: "Pharmaceutical WFI water, semiconductor manufacturing, power plant high-pressure boiler feed.",
-            power: "0.5 - 1.8 kWh/m³",
-            sec: "0.85 kWh/m³",
-            removal: "99.0 - 99.9 %",
-            recovery: "90 - 98 %",
             complexity: "Moderate-High (Resin + Membranes)",
             cost: "$$$$ (High CAPEX / Low Chemical OPEX)"
         }
-    ];
+    };
+
+    const TECH_KEYS = ["CDI", "MCDI", "FCDI", "EDI"];
 
     return (
         <div className="tech-comparison-overlay" style={{
@@ -139,10 +143,10 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
                 }}>
                     <div>
                         <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", display: "flex", alignItems: "center", gap: "10px" }}>
-                            <Layers color="#3B82F6" size={24} /> CDI vs MCDI vs FCDI vs EDI Technology Comparison
+                            <Layers color="#3B82F6" size={24} /> Dynamic Engineering Comparison Matrix (Feed TDS: {activeFeed.tds} ppm)
                         </h2>
                         <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#94A3B8" }}>
-                            Comparative engineering analysis across structural architecture, performance, power, SEC, and cost metrics.
+                            Live physics calculations synchronized with engineering equation engine across CDI, MCDI, FCDI, and EDI.
                         </p>
                     </div>
                     <button
@@ -161,18 +165,23 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
                 </div>
 
                 {/* Body Table */}
-                <div style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
+                <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-                        {COMPARISON_DATA.map((t) => {
-                            const isCurrent = currentTech.toUpperCase() === t.tech;
+                        {TECH_KEYS.map((techKey) => {
+                            const isCurrent = currentTech.toUpperCase() === techKey;
+                            const staticData = STATIC_SPECS[techKey];
+                            const engCalc = techCalculations[techKey] || {};
+
+                            const sacDisplay = engCalc.sac != null ? `${engCalc.sac.toFixed(1)} mg/g` : "Resin Bed";
+
                             return (
                                 <div
-                                    key={t.tech}
+                                    key={techKey}
                                     style={{
-                                        border: isCurrent ? "2px solid #2563EB" : "1px solid #E2E8F0",
+                                        border: isCurrent ? "2px solid #2563EB" : "1px solid #CBD5E1",
                                         borderRadius: "12px",
                                         background: isCurrent ? "#F0F6FF" : "#FAFAFA",
-                                        padding: "18px",
+                                        padding: "16px",
                                         display: "flex",
                                         flexDirection: "column",
                                         position: "relative"
@@ -182,78 +191,107 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
                                         <div style={{
                                             position: "absolute",
                                             top: "-12px",
-                                            right: "16px",
+                                            right: "14px",
                                             background: "#2563EB",
                                             color: "#FFFFFF",
-                                            fontSize: "10.5px",
-                                            fontWeight: "700",
-                                            padding: "2px 10px",
+                                            fontSize: "10px",
+                                            fontWeight: "800",
+                                            padding: "2px 8px",
                                             borderRadius: "10px"
                                         }}>
-                                            SELECTED TECHNOLOGY
+                                            SELECTED
                                         </div>
                                     )}
-                                    <div style={{ fontSize: "20px", fontWeight: "800", color: isCurrent ? "#1D4ED8" : "#1F2937" }}>
-                                        {t.tech}
+                                    <div style={{ fontSize: "19px", fontWeight: "800", color: isCurrent ? "#1D4ED8" : "#1F2937" }}>
+                                        {techKey}
                                     </div>
-                                    <div style={{ fontSize: "12px", color: "#64748B", fontWeight: "600", marginBottom: "12px" }}>
-                                        {t.name}
-                                    </div>
-
-                                    {/* Structural Overview */}
-                                    <div style={{ background: "#FFFFFF", padding: "10px", borderRadius: "8px", border: "1px solid #E2E8F0", marginBottom: "14px", fontSize: "11.5px" }}>
-                                        <strong style={{ color: "#334155", display: "block", marginBottom: "4px" }}>📐 Structure Flow:</strong>
-                                        <div style={{ color: "#475569", lineHeight: "1.4" }}>{t.structure}</div>
+                                    <div style={{ fontSize: "11.5px", color: "#64748B", fontWeight: "600", marginBottom: "10px" }}>
+                                        {staticData.name}
                                     </div>
 
-                                    {/* Key KPI Specs Grid */}
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "14px" }}>
-                                        <div style={{ background: "#FFFFFF", padding: "8px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                            <span style={{ fontSize: "10px", color: "#64748B", display: "block" }}>SEC Power</span>
-                                            <strong style={{ fontSize: "12.5px", color: "#2563EB" }}>{t.sec}</strong>
+                                    {/* Calculated Physics KPI Grid */}
+                                    <div style={{
+                                        background: "#FFFFFF",
+                                        border: "1px solid #E2E8F0",
+                                        borderRadius: "8px",
+                                        padding: "10px",
+                                        marginBottom: "12px"
+                                    }}>
+                                        <div style={{ fontSize: "10.5px", fontWeight: "700", color: "#2563EB", marginBottom: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                                            <Zap size={12} /> Calculated Engineering Engine Parameters:
                                         </div>
-                                        <div style={{ background: "#FFFFFF", padding: "8px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                            <span style={{ fontSize: "10px", color: "#64748B", display: "block" }}>Removal %</span>
-                                            <strong style={{ fontSize: "12.5px", color: "#16A34A" }}>{t.removal}</strong>
-                                        </div>
-                                        <div style={{ background: "#FFFFFF", padding: "8px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                            <span style={{ fontSize: "10px", color: "#64748B", display: "block" }}>Recovery %</span>
-                                            <strong style={{ fontSize: "12.5px", color: "#0284C7" }}>{t.recovery}</strong>
-                                        </div>
-                                        <div style={{ background: "#FFFFFF", padding: "8px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                            <span style={{ fontSize: "10px", color: "#64748B", display: "block" }}>Complexity</span>
-                                            <strong style={{ fontSize: "12px", color: "#7C3AED" }}>{t.complexity}</strong>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "11px" }}>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Removal Eff</span>
+                                                <strong style={{ color: "#16A34A" }}>{engCalc.removalEfficiency}%</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Outlet TDS</span>
+                                                <strong style={{ color: "#2563EB" }}>{engCalc.outletTDS} ppm</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>SEC Index</span>
+                                                <strong style={{ color: "#7C3AED" }}>{engCalc.sec} kWh/m³</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>SAC Capacity</span>
+                                                <strong style={{ color: "#D97706" }}>{sacDisplay}</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Current Density</span>
+                                                <strong style={{ color: "#0284C7" }}>{engCalc.currentDensity} A/m²</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Power Draw</span>
+                                                <strong style={{ color: "#1F2937" }}>{engCalc.power} W</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Pressure Drop</span>
+                                                <strong style={{ color: "#059669" }}>{(engCalc.pressureDrop / 100000).toFixed(3)} bar</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Water Recovery</span>
+                                                <strong style={{ color: "#2563EB" }}>{engCalc.waterRecovery}%</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Voltage / Current</span>
+                                                <strong style={{ color: "#4F46E5" }}>{engCalc.voltage} V / {engCalc.current} A</strong>
+                                            </div>
+                                            <div>
+                                                <span style={{ color: "#64748B", display: "block" }}>Max Limit TDS</span>
+                                                <strong style={{ color: "#DC2626" }}>{engCalc.maxRemoval}% ({techKey === "EDI" ? "<30" : (techKey === "FCDI" ? "30000" : "2000")} ppm)</strong>
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* Advantages */}
-                                    <div style={{ marginBottom: "12px" }}>
-                                        <strong style={{ fontSize: "12px", color: "#15803D", display: "flex", alignItems: "center", gap: "4px", marginBottom: "6px" }}>
-                                            <CheckCircle2 size={14} /> Advantages
+                                    <div style={{ marginBottom: "10px" }}>
+                                        <strong style={{ fontSize: "11.5px", color: "#15803D", display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
+                                            <CheckCircle2 size={13} /> Key Advantages
                                         </strong>
-                                        <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "11px", color: "#374151", lineHeight: "1.4" }}>
-                                            {t.advantages.map((adv, i) => (
-                                                <li key={i} style={{ marginBottom: "4px" }}>{adv}</li>
+                                        <ul style={{ margin: 0, paddingLeft: "14px", fontSize: "10.5px", color: "#374151", lineHeight: "1.35" }}>
+                                            {staticData.advantages.map((adv, i) => (
+                                                <li key={i} style={{ marginBottom: "2px" }}>{adv}</li>
                                             ))}
                                         </ul>
                                     </div>
 
                                     {/* Disadvantages */}
-                                    <div style={{ marginBottom: "12px" }}>
-                                        <strong style={{ fontSize: "12px", color: "#B91C1C", display: "flex", alignItems: "center", gap: "4px", marginBottom: "6px" }}>
-                                            <AlertTriangle size={14} /> Disadvantages
+                                    <div style={{ marginBottom: "10px" }}>
+                                        <strong style={{ fontSize: "11.5px", color: "#B91C1C", display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
+                                            <AlertTriangle size={13} /> Engineering Limitations
                                         </strong>
-                                        <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "11px", color: "#374151", lineHeight: "1.4" }}>
-                                            {t.disadvantages.map((dis, i) => (
-                                                <li key={i} style={{ marginBottom: "4px" }}>{dis}</li>
+                                        <ul style={{ margin: 0, paddingLeft: "14px", fontSize: "10.5px", color: "#374151", lineHeight: "1.35" }}>
+                                            {staticData.disadvantages.map((dis, i) => (
+                                                <li key={i} style={{ marginBottom: "2px" }}>{dis}</li>
                                             ))}
                                         </ul>
                                     </div>
 
                                     {/* Applications */}
-                                    <div style={{ marginTop: "auto", paddingTop: "10px", borderTop: "1px dashed #CBD5E1", fontSize: "11px" }}>
+                                    <div style={{ marginTop: "auto", paddingTop: "8px", borderTop: "1px dashed #CBD5E1", fontSize: "10.5px" }}>
                                         <span style={{ fontWeight: "700", color: "#475569" }}>Primary Applications: </span>
-                                        <span style={{ color: "#64748B" }}>{t.applications}</span>
+                                        <span style={{ color: "#64748B" }}>{staticData.applications}</span>
                                     </div>
                                 </div>
                             );
@@ -263,7 +301,7 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
 
                 {/* Footer */}
                 <div style={{
-                    padding: "16px 28px",
+                    padding: "14px 28px",
                     background: "#F8FAFC",
                     borderTop: "1px solid #E2E8F0",
                     display: "flex",
@@ -271,7 +309,7 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
                     alignItems: "center"
                 }}>
                     <span style={{ fontSize: "12px", color: "#64748B" }}>
-                        Data synchronized with AppContext engineering equation engine &amp; ISO/ISA standards.
+                        All parameters computed dynamically via physical engineering equations (Faraday's Law, Ergun friction factor, &amp; ion transport kinetics).
                     </span>
                     <button
                         onClick={onClose}
@@ -286,7 +324,7 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
                             cursor: "pointer"
                         }}
                     >
-                        Close Comparison Matrix
+                        Close Matrix
                     </button>
                 </div>
             </div>

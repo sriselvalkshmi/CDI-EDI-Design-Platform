@@ -10,9 +10,9 @@ function calculateEngineering(inputs = {}) {
     const feedWater = inputs.feedWater || {};
 
     const rawTds = Number(feedWater.tds ?? inputs.tds ?? 500);
+    const tds = Math.round(rawTds);
     const rawCond = Number(feedWater.conductivity ?? (rawTds / 0.65));
-    // Requirement 1: Conductivity Coupling
-    const tds = Math.round(Math.max(rawTds, rawCond * 0.65));
+    const conductivity = Number((tds / 0.65).toFixed(1));
     const targetTds = Number(feedWater.targetTds ?? inputs.targetTds ?? 50);
     // Requirement 2: Consistent Feed Flow Rate
     const flowRate = Number(feedWater.flowRate ?? inputs.flowRate ?? 10); // L/min
@@ -21,29 +21,29 @@ function calculateEngineering(inputs = {}) {
     const TECH_MODELS = {
         CDI: {
             minVoltage: 0.8, maxVoltage: 1.5, defaultVoltage: 1.2,
-            minJ: 100, maxJ: 250, defaultCurrent: 5.0,
+            minJ: 10, maxJ: 150, defaultCurrent: 5.0,
             baseRemoval: 0.80, maxRemoval: 0.85,
             chargeEfficiency: 0.82, waterRecovery: 90.0,
             SAC_base: 15.0, membraneThickness: 0
         },
         MCDI: {
             minVoltage: 1.0, maxVoltage: 1.6, defaultVoltage: 1.4,
-            minJ: 120, maxJ: 300, defaultCurrent: 7.0,
+            minJ: 20, maxJ: 250, defaultCurrent: 7.0,
             baseRemoval: 0.88, maxRemoval: 0.94,
             chargeEfficiency: 0.92, waterRecovery: 95.0,
             SAC_base: 25.0, membraneThickness: 0.15 // mm (150 µm)
         },
         FCDI: {
             minVoltage: 1.2, maxVoltage: 2.0, defaultVoltage: 1.8,
-            minJ: 150, maxJ: 400, defaultCurrent: 10.0,
-            baseRemoval: 0.65, maxRemoval: 0.65, // Single-stage FCDI physically limited to ~65% removal on high salinity
+            minJ: 30, maxJ: 350, defaultCurrent: 10.0,
+            baseRemoval: 0.90, maxRemoval: 0.95, // Continuous FCDI achievable removal up to 95.0%
             chargeEfficiency: 0.90, waterRecovery: 95.0,
             SAC_base: 35.0, membraneThickness: 0.18, // mm (180 µm)
-            limitationReason: "Carbon slurry finite charge capacity, ionic transport resistance, and high osmotic pressure limit single-stage removal to ~65%."
+            limitationReason: null
         },
         EDI: {
             minVoltage: 5.0, maxVoltage: 50.0, defaultVoltage: 15.0,
-            minJ: 200, maxJ: 600, defaultCurrent: 3.0,
+            minJ: 50, maxJ: 500, defaultCurrent: 3.0,
             baseRemoval: 0.99, maxRemoval: 0.999,
             chargeEfficiency: 0.98, waterRecovery: 98.0,
             SAC_base: 50.0, membraneThickness: 0.20 // mm (200 µm)
@@ -84,13 +84,25 @@ function calculateEngineering(inputs = {}) {
     const cellPairs = Number(inputs.cellPairs ?? derivedCellPairs);
 
     // Faraday Current (I) Scaling
-    const faradayCurrent = Math.max(0.13, (96485 * (flowRate / 60) * (requiredSaltMgL / 1000)) / (58.44 * techModel.chargeEfficiency * (cellPairs / 10)));
-    const current = Number(inputs.current ?? Math.min(65.0, Math.max(0.13, faradayCurrent))); // A
+    const flowM3s = (flowRate / 1000) / 60; // m³/s
+    const deltaCMol = (requiredSaltMgL / 1000) / 58.44; // mol/L
+    const faradayCurrentDerived = (96485 * flowM3s * deltaCMol * 1000) / (techModel.chargeEfficiency * Math.max(1, cellPairs));
+    const faradayCurrent = Math.max(0.05, faradayCurrentDerived);
+
+    // Dynamic Current Calculation from Faraday's Law
+    const isManualCurrent = Boolean(inputs.isManualCurrent);
+    const ediSplittingI = technology === "EDI" ? 0.2 : 0;
+    const calculatedCurrent = Number((faradayCurrentDerived + ediSplittingI).toFixed(2));
+
+    const current = isManualCurrent && inputs.current !== undefined
+        ? Number(inputs.current)
+        : Number(Math.max(0.05, Math.min(80.0, calculatedCurrent)).toFixed(2));
 
     // 1. Current Density: J (A/m²)
     const areaM2 = electrodeArea / 10000;
     const J_m2 = areaM2 > 0 ? (current / areaM2) : 0;
     const J_cm2 = electrodeArea > 0 ? (current / electrodeArea) : 0;
+    const isCurrentDensityValid = J_m2 >= techModel.minJ && J_m2 <= techModel.maxJ;
 
     // 2. Power: P = V * I (W)
     const power = voltage * current;
@@ -117,7 +129,7 @@ function calculateEngineering(inputs = {}) {
 
     // Calibrated friction factor to yield physically realistic 180 - 240 Pa for small MCDI
     const darcyFrictionFactor = (64 / Math.max(1, reynoldsNumber)) + 0.35;
-    const flowRegime = "Laminar";
+    const flowRegime = reynoldsNumber > 2300 ? "Turbulent" : "Laminar";
 
     const calculatedPressureDropPa = Dh > 0 ? (darcyFrictionFactor * (stackLengthM / Dh) * (fluidDensity * Math.pow(calculatedFlowVelocity, 2) / 2)) : 220;
     const pressureDropPa = Math.max(160, Math.min(320, calculatedPressureDropPa)); // Pa (160 - 320 Pa)
@@ -148,10 +160,10 @@ function calculateEngineering(inputs = {}) {
         effectiveRemovalFraction = requiredRemovalFraction;
     }
 
-    const calculatedOutletTDS = Math.max(0, tds * (1 - effectiveRemovalFraction));
-    const outletTDS = (requiredRemovalFraction <= techModel.maxRemoval && targetTds < tds) ? targetTds : calculatedOutletTDS;
+    const calculatedOutletTDS = Math.min(tds, Math.max(0, tds * (1 - effectiveRemovalFraction)));
+    const outletTDS = Math.min(tds, (requiredRemovalFraction <= techModel.maxRemoval && targetTds < tds) ? targetTds : calculatedOutletTDS);
     // Centralized Removal Efficiency Formula: ((FeedTDS - OutletTDS) / FeedTDS) * 100
-    const removalEfficiency = tds > 0 ? Math.max(0, ((tds - outletTDS) / tds) * 100) : 0;
+    const removalEfficiency = tds > 0 ? Math.max(0, Math.min(100, ((tds - outletTDS) / tds) * 100)) : 0;
 
     // 9. Salt Adsorption Capacity (SAC) - Applies strictly to CDI / MCDI / FCDI carbon electro-adsorption
     const isEdi = technology === "EDI";
@@ -216,6 +228,9 @@ function calculateEngineering(inputs = {}) {
         power: Number(power.toFixed(2)),
         currentDensity: Number(J_m2.toFixed(2)),
         currentDensityCm2: Number(J_cm2.toFixed(4)),
+        minJ: techModel.minJ,
+        maxJ: techModel.maxJ,
+        isCurrentDensityValid,
         charge: Number(charge.toFixed(1)),
         sac: isEdi ? null : Number(sac.toFixed(2)),
         ionRemovalEfficiency: Number(removalEfficiency.toFixed(2)),
@@ -241,6 +256,8 @@ function calculateEngineering(inputs = {}) {
         recovery: Number(waterRecovery.toFixed(1)),
         maxRemoval: Number((techModel.maxRemoval * 100).toFixed(1)),
         limitationReason: techModel.limitationReason || null,
+
+        totalMembraneAreaM2: Number(totalMembraneAreaM2),
 
         // EDI Industrial Material Specifications
         electrodeMaterial,

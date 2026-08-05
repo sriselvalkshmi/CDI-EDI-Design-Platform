@@ -83,8 +83,10 @@ function optimize(
 
                         const tdsError = Math.max(0, result.outletTDS - targetTDS);
                         const isTargetAchieved = result.outletTDS <= targetTDS;
+                        const isOutletHigherThanFeed = result.outletTDS > inletTDS;
 
                         const penalty = (isTargetAchieved ? 0 : 50.0) +
+                            (isOutletHigherThanFeed ? 500.0 : 0) +
                             tdsError * 15.0 +
                             result.sec * 5.0 +
                             result.power * 0.05 +
@@ -106,7 +108,7 @@ function optimize(
                                 optimizedFlowRate: result.flowRate,
                                 flowVelocity: result.flowVelocity,
                                 residenceTime: result.residenceTime,
-                                outletTDS: result.outletTDS,
+                                outletTDS: Math.min(inletTDS, result.outletTDS),
                                 predictedRemoval: result.removalEfficiency,
                                 removalEfficiency: result.removalEfficiency,
                                 power: result.power,

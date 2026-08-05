@@ -175,9 +175,9 @@ export default function KPIDashboard() {
                         {outletTDS} <span style={{ fontSize: "12px", fontWeight: "500", color: "#6B7280" }}>ppm</span>
                         {activeTech.includes("EDI") && (
                             <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2563EB", display: "block", marginTop: "2px" }}>
-                                {Number(outletTDS) > 1.0 
-                                    ? `(${ (Number(outletTDS) / 0.65).toFixed(1) } µS/cm)` 
-                                    : "(18.2 MΩ·cm Ultrapure)"}
+                                {Number(outletTDS) <= 0.03 
+                                    ? "(18.2 MΩ·cm Ultrapure)" 
+                                    : `(${ (Number(outletTDS) / 0.65).toFixed(1) } µS/cm, ${ (0.65 / Math.max(0.001, Number(outletTDS))).toFixed(3) } MΩ·cm)`}
                             </span>
                         )}
                     </div>

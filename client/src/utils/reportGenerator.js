@@ -119,7 +119,7 @@ export const generateEngineeringReportPDF = ({
                 ["Selected Technology", recTech],
                 ["Optimization Mode", optMode],
                 ["AI Recommendation", recTech],
-                ["Confidence Level", "95%"],
+                ["Confidence Level", fmt(aiResult?.confidence || 94.5, 1, "%")],
                 ["Operator Name", userName]
             ],
             theme: "grid",

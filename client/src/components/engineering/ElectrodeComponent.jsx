@@ -33,6 +33,10 @@ export default function ElectrodeComponent({
         heatLabel = "Normal Current Load";
     }
 
+    const isAnode = polarity === "positive" || polarity === "anode";
+    const animId = `anim_${Math.round(x)}_${Math.round(y)}_${polarity}`.replace(/[^a-zA-Z0-9_]/g, "_");
+    const gradientId = `elecGrad_${Math.round(x)}_${Math.round(y)}_${polarity}`.replace(/[^a-zA-Z0-9_]/g, "_");
+
     const isTitanium = material && material.includes("Titanium");
     const electrodeName = isTitanium 
         ? (isAnode ? "Titanium MMO Anode Plate" : "Titanium MMO Cathode Plate") 

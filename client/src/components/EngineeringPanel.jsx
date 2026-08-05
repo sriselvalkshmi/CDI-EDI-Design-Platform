@@ -206,11 +206,11 @@ export default function EngineeringPanel() {
                 ) : (
                     <div style={{ background: "#FFFFFF", border: "1px solid #16A34A", borderRadius: "6px", padding: "10px" }}>
                         <div style={{ fontSize: "11px", fontWeight: "700", color: "#16A34A", textTransform: "uppercase" }}>
-                            {activeTech === "EDI" ? "Continuous Electrodeionization" : "Single-Stage Desalination"}
+                            {activeTech === "EDI" ? "Continuous Electrodeionization (EDI Polishing)" : "Single-Stage Desalination"}
                         </div>
                         <div style={{ fontSize: "13px", fontWeight: "700", color: "#1F2937", marginTop: "2px" }}>Technology: {activeTech}</div>
                         <div style={{ fontSize: "11.5px", color: "#4B5563", marginTop: "2px" }}>
-                            Purpose: {activeTech === "EDI" ? "Continuous Ion Removal & Chemical-Free Polishing" : "Direct desalination to target"}
+                            Purpose: {activeTech === "EDI" ? "Continuous High-Purity Water Polishing & Final Deionization" : "Direct bulk desalination to target"}
                         </div>
                         <div style={{ fontSize: "11.5px", color: "#16A34A", fontWeight: "600", marginTop: "2px" }}>Final Outlet: {outletTDS} ppm</div>
                     </div>

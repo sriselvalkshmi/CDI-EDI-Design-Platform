@@ -1,5 +1,6 @@
 import React from "react";
 import { useApp } from "../context/AppContext";
+import { CheckCircle2, AlertTriangle, ShieldCheck, Zap } from "lucide-react";
 
 export default function ValidationPanel() {
     const { designResult } = useApp();
@@ -21,7 +22,8 @@ export default function ValidationPanel() {
     const currentRemovalNum = Number(overall.removalEfficiency ?? engineering.removalEfficiency ?? 0);
     
     const tech = overall.recommendedProcess || overall.technology || engineering.technology || "CDI";
-    const maxAchievableNum = tech.includes("EDI") ? 99.9 : (tech.includes("FCDI") ? 95.0 : (tech.includes("MCDI") ? 94.0 : 85.0));
+    const activeTechKey = tech.includes("EDI") ? "EDI" : (tech.includes("FCDI") ? "FCDI" : (tech.includes("MCDI") ? "MCDI" : "CDI"));
+    const maxAchievableNum = activeTechKey === "EDI" ? 99.9 : (activeTechKey === "FCDI" ? 95.0 : (activeTechKey === "MCDI" ? 94.0 : 85.0));
 
     const status = validation.status || "VALID";
 
@@ -57,8 +59,8 @@ export default function ValidationPanel() {
             marginBottom: "16px"
         }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: titleColor }}>
-                    {titleText}
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: titleColor, display: "flex", alignItems: "center", gap: "6px" }}>
+                    <ShieldCheck size={18} /> {titleText}
                 </h3>
                 <span style={{
                     fontSize: "12px",
@@ -83,7 +85,7 @@ export default function ValidationPanel() {
                     <div style={{ fontSize: "16px", fontWeight: "700", color: currentRemovalNum >= requiredRemovalNum ? "#166534" : "#D97706" }}>{currentRemovalNum.toFixed(1)}%</div>
                 </div>
                 <div style={{ background: "white", padding: "8px 12px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                    <div style={{ fontSize: "11px", color: "#64748B", fontWeight: "600" }}>Max Achievable ({tech})</div>
+                    <div style={{ fontSize: "11px", color: "#64748B", fontWeight: "600" }}>Max Achievable ({activeTechKey})</div>
                     <div style={{ fontSize: "16px", fontWeight: "700", color: "#1E40AF" }}>{maxAchievableNum.toFixed(1)}%</div>
                 </div>
             </div>
@@ -107,49 +109,123 @@ export default function ValidationPanel() {
                 </div>
             )}
 
-            {/* EDI Industrial Engineering Validation Checklist (Requirement 12) */}
-            {tech.includes("EDI") && (
-                <div style={{ marginTop: "12px", background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "6px", padding: "10px 14px" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#1E293B", marginBottom: "8px" }}>
-                        ⚡ EDI System Feasibility &amp; Operating Checks
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "11.5px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
-                            <span>Operating Voltage: <b>{engineering.voltage || 15.0} V</b> (Bounds: 5–50 V)</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
-                            <span>Current Density: <b>{engineering.currentDensity || 200} A/m²</b> (Bounds: 100–600 A/m²)</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
-                            <span>Membrane Current Density: <b>{((engineering.current || 3.0) / (engineering.totalMembraneAreaM2 || 0.5)).toFixed(1)} A/m²</b></span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
-                            <span>Water Recovery: <b>{engineering.waterRecovery || 98.0}%</b> (Target: 90–98%)</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: inletTDS > 500 ? "#D97706" : "#16A34A", fontWeight: "800" }}>{inletTDS > 500 ? "⚠" : "✓"}</span>
-                            <span>Scaling Risk: <b>{inletTDS > 500 ? "HIGH (Feed TDS > 500 ppm)" : "LOW (Pre-treated RO Feed)"}</b></span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
-                            <span>Flow Distribution: <b>{engineering.flowVelocity || 0.035} m/s</b> (Uniform laminar)</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
-                            <span>Resin Regeneration: <b>Electrolytic H+/OH- Water Splitting Active</b></span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
-                            <span>Operating Temp: <b>{feedWater.temperature || 25} °C</b> (Bounds: 10–40 °C)</span>
-                        </div>
-                    </div>
+            {/* TECHNOLOGY-SPECIFIC VALIDATION CHECKS */}
+            <div style={{ marginTop: "12px", background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "6px", padding: "10px 14px" }}>
+                <div style={{ fontSize: "12px", fontWeight: "700", color: "#1E293B", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Zap size={14} color="#2563EB" /> {activeTechKey} Technology Operating &amp; Feasibility Checks
                 </div>
-            )}
+
+                {activeTechKey === "CDI" && (() => {
+                    const voltage = Number(engineering.voltage || 1.2);
+                    const isVoltageSafe = voltage <= 1.5;
+                    const sacVal = Number(engineering.sac || 14.5);
+                    const isSacValid = sacVal > 5;
+                    const isTdsValid = inletTDS <= 1000;
+
+                    return (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "11.5px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: isVoltageSafe ? "#16A34A" : "#DC2626", fontWeight: "800" }}>{isVoltageSafe ? "✓" : "✕"}</span>
+                                <span>Operating Voltage: <b>{voltage} V</b> (Limit &le; 1.5V to avoid water splitting)</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: isSacValid ? "#16A34A" : "#D97706", fontWeight: "800" }}>{isSacValid ? "✓" : "⚠"}</span>
+                                <span>Electrosorption SAC: <b>{sacVal} mg/g</b> (Adsorption capacity bounds)</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: isTdsValid ? "#16A34A" : "#D97706", fontWeight: "800" }}>{isTdsValid ? "✓" : "⚠"}</span>
+                                <span>Feed TDS Limit: <b>{inletTDS} ppm</b> ({isTdsValid ? "Optimal CDI range <1000 ppm" : "High TDS causes rapid saturation"})</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>Regeneration Mode: <b>Batch Reversed Polarity (-V)</b></span>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {activeTechKey === "MCDI" && (() => {
+                    const voltage = Number(engineering.voltage || 1.4);
+                    const isVoltageSafe = voltage <= 1.6;
+                    const pressDropBar = Number(engineering.pressureDrop ? (engineering.pressureDrop / 100000) : 0.15);
+                    const isPressureOk = pressDropBar <= 1.5;
+
+                    return (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "11.5px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: isVoltageSafe ? "#16A34A" : "#DC2626", fontWeight: "800" }}>{isVoltageSafe ? "✓" : "✕"}</span>
+                                <span>Operating Voltage: <b>{voltage} V</b> (Bounds: 1.0–1.6 V)</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>Co-Ion Repulsion Block: <b>AEM &amp; CEM Active</b> (Charge Eff &gt;92%)</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: isPressureOk ? "#16A34A" : "#D97706", fontWeight: "800" }}>{isPressureOk ? "✓" : "⚠"}</span>
+                                <span>Membrane Pressure Drop: <b>{pressDropBar.toFixed(3)} bar</b> ({isPressureOk ? "Normal" : "High Fouling Risk"})</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>Membrane Fouling Risk: <b>LOW</b> (Pre-filtered feed water)</span>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {activeTechKey === "FCDI" && (() => {
+                    const flowVel = Number(engineering.flowVelocity || 0.15);
+                    const isVelocityOk = flowVel >= 0.02;
+
+                    return (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "11.5px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: isVelocityOk ? "#16A34A" : "#DC2626", fontWeight: "800" }}>{isVelocityOk ? "✓" : "✕"}</span>
+                                <span>Slurry Flow Velocity: <b>{flowVel} m/s</b> ({isVelocityOk ? "Sufficient to prevent carbon settling" : "Risk of carbon particle settling"})</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>Slurry Concentration: <b>12.5 wt%</b> Activated Carbon Suspension</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>Operation Mode: <b>Continuous Non-Stop Desalination</b> (No cycle pauses)</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>High TDS Capacity: <b>{inletTDS} ppm</b> (Handles streams up to 30,000+ ppm)</span>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {activeTechKey === "EDI" && (() => {
+                    const cdVal = Number(engineering.currentDensity ?? 100.0);
+                    const minJ = Number(engineering.minJ ?? 50);
+                    const maxJ = Number(engineering.maxJ ?? 500);
+                    const isJValid = cdVal >= minJ && cdVal <= maxJ;
+
+                    return (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "11.5px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>Operating Voltage: <b>{engineering.voltage || 15.0} V</b> (Bounds: 5–50 V)</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: isJValid ? "#16A34A" : "#D97706", fontWeight: "800" }}>{isJValid ? "✓" : "⚠"}</span>
+                                <span>Current Density: <b>{cdVal.toFixed(1)} A/m²</b> (Bounds: {minJ}–{maxJ} A/m²)</span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: "#16A34A", fontWeight: "800" }}>✓</span>
+                                <span>In-Situ Resin Regeneration: <b>Electrolytic H+/OH- Water Splitting Active</b></span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{ color: inletTDS > 30 ? "#D97706" : "#16A34A", fontWeight: "800" }}>{inletTDS > 30 ? "⚠" : "✓"}</span>
+                                <span>Membrane Scaling Risk: <b>{inletTDS > 30 ? `HIGH (${inletTDS} ppm > 30 ppm limit)` : "LOW (Pre-treated RO Permeate)"}</b></span>
+                            </div>
+                        </div>
+                    );
+                })()}
+            </div>
         </div>
     );
 }
-

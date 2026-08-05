@@ -9,7 +9,8 @@ import InstrumentationLayer from "./InstrumentationLayer";
 /**
  * FCDISchematic
  * Dedicated FCDI process schematic featuring dual carbon slurry circulation loops,
- * peristaltic slurry pumps, flow-electrodes, ion exchange membranes, and central desalination channel.
+ * peristaltic slurry pumps, flow-electrodes, ion exchange membranes, central desalination channel,
+ * and high-salinity continuous desalting callouts.
  */
 export default function FCDISchematic({
     geometry = {},
@@ -21,8 +22,8 @@ export default function FCDISchematic({
     onHover = null
 }) {
     const CY = 200;
-    const { plateWidthPx, stackHeightPx, tankWidthPx, tankHeightPx } = geometry;
-    const { voltage, currentDensity } = electrical;
+    const { plateWidthPx = 200, stackHeightPx = 180, tankWidthPx = 100, tankHeightPx = 130 } = geometry;
+    const { voltage = 1.8, currentDensity = 320 } = electrical;
 
     const stackX = 400;
     const stackWidth = Math.max(160, Math.min(260, plateWidthPx + 40));
@@ -76,7 +77,7 @@ export default function FCDISchematic({
                 onHover={onHover}
             />
 
-            {/* --- TOP SLURRY LOOP A (ANOLYTE) --- */}
+            {/* --- TOP SLURRY LOOP A (ANOLYTE FLOW ELECTRODE) --- */}
             <g id="slurry_loop_a">
                 {/* Slurry Tank A (Top Left) */}
                 <TankComponent
@@ -85,10 +86,10 @@ export default function FCDISchematic({
                     width={110}
                     height={100}
                     tag="TK-101A"
-                    name="Slurry Tank A"
+                    name="Anolyte Slurry Tank A"
                     type="slurry"
                     flowRate={feedWater.flowRate || 10}
-                    tds={12000}
+                    tds={15000}
                     onHover={onHover}
                 />
 
@@ -97,7 +98,7 @@ export default function FCDISchematic({
                     cx={230}
                     cy={90}
                     flowRate={feedWater.flowRate || 10}
-                    pressure={1.2}
+                    pressure={1.5}
                     tag="SP-101A"
                     name="Slurry Pump A"
                     type="Slurry Peristaltic Hose Pump"
@@ -113,7 +114,7 @@ export default function FCDISchematic({
                 {/* Flowing Carbon Slurry Particles Loop A */}
                 {Array.from({ length: 14 }).map((_, i) => (
                     <circle
-                        key={i}
+                        key={`slurryA_${i}`}
                         cx={80 + (i * 42 + particleOffset * 2) % 700}
                         cy="60"
                         r="4.5"
@@ -122,14 +123,14 @@ export default function FCDISchematic({
                 ))}
             </g>
 
-            {/* --- BOTTOM SLURRY LOOP B (CATHOLYTE) --- */}
+            {/* --- BOTTOM SLURRY LOOP B (CATHOLYTE FLOW ELECTRODE) --- */}
             <g id="slurry_loop_b">
                 {/* Slurry Pump B */}
                 <PumpComponent
                     cx={670}
                     cy={305}
                     flowRate={feedWater.flowRate || 10}
-                    pressure={1.2}
+                    pressure={1.5}
                     tag="SP-101B"
                     name="Slurry Pump B"
                     type="Slurry Peristaltic Hose Pump"
@@ -143,10 +144,10 @@ export default function FCDISchematic({
                     width={110}
                     height={100}
                     tag="TK-101B"
-                    name="Slurry Tank B"
+                    name="Catholyte Slurry Tank B"
                     type="slurry"
                     flowRate={feedWater.flowRate || 10}
-                    tds={12000}
+                    tds={15000}
                     onHover={onHover}
                 />
 
@@ -159,7 +160,7 @@ export default function FCDISchematic({
                 {/* Flowing Carbon Slurry Particles Loop B */}
                 {Array.from({ length: 14 }).map((_, i) => (
                     <circle
-                        key={i}
+                        key={`slurryB_${i}`}
                         cx={795 - (i * 42 + particleOffset * 2) % 700}
                         cy="380"
                         r="4.5"
@@ -173,8 +174,9 @@ export default function FCDISchematic({
                 onMouseEnter={(e) => onHover && onHover({
                     name: "FCDI Continuous Slurry Cell Reactor (R-101)",
                     type: "Flow-Electrode Capacitive Deionization Reactor",
-                    operation: "Continuous Non-stop Desalination",
+                    operation: "Continuous Non-stop Desalination (No Cycle Pauses)",
                     slurryDensity: "10-15 wt% Activated Carbon Suspension",
+                    highTDSHandling: "Capable of handling feed TDS > 3,000 ppm up to 30,000 ppm",
                     voltage: labels.voltage,
                     current: labels.current,
                     removalEfficiency: labels.removalEfficiency,
@@ -186,8 +188,8 @@ export default function FCDISchematic({
                 <rect x={stackX} y={stackY} width={stackWidth} height={stackHeight} fill="#F8FAFC" stroke="#4F46E5" strokeWidth="3" rx="10" />
                 <ElectricFieldOverlay x={stackX + 10} y={stackY + 10} width={stackWidth - 20} height={stackHeight - 20} voltage={voltage} technology="FCDI" />
 
-                <rect x={stackX + stackWidth / 2 - 45} y={stackY - 18} width="90" height="16" fill="#4F46E5" rx="4" />
-                <text x={stackX + stackWidth / 2} y={stackY - 6} textAnchor="middle" fill="#FFFFFF" fontWeight="800" fontSize="10">FCDI R-101</text>
+                <rect x={stackX + stackWidth / 2 - 50} y={stackY - 18} width="100" height="16" fill="#4F46E5" rx="4" />
+                <text x={stackX + stackWidth / 2} y={stackY - 6} textAnchor="middle" fill="#FFFFFF" fontWeight="800" fontSize="10">FCDI R-101 (CONTINUOUS)</text>
 
                 {/* Flow Anode Slurry Channel */}
                 <rect x={stackX + 15} y={stackY + 30} width="22" height={stackHeight - 50} fill="#312E81" rx="3" />
@@ -206,6 +208,13 @@ export default function FCDISchematic({
                 {/* Flow Cathode Slurry Channel */}
                 <rect x={stackX + stackWidth - 37} y={stackY + 30} width="22" height={stackHeight - 50} fill="#1E3A8A" rx="3" />
                 <text x={stackX + stackWidth - 26} y={CY} textAnchor="middle" fill="#FFFFFF" fontSize="8.5" fontWeight="700" transform={`rotate(-90 ${stackX + stackWidth - 26} ${CY})`}>CATHODE SLURRY</text>
+            </g>
+
+            {/* FCDI High TDS Callout Banner */}
+            <g transform={`translate(${stackX}, ${stackY + stackHeight + 12})`}>
+                <rect width={stackWidth} height="32" fill="#EEF2FF" stroke="#C7D2FE" strokeWidth="1" rx="6" />
+                <text x="8" y="14" fontSize="8.5" fontWeight="800" fill="#3730A3">⚡ FCDI Continuous Slurry Operation:</text>
+                <text x="8" y="25" fontSize="8" fontWeight="600" fill="#4338CA">● High TDS (&gt;3,000 ppm) ● Non-stop desalting ● Higher pump power</text>
             </g>
 
             {/* Product Tank */}
