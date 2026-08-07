@@ -8,9 +8,14 @@ import InstrumentationLayer from "./InstrumentationLayer";
 
 /**
  * EDISchematic
- * Dedicated EDI process schematic featuring RO permeate feed pretreatment, booster pump,
- * Titanium MMO electrodes, alternating CEM & AEM membranes, mixed-bed ion-exchange resin beads,
- * concentrate/dilute outlets, electrolytic water splitting (H+/OH-) resin regeneration, and ultra-pure water storage tank.
+ * Dedicated Electrodeionization (EDI) Process Schematic.
+ * Displays explicit EDI physical internals:
+ * - EDI Stack Shell (R-101) & DC Power Supply Unit
+ * - Anode (+) and Cathode (-) Electrode Chambers
+ * - Cation Exchange Membranes (CEM) & Anion Exchange Membranes (AEM)
+ * - Mixed-Bed Resin Chambers (Cation Amber & Anion Blue Resin Spheres)
+ * - Dilute Channels -> Product Water Outlet
+ * - Concentrate Channels -> Concentrate Outlet
  */
 export default function EDISchematic({
     geometry = {},
@@ -19,247 +24,240 @@ export default function EDISchematic({
     feedWater = {},
     engineering = {},
     particleOffset = 0,
-    onHover = null
+    onHover = null,
+    onClickEquipment = null
 }) {
-    const CY = 200;
-    const { plateWidthPx = 220, stackHeightPx = 180, pumpRadiusPx = 24, tankWidthPx = 100, tankHeightPx = 130 } = geometry;
-    const { voltage = 15.0 } = electrical;
+    const CY = 200; // Main water flow centerline
+    const { voltage = 25.0, current = 2.1, currentDensity = 450 } = electrical;
 
-    const tank1X = 40;
-    const tank1Width = Math.max(90, Math.min(130, tankWidthPx));
-    const tank1Height = Math.max(120, Math.min(160, tankHeightPx));
-    const tank1Y = CY - tank1Height / 2;
+    const vCell = (engineering.voltageCell || 5.0).toFixed(2);
+    const vStack = (engineering.voltageStack || (engineering.cellPairs * Number(vCell))).toFixed(1);
+    const iCurrent = (engineering.current || 0.14).toFixed(2);
+    const pPower = (engineering.power || (Number(vStack) * Number(iCurrent))).toFixed(1);
 
-    const pumpX = tank1X + tank1Width + 90;
-    const pumpR = Math.max(20, Math.min(36, pumpRadiusPx));
+    // Positions
+    const feedTankX = 35;
+    const feedTankY = 135;
+    const feedTankW = 95;
+    const feedTankH = 130;
 
-    const stackX = pumpX + pumpR + 110;
-    const stackWidth = Math.max(160, Math.min(280, plateWidthPx + 60));
-    const stackHeight = Math.max(150, Math.min(260, stackHeightPx));
-    const stackY = CY - stackHeight / 2;
+    const feedPumpCx = 175;
+    const feedPumpCy = CY;
 
-    const tank2X = stackX + stackWidth + 120;
-    const tank2Width = tank1Width;
-    const tank2Height = tank1Height;
-    const tank2Y = CY - tank2Height / 2;
+    const flowMeterX = 240;
 
-    const outTdsVal = Number(engineering.outletTDS ?? feedWater.targetTds ?? 5);
-    const condVal = outTdsVal / 0.65;
-    const resVal = 0.65 / Math.max(0.001, outTdsVal);
-    const ctValue = outTdsVal <= 0.03 ? `${outTdsVal.toFixed(2)} ppm (18.2 MΩ·cm Ultrapure)` : `${outTdsVal.toFixed(1)} ppm (${condVal.toFixed(1)} µS/cm, ${resVal.toFixed(3)} MΩ·cm)`;
-    const ctLabel = outTdsVal <= 0.03 ? "Ultra-Pure Resistivity" : "Product Conductivity & Resistivity";
+    const stackX = 350;
+    const stackY = 90;
+    const stackWidth = 260;
+    const stackHeight = 220;
+
+    const prodTankX = 730;
+    const prodTankY = 135;
+    const prodTankW = 110;
+    const prodTankH = 130;
+
+    const reactorSpec = {
+        name: "EDI Polishing Stack Reactor (R-101)",
+        tag: "R-101",
+        type: "Continuous Electrodeionization High-Purity Stack Module",
+        resinBed: "Mixed-Bed Strong Acid Cation (Amber) & Strong Base Anion (Blue) Ion Exchange Resin",
+        regeneration: "In-situ Water Splitting (H+ / OH-) Continuous Electrochemical Auto-regeneration",
+        targetPurity: "Ultrapure Water (< 0.1 to 1 ppm TDS / up to 18.2 MΩ·cm)",
+        cellVoltage: `${vCell} V`,
+        stackVoltage: `${vStack} V`,
+        current: `${iCurrent} A`,
+        power: `${pPower} W (P = V_stack × I)`,
+        chargeEfficiency: "98.0 %",
+        chemicalRegeneration: "0% Hazardous Acid/Caustic Required (Eco-friendly)",
+        dimensions: `${stackWidth}px L × ${stackHeight}px H`
+    };
 
     return (
         <g id="edi_dedicated_schematic">
 
-            {/* Pipelines */}
+            {/* --- MAIN DILUTE WATER FLOW PIPELINES (LEFT TO RIGHT) --- */}
+
+            {/* 1. Feed Tank to Feed Pump */}
             <FlowAnimation
-                pathD={`M ${tank1X + tank1Width} ${CY} L ${pumpX - pumpR} ${CY}`}
+                pathD={`M ${feedTankX + feedTankW} ${CY} L ${feedPumpCx - 20} ${CY}`}
                 flowRate={feedWater.flowRate || 10}
-                stroke="#7C3AED"
-                strokeWidth={3.5}
-            />
-            <FlowAnimation
-                pathD={`M ${pumpX + pumpR} ${CY} L ${stackX} ${CY}`}
-                flowRate={feedWater.flowRate || 10}
-                stroke="#7C3AED"
+                stroke="#0284C7"
                 strokeWidth={3.5}
             />
 
-            {/* Product Dilute Stream */}
+            {/* 2. Feed Pump to Flow Meter to EDI Stack Entrance */}
             <FlowAnimation
-                pathD={`M ${stackX + stackWidth} ${CY} L ${tank2X} ${CY}`}
+                pathD={`M ${feedPumpCx + 20} ${CY} L ${flowMeterX - 16} ${CY}`}
+                flowRate={feedWater.flowRate || 10}
+                stroke="#0284C7"
+                strokeWidth={3.5}
+            />
+            <FlowAnimation
+                pathD={`M ${flowMeterX + 16} ${CY} L ${stackX} ${CY}`}
+                flowRate={feedWater.flowRate || 10}
+                stroke="#0284C7"
+                strokeWidth={3.5}
+            />
+
+            {/* 3. EDI Product Outlet to Ultrapure Product Storage Tank */}
+            <FlowAnimation
+                pathD={`M ${stackX + stackWidth} ${CY} L ${prodTankX} ${CY}`}
                 flowRate={feedWater.flowRate || 10}
                 stroke="#16A34A"
-                strokeWidth={3.5}
+                strokeWidth={4.0}
                 showIons={true}
                 particleOffset={particleOffset}
                 ionStartX={stackX + stackWidth + 10}
                 ionStartY={CY}
-                ionDistance={tank2X - (stackX + stackWidth) - 20}
+                ionDistance={prodTankX - (stackX + stackWidth) - 20}
             />
 
-            {/* Concentrate Waste Stream Outlet (Bottom Line) */}
-            <path d={`M ${stackX + stackWidth / 2} ${stackY + stackHeight} L ${stackX + stackWidth / 2} 370 L ${tank2X + tank2Width / 2} 370`} stroke="#D97706" strokeWidth="2.5" strokeDasharray="5,3" fill="none" />
-            <text x={tank2X + tank2Width / 2 + 10} y="374" fill="#D97706" fontWeight="700" fontSize="10">Concentrate Waste Stream</text>
+            {/* 4. Concentrate Stream Outlet Pipeline (Bottom Drain) */}
+            <path
+                d={`M ${stackX + stackWidth - 30} ${stackY + stackHeight} L ${stackX + stackWidth - 30} 360 L ${prodTankX + prodTankW / 2} 360`}
+                stroke="#7C3AED"
+                strokeWidth="2.5"
+                strokeDasharray="5,3"
+                fill="none"
+            />
+            <text x={stackX + stackWidth - 25} y="354" fontSize="8.5" fontWeight="700" fill="#7C3AED">CONCENTRATE OUTLET</text>
 
-            {/* ANSI Instrumentation Tags */}
+            {/* --- ANSI INSTRUMENTATION TAGS --- */}
             <InstrumentationLayer
-                x={(tank1X + tank1Width + pumpX - pumpR) / 2}
+                x={flowMeterX}
                 y={CY - 28}
                 tag="FT101"
                 type="FT"
                 value={`${(feedWater.flowRate || 10).toFixed(1)} L/min`}
-                label="RO Permeate Flow"
+                label="Feed Flow Rate"
                 onHover={onHover}
             />
+
             <InstrumentationLayer
-                x={(pumpX + pumpR + stackX) / 2}
-                y={CY - 28}
-                tag="PI101"
-                type="PI"
-                value={`${(feedWater.pressure || 3.5).toFixed(1)} bar`}
-                label="EDI Inlet Pressure"
-                onHover={onHover}
-            />
-            <InstrumentationLayer
-                x={(stackX + stackWidth + tank2X) / 2}
+                x={645}
                 y={CY - 28}
                 tag="CT101"
                 type="CT"
-                value={ctValue}
-                label={ctLabel}
+                value={`${(engineering.outletTDS || 0.5).toFixed(1)} ppm`}
+                label="Ultrapure TDS"
                 onHover={onHover}
             />
 
-            {/* Equipment 1: EDI Pre-treatment Feed Tank */}
+            {/* --- 1. FEED STORAGE TANK (TK-101) --- */}
             <TankComponent
-                x={tank1X}
-                y={tank1Y}
-                width={tank1Width}
-                height={tank1Height}
+                x={feedTankX}
+                y={feedTankY}
+                width={feedTankW}
+                height={feedTankH}
                 tag="TK-101"
-                name="EDI Feed Tank (RO Permeate)"
+                name={engineering.isRoPretreatmentRequired ? "RO Permeate Tank" : "Feed Storage Tank"}
                 type="process"
                 flowRate={feedWater.flowRate || 10}
-                tds={feedWater.tds || 25}
-                material="FRP Composite / Polypropylene"
+                tds={engineering.isRoPretreatmentRequired ? (engineering.roPermeateTds || 15) : (feedWater.tds || 500)}
                 onHover={onHover}
+                onClick={onClickEquipment}
             />
 
-            {/* Equipment 2: High Pressure Booster Pump */}
+            {/* --- 2. EDI FEED WATER PUMP (P-101) --- */}
             <PumpComponent
-                cx={pumpX}
-                cy={CY}
+                cx={feedPumpCx}
+                cy={feedPumpCy}
+                r={20}
                 flowRate={feedWater.flowRate || 10}
-                pressure={3.5}
+                pressure={feedWater.pressure || 1.0}
                 tag="P-101"
-                name="EDI Booster Pump"
-                type="Multi-Stage Centrifugal Pump"
+                name="EDI Feed Pump"
+                type="Centrifugal Feed Pump"
+                tagPosition="bottom"
                 onHover={onHover}
+                onClick={onClickEquipment}
             />
 
-            {/* Equipment 3: EDI Ultra-Pure Module Stack */}
+            {/* --- 3. DEDICATED EDI STACK MODULE (R-101) --- */}
             <g
-                onMouseEnter={(e) => onHover && onHover({
-                    name: "EDI Continuous Resin Module Stack (R-101)",
-                    type: "Electrodeionization Ultra-Pure Stack",
-                    electrodeMaterial: "Titanium Grade 2 (Mixed Metal Oxide Coating)",
-                    waterQuality: outTdsVal > 1.0 ? `${outTdsVal.toFixed(1)} ppm (${condVal.toFixed(1)} µS/cm)` : "Type I Ultra-Pure (Up to 18.2 MΩ·cm)",
-                    resinRegeneration: "Continuous Electrolytic Water Splitting (H+ / OH-)",
-                    resinVolume: `${engineering.resinVolumeLiters || ((labels.cellPairs || 36) * 0.05).toFixed(2)} L (${engineering.resinWeightKg || "0.35"} kg)`,
-                    cellPairs: labels.cellPairs,
-                    voltage: labels.voltage,
-                    current: labels.current,
-                    silicaRemoval: ">99.5%",
-                    dimensions: `${stackWidth}px L x ${stackHeight}px H`
-                }, e)}
+                onMouseEnter={(e) => onHover && onHover(reactorSpec, e)}
                 onMouseLeave={() => onHover && onHover(null)}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (onClickEquipment) onClickEquipment(reactorSpec);
+                }}
                 style={{ cursor: "pointer" }}
             >
-                <rect x={stackX} y={stackY} width={stackWidth} height={stackHeight} fill="#FFFFFF" stroke="#7C3AED" strokeWidth="3.5" rx="12" />
-                <ElectricFieldOverlay x={stackX + 10} y={stackY + 10} width={stackWidth - 20} height={stackHeight - 20} voltage={voltage} technology="EDI" />
+                {/* Stack Outer Shell */}
+                <rect x={stackX} y={stackY} width={stackWidth} height={stackHeight} fill="#FFFFFF" stroke="#7C3AED" strokeWidth="3" rx="10" />
 
-                <rect x={stackX + stackWidth / 2 - 75} y={stackY - 18} width="150" height="16" fill="#7C3AED" rx="4" />
-                <text x={stackX + stackWidth / 2} y={stackY - 6} textAnchor="middle" fill="#FFFFFF" fontWeight="800" fontSize="9.5">EDI TITANIUM MMO STACK R-101</text>
-
-                {/* Electrode Rinse Lines (Anolyte & Catholyte Rinse Streams) */}
-                <path d={`M ${stackX + 23} ${stackY + 30} L ${stackX + 23} ${stackY - 5}`} stroke="#EF4444" strokeWidth="2" strokeDasharray="3,3" />
-                <text x={stackX + 23} y={stackY - 8} textAnchor="middle" fill="#EF4444" fontSize="8" fontWeight="800">Anolyte Rinse</text>
-
-                <path d={`M ${stackX + stackWidth - 23} ${stackY + 30} L ${stackX + stackWidth - 23} ${stackY - 5}`} stroke="#2563EB" strokeWidth="2" strokeDasharray="3,3" />
-                <text x={stackX + stackWidth - 23} y={stackY - 8} textAnchor="middle" fill="#2563EB" fontSize="8" fontWeight="800">Catholyte Rinse</text>
-
-                {/* Titanium MMO Anode (+) Terminal */}
-                <rect x={stackX + 14} y={stackY + 30} width="18" height={stackHeight - 50} fill="#DC2626" rx="3" />
-                <text x={stackX + 23} y={CY} textAnchor="middle" fill="#FFFFFF" fontWeight="900" fontSize="9" transform={`rotate(-90 ${stackX + 23} ${CY})`}>ANODE (+) MMO</text>
-
-                {/* CEM Membrane */}
-                <MembraneComponent x={stackX + 36} y={stackY + 30} width={7} thickness={stackHeight - 50} type="CEM" onHover={onHover} />
-                <text x={stackX + 39} y={stackY + 22} textAnchor="middle" fill="#DC2626" fontSize="8" fontWeight="900">CEM</text>
-
-                {/* Diluate (Product) Channel & Mixed-Bed Resin Chamber */}
-                <rect x={stackX + 47} y={stackY + 30} width={stackWidth - 94} height={stackHeight - 50} fill="#FEF3C7" stroke="#F59E0B" strokeWidth="1.5" rx="4" />
-                <text x={stackX + 47 + (stackWidth - 94) / 2} y={stackY + 42} textAnchor="middle" fill="#92400E" fontSize="9.5" fontWeight="900">DILUATE (PRODUCT) RESIN BED</text>
-                <text x={stackX + 47 + (stackWidth - 94) / 2} y={stackHeight + stackY - 26} textAnchor="middle" fill="#B45309" fontSize="8" fontWeight="800">SAC (Cation) + SBA (Anion) Resin Beads</text>
-
-                {/* Electrolytic Water Splitting In-Situ Regeneration (H+ and OH-) */}
-                <g id="water_splitting_ions">
-                    <circle cx={stackX + 65} cy={CY - 15} r="4" fill="#10B981" />
-                    <text x={stackX + 65} y={CY - 12.5} textAnchor="middle" fill="#FFFFFF" fontSize="6.5" fontWeight="900">H+</text>
-
-                    <circle cx={stackX + stackWidth - 65} cy={CY + 15} r="4" fill="#8B5CF6" />
-                    <text x={stackX + stackWidth - 65} y={CY + 17.5} textAnchor="middle" fill="#FFFFFF" fontSize="6.5" fontWeight="900">OH-</text>
+                {/* DC Power Supply Box */}
+                <g transform={`translate(${stackX - 45}, ${CY - 25})`}>
+                    <rect x="0" y="0" width="34" height="50" fill="#1E1B4B" stroke="#6D28D9" strokeWidth="2" rx="4" />
+                    <text x="17" y="18" textAnchor="middle" fill="#A5B4FC" fontSize="9" fontWeight="800">DC</text>
+                    <text x="17" y="30" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="700">{vStack}V</text>
+                    <text x="17" y="42" textAnchor="middle" fill="#38BDF8" fontSize="7.5" fontWeight="700">{iCurrent}A</text>
                 </g>
+                <path d={`M ${stackX - 11} ${CY - 10} L ${stackX + 25} ${CY - 10} L ${stackX + 25} ${stackY + 25}`} stroke="#EF4444" strokeWidth="1.8" strokeDasharray="3,2" fill="none" />
+                <path d={`M ${stackX - 11} ${CY + 10} L ${stackX + stackWidth - 25} ${CY + 10} L ${stackX + stackWidth - 25} ${stackY + 25}`} stroke="#3B82F6" strokeWidth="1.8" strokeDasharray="3,2" fill="none" />
 
-                {/* Animated Ion Migration (Na+ -> Cathode, Cl- -> Anode) */}
-                {Array.from({ length: 6 }).map((_, iIdx) => {
-                    const ionX = stackX + 60 + (iIdx % 3) * ((stackWidth - 120) / 2);
-                    const ionY = stackY + 58 + Math.floor(iIdx / 3) * 45;
-                    const offsetPos = (particleOffset + iIdx * 15) % 30;
+                {/* Header Banner */}
+                <rect x={stackX + stackWidth / 2 - 65} y={stackY - 20} width="130" height="16" fill="#7C3AED" rx="4" />
+                <text x={stackX + stackWidth / 2} y={stackY - 8} textAnchor="middle" fill="#FFFFFF" fontWeight="800" fontSize="9.5">EDI R-101 (HIGH PURITY)</text>
 
-                    return (
-                        <g key={`ionMig_${iIdx}`}>
-                            {/* Cl- migrating towards Anode (left) */}
-                            <circle cx={Math.max(stackX + 45, ionX - offsetPos)} cy={ionY} r="4.5" fill="#EF4444" opacity="0.85" />
-                            <text x={Math.max(stackX + 45, ionX - offsetPos)} y={ionY + 2.5} textAnchor="middle" fill="#FFFFFF" fontSize="7" fontWeight="900">Cl-</text>
+                {/* Anode Electrode Chamber (+) */}
+                <rect x={stackX + 15} y={stackY + 25} width="20" height={stackHeight - 50} fill="#6D28D9" rx="3" />
+                <text x={stackX + 25} y={CY} textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="800" transform={`rotate(-90 ${stackX + 25} ${CY})`}>ANODE (+)</text>
 
-                            {/* Na+ migrating towards Cathode (right) */}
-                            <circle cx={Math.min(stackX + stackWidth - 45, ionX + offsetPos)} cy={ionY + 20} r="4.5" fill="#3B82F6" opacity="0.85" />
-                            <text x={Math.min(stackX + stackWidth - 45, ionX + offsetPos)} y={ionY + 22.5} textAnchor="middle" fill="#FFFFFF" fontSize="7" fontWeight="900">Na+</text>
-                        </g>
-                    );
-                })}
+                {/* Anion Exchange Membrane (AEM) */}
+                <MembraneComponent x={stackX + 38} y={stackY + 25} width={5} thickness={stackHeight - 50} type="AEM" onHover={onHover} />
 
-                {/* Ion Exchange Resin Beads (Cation: SAC / Anion: SBA) */}
-                {Array.from({ length: 24 }).map((_, bIdx) => {
-                    const bx = stackX + 58 + (bIdx % 6) * ((stackWidth - 116) / 5);
-                    const by = stackY + 75 + Math.floor(bIdx / 6) * ((stackHeight - 120) / 4);
-                    const isCation = bIdx % 2 === 0;
+                {/* --- CENTRAL DILUTE CHANNEL WITH MIXED-BED ION EXCHANGE RESIN --- */}
+                <rect x={stackX + 46} y={stackY + 25} width={stackWidth - 92} height={stackHeight - 50} fill="#FAF5FF" stroke="#DDD6FE" strokeWidth="1.2" rx="4" />
+                <text x={stackX + 46 + (stackWidth - 92) / 2} y={stackY + 38} textAnchor="middle" fill="#6D28D9" fontSize="9.5" fontWeight="800">DILUTE CHAMBER (MIXED-BED RESIN)</text>
 
+                {/* Mixed-Bed Resin Spherical Beads (Cation Amber & Anion Blue) */}
+                {Array.from({ length: 40 }).map((_, i) => {
+                    const row = Math.floor(i / 8);
+                    const col = i % 8;
+                    const bx = stackX + 60 + col * ((stackWidth - 120) / 7);
+                    const by = stackY + 52 + row * ((stackHeight - 90) / 4);
+                    const isCation = (row + col) % 2 === 0;
                     return (
                         <circle
-                            key={`bead_${bIdx}`}
+                            key={`edi_resin_${i}`}
                             cx={bx}
                             cy={by}
-                            r="5.5"
-                            fill={isCation ? "#3B82F6" : "#F59E0B"}
-                            stroke={isCation ? "#1D4ED8" : "#D97706"}
-                            strokeWidth="1"
+                            r="4.5"
+                            fill={isCation ? "#D97706" : "#2563EB"}
+                            stroke="#FFFFFF"
+                            strokeWidth="0.8"
                         />
                     );
                 })}
 
-                {/* AEM Membrane */}
-                <MembraneComponent x={stackX + stackWidth - 43} y={stackY + 30} width={7} thickness={stackHeight - 50} type="AEM" onHover={onHover} />
-                <text x={stackX + stackWidth - 40} y={stackY + 22} textAnchor="middle" fill="#2563EB" fontSize="8" fontWeight="900">AEM</text>
+                {/* Water Splitting Callout Text inside Resin Bed */}
+                <rect x={stackX + stackWidth / 2 - 50} y={CY + 35} width="100" height="14" fill="#FFFFFF" opacity="0.9" rx="3" stroke="#A78BFA" strokeWidth="0.8" />
+                <text x={stackX + stackWidth / 2} y={CY + 45} textAnchor="middle" fill="#5B21B6" fontSize="8" fontWeight="800">H+ / OH- AUTO-REGEN</text>
 
-                {/* Titanium MMO Cathode (-) Terminal */}
-                <rect x={stackX + stackWidth - 32} y={stackY + 30} width="18" height={stackHeight - 50} fill="#2563EB" rx="3" />
-                <text x={stackX + stackWidth - 23} y={CY} textAnchor="middle" fill="#FFFFFF" fontWeight="900" fontSize="9" transform={`rotate(-90 ${stackX + stackWidth - 23} ${CY})`}>CATHODE (-) MMO</text>
+                {/* Cation Exchange Membrane (CEM) */}
+                <MembraneComponent x={stackX + stackWidth - 43} y={stackY + 25} width={5} thickness={stackHeight - 50} type="CEM" onHover={onHover} />
+
+                {/* Cathode Electrode Chamber (-) */}
+                <rect x={stackX + stackWidth - 35} y={stackY + 25} width="20" height={stackHeight - 50} fill="#4C1D95" rx="3" />
+                <text x={stackX + stackWidth - 25} y={CY} textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="800" transform={`rotate(-90 ${stackX + stackWidth - 25} ${CY})`}>CATHODE (-)</text>
             </g>
 
-            {/* EDI Ultrapure Callout Banner */}
-            <g transform={`translate(${stackX}, ${stackY + stackHeight + 12})`}>
-                <rect width={stackWidth} height="32" fill="#FAF5FF" stroke="#E9D5FF" strokeWidth="1" rx="6" />
-                <text x="8" y="14" fontSize="8.5" fontWeight="800" fill="#6B21A8">💎 EDI Ultrapure Polishing Performance:</text>
-                <text x="8" y="25" fontSize="8" fontWeight="600" fill="#7E22CE">● Up to 18.2 MΩ·cm (&lt;0.03 ppm) ● H+/OH- water splitting resin regeneration</text>
-            </g>
-
-            {/* Equipment 4: Ultra-Pure Product Storage Tank */}
+            {/* --- 4. ULTRAPURE PRODUCT STORAGE TANK (TK-103) --- */}
             <TankComponent
-                x={tank2X}
-                y={tank2Y}
-                width={tank2Width}
-                height={tank2Height}
-                tag="TK-102"
-                name="Product Water Tank (Ultrapure)"
+                x={prodTankX}
+                y={prodTankY}
+                width={prodTankW}
+                height={prodTankH}
+                tag="TK-103"
+                name="Ultrapure Product Tank"
                 type="product"
                 flowRate={feedWater.flowRate || 10}
-                tds={outTdsVal}
-                material="PVDF / High Purity 316L"
+                tds={engineering.outletTDS || 0.5}
                 onHover={onHover}
+                onClick={onClickEquipment}
             />
+
         </g>
     );
 }

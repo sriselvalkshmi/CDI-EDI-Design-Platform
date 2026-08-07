@@ -30,6 +30,35 @@ export function exportUsersToExcel(users = []) {
 }
 
 /**
+ * Export Engineering Design Report to Excel (.xlsx)
+ */
+export function exportDesignReportToExcel(designResult = {}) {
+    const eng = designResult.engineering || {};
+    const feed = designResult.input?.feedWater || {};
+
+    const summaryData = [
+        { Parameter: "Design Technology", Value: eng.technology || "MCDI", Unit: "-" },
+        { Parameter: "Feed TDS", Value: feed.tds || 500, Unit: "mg/L" },
+        { Parameter: "Target TDS", Value: feed.targetTds || 50, Unit: "mg/L" },
+        { Parameter: "Product Outlet TDS", Value: Number(eng.outletTDS || 50).toFixed(1), Unit: "mg/L" },
+        { Parameter: "Removal Efficiency", Value: Number(eng.removalEfficiency || 90).toFixed(2), Unit: "%" },
+        { Parameter: "Water Recovery", Value: Number(eng.waterRecovery || 95).toFixed(1), Unit: "%" },
+        { Parameter: "Operating Voltage", Value: eng.voltage || 1.0, Unit: "V" },
+        { Parameter: "Operating Current", Value: Number(eng.current || 1.42).toFixed(2), Unit: "A" },
+        { Parameter: "DC Power Dissipation", Value: Number(eng.power || 1.42).toFixed(1), Unit: "W" },
+        { Parameter: "Specific Energy Consumption (SEC)", Value: Number(eng.sec || 0.0024).toFixed(4), Unit: "kWh/m³" },
+        { Parameter: "Pressure Drop", Value: Number(eng.pressureDrop || 270).toFixed(0), Unit: "Pa" },
+        { Parameter: "Cell Pairs", Value: eng.cellPairs || 95, Unit: "pairs" },
+        { Parameter: "Electrode Area", Value: eng.electrodeArea || 150, Unit: "cm²" }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(summaryData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Engineering Design Summary");
+    downloadWorkbook(workbook, `CDI_EDI_Engineering_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+/**
  * Export Activity Logs to Excel (.xlsx)
  */
 export function exportActivityLogsToExcel(logs = []) {
@@ -150,3 +179,12 @@ export function exportDataToCSV(data = [], filename = "export.csv") {
     link.download = filename;
     link.click();
 }
+
+export default {
+    exportUsersToExcel,
+    exportDesignReportToExcel,
+    exportActivityLogsToExcel,
+    exportEquationAuditsToExcel,
+    exportFullEnterpriseReportToExcel,
+    exportDataToCSV
+};

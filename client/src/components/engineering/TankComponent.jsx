@@ -3,7 +3,8 @@ import React from "react";
 /**
  * TankComponent
  * Renders ANSI standard cylindrical process tanks or slurry agitator tanks
- * with dynamic volume scaling, liquid level sensors, and level transmitter tags.
+ * with dynamic volume scaling, liquid level sensors, level transmitter tags,
+ * smart line-wrapped text containment, and interactive onClick equipment inspection support.
  */
 export default function TankComponent({
     x = 40,
@@ -16,28 +17,50 @@ export default function TankComponent({
     flowRate = 10,
     tds = 500,
     material = "HDPE / 316L Stainless",
-    onHover = null
+    onHover = null,
+    onClick = null
 }) {
     const isSlurry = type === "slurry";
     const isProduct = type === "product";
 
-    const strokeColor = isProduct ? "#16A34A" : isSlurry ? "#312E81" : "#2563EB";
-    const bodyFill = isProduct ? "#F0FDF4" : isSlurry ? "#312E81" : "#EFF6FF";
-    const levelFill = isProduct ? "#DCFCE7" : isSlurry ? "#1E1B4B" : "#DBEAFE";
+    const strokeColor = isProduct ? "#16A34A" : isSlurry ? "#4338CA" : "#2563EB";
+    const bodyFill = isProduct ? "#F0FDF4" : isSlurry ? "#1E1B4B" : "#EFF6FF";
+    const levelFill = isProduct ? "#DCFCE7" : isSlurry ? "#312E81" : "#DBEAFE";
+    const badgeFill = isProduct ? "#15803D" : isSlurry ? "#4F46E5" : "#1D4ED8";
+
+    const specObj = {
+        name,
+        tag,
+        type: isSlurry ? "Slurry Agitated Tank (Carbon Suspension)" : isProduct ? "Product Storage Tank" : "Feed Water Pretreatment Tank",
+        material,
+        volume: `${(flowRate * 12).toFixed(0)} L (Est.)`,
+        tds: `${tds} ppm`,
+        designPressure: "Atmospheric (1.0 bar)"
+    };
+
+    // Smart line splitting for names to prevent horizontal overflow in compact tanks
+    const words = name.split(" ");
+    let nameLines = [];
+    if (words.length > 2) {
+        nameLines = [
+            words.slice(0, Math.ceil(words.length / 2)).join(" "),
+            words.slice(Math.ceil(words.length / 2)).join(" ")
+        ];
+    } else {
+        nameLines = [name];
+    }
+
+    const badgeWidth = Math.max(52, tag.length * 7.5 + 8);
 
     return (
         <g
             className="tank-component"
-            onMouseEnter={(e) => onHover && onHover({
-                name,
-                tag,
-                type: isSlurry ? "Slurry Agitated Tank (Carbon Suspension)" : isProduct ? "Product Storage Tank" : "Feed Water Pretreatment Tank",
-                material,
-                volume: `${(flowRate * 12).toFixed(0)} L (Est.)`,
-                tds: `${tds} ppm`,
-                designPressure: "Atmospheric (1.0 bar)"
-            }, e)}
+            onMouseEnter={(e) => onHover && onHover(specObj, e)}
             onMouseLeave={() => onHover && onHover(null)}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (onClick) onClick(specObj);
+            }}
             style={{ cursor: "pointer", transition: "all 0.3s ease" }}
         >
             {/* Cylindrical Metallic Tank Main Shell */}
@@ -68,39 +91,59 @@ export default function TankComponent({
             />
             <line x1={x + 4} y1={y + 20} x2={x + width - 4} y2={y + 20} stroke={strokeColor} strokeWidth="2" strokeDasharray="4,2" />
 
-            {/* FCDI Impeller Mixer Shaft & Blades */}
+            {/* FCDI Impeller Mixer Shaft & Blades (Rendered subtly behind text) */}
             {isSlurry && (
-                <g>
-                    <line x1={x + width / 2} y1={y} x2={x + width / 2} y2={y + height - 20} stroke="#94A3B8" strokeWidth="3" />
-                    <path d={`M ${x + width / 2 - 15} ${y + height - 20} L ${x + width / 2 + 15} ${y + height - 20} M ${x + width / 2 - 10} ${y + height - 30} L ${x + width / 2 + 10} ${y + height - 10}`} stroke="#E2E8F0" strokeWidth="2" />
+                <g opacity="0.6">
+                    <line x1={x + width / 2} y1={y} x2={x + width / 2} y2={y + height - 20} stroke="#818CF8" strokeWidth="2" />
+                    <path d={`M ${x + width / 2 - 12} ${y + height - 18} L ${x + width / 2 + 12} ${y + height - 18}`} stroke="#A5B4FC" strokeWidth="2" />
                 </g>
             )}
 
-            {/* Equipment Tag Header */}
+            {/* Equipment Tag Header Badge */}
             <rect
-                x={x + width / 2 - 25}
-                y={y + 8}
-                width="50"
+                x={x + width / 2 - badgeWidth / 2}
+                y={y + 6}
+                width={badgeWidth}
                 height="16"
-                fill={strokeColor}
+                fill={badgeFill}
                 rx="4"
             />
             <text
                 x={x + width / 2}
-                y={y + 20}
+                y={y + 18}
                 textAnchor="middle"
                 fill="#FFFFFF"
                 fontWeight="800"
-                fontSize="10"
+                fontSize="9.5"
             >
                 {tag}
             </text>
 
-            {/* Tank Name & Content Text */}
-            <text x={x + width / 2} y={y + height / 2 - 4} textAnchor="middle" fontWeight="800" fontSize="11" fill={isSlurry ? "#FFFFFF" : "#1E293B"}>
-                {name}
+            {/* Tank Name Text (Smart Multi-line Wrap) */}
+            <text
+                x={x + width / 2}
+                y={y + (nameLines.length > 1 ? height / 2 - 6 : height / 2 - 2)}
+                textAnchor="middle"
+                fontWeight="800"
+                fontSize={width < 90 ? "9" : "10"}
+                fill={isSlurry ? "#FFFFFF" : "#0F172A"}
+            >
+                {nameLines.map((line, idx) => (
+                    <tspan key={idx} x={x + width / 2} dy={idx === 0 ? 0 : 12}>
+                        {line}
+                    </tspan>
+                ))}
             </text>
-            <text x={x + width / 2} y={y + height / 2 + 14} textAnchor="middle" fontSize="10" fontWeight="700" fill={isProduct ? "#16A34A" : isSlurry ? "#C7D2FE" : "#2563EB"}>
+
+            {/* Content TDS Value (Positioned cleanly at bottom dish area) */}
+            <text
+                x={x + width / 2}
+                y={y + height - 10}
+                textAnchor="middle"
+                fontSize="9.5"
+                fontWeight="800"
+                fill={isProduct ? "#15803D" : isSlurry ? "#A5B4FC" : "#1D4ED8"}
+            >
                 {tds} ppm
             </text>
         </g>

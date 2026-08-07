@@ -1,153 +1,130 @@
+"use strict";
+
 import calculateEngineering from "./engineeringEquationEngine.js";
 
 /**
- * AI Technology Recommendation Engine
- * Evaluates physical feasibility and runs engineering equations to produce calculated recommendations.
- * Clearly explains why CDI, MCDI, FCDI, or EDI was selected / required with full engineering rationale:
- * - CDI: Selected for low TDS (<500 ppm), simple non-membrane cell design, lowest CAPEX.
- * - MCDI: Better than CDI (membranes eliminate co-ion expulsion, >92% charge efficiency, higher removal & recovery).
- * - FCDI: Required for high TDS (>1500-3000+ ppm), continuous flow-electrode slurry eliminates batch adsorption saturation.
- * - EDI: Required for ultra-pure polishing (target TDS < 10 ppm or RO permeate feed <= 30 ppm), continuous H+/OH- water splitting resin regeneration.
+ * AI Technology Recommendation Engine & Multi-Tech Feasibility Evaluator
+ * Enforces strict single source of truth identity and mathematical removal correctness:
+ * removalEfficiency = ((feedTDS - outletTDS) / feedTDS) * 100
+ * Evaluates candidate technologies using the exact authoritative engineering calculation.
  */
 function aiRecommendation(feedWater = {}) {
     const tds = Number(feedWater.tds ?? 500);
     const targetTds = Number(feedWater.targetTds ?? 50);
-    const flowRate = Number(feedWater.flowRate ?? 10);
+    const hardness = Number(feedWater.hardness ?? 150);
+    const conductivity = Number(feedWater.conductivity ?? (tds / 0.65));
 
-    const requiredRemoval = tds > 0 ? Math.max(0, ((tds - targetTds) / tds) * 100) : 90.0;
+    const techKeys = ["CDI", "MCDI", "FCDI", "EDI"];
 
-    let selectedTechnology = "CDI";
-    let recommendedProcess = "CDI";
-    let reason = "";
-    let criteria = [];
-    let comparativeRationale = {
-        whyCDI: "",
-        whyMCDIBetter: "",
-        whyFCDIRequired: "",
-        whyEDIRequired: ""
-    };
+    const evaluations = techKeys.map(techKey => {
+        const eng = calculateEngineering({
+            technology: techKey,
+            feedWater
+        });
 
-    if (tds > 3000) {
-        selectedTechnology = "FCDI";
-        recommendedProcess = targetTds <= 10 ? "FCDI → EDI Polishing" : "Flowable Electrode CDI (FCDI)";
-        reason = `High feed TDS stream (${tds} ppm) requires Flowable Electrode CDI (FCDI). Continuous carbon slurry circulation avoids adsorption saturation encountered in static electrode CDI/MCDI.`;
-        criteria = [
-            `High feed TDS stream (${tds} ppm > 3,000 ppm limit for static electrodes).`,
-            `Target TDS is ${targetTds} ppm.`,
-            "Continuous carbon slurry circulation eliminates batch capacity exhaustion and cycle pauses.",
-            "High salt loading capacity suitable for high-salinity brackish streams."
-        ];
-    } else if (tds <= 30 || targetTds <= 10) {
-        if (tds <= 30) {
-            selectedTechnology = "EDI";
-            recommendedProcess = "Continuous Electrodeionization (EDI Polishing)";
-            reason = `Pre-treated low TDS stream (${tds} ppm) requires Continuous Electrodeionization (EDI). In-situ electrolytic water splitting (H+/OH-) continuously regenerates mixed-bed ion-exchange resin beads without chemical regenerants.`;
-            criteria = [
-                `Feed TDS is low (${tds} ppm - RO permeate quality).`,
-                `Target TDS is ${targetTds} ppm (Ultra-pure polishing).`,
-                "Direct continuous EDI polishing without chemical regeneration.",
-                "In-situ electrolytic water splitting (H+/OH-) maintains active ion-exchange resin sites.",
-                "Eliminates membrane scaling risk and achieves high electrical charge efficiency (>95%)."
-            ];
-        } else {
-            selectedTechnology = "EDI";
-            recommendedProcess = "MCDI → EDI Polishing (Multi-Stage)";
-            reason = `Feed TDS (${tds} ppm) with ultra-pure target (${targetTds} ppm) requires Sequential Multi-Stage (Stage 1 MCDI bulk desalting down to ~25 ppm followed by Stage 2 EDI polishing). Direct single-stage EDI on high TDS causes membrane scaling and high current density.`;
-            criteria = [
-                `Feed TDS is ${tds} ppm (requires Stage 1 bulk desalination).`,
-                `Target purity is ${targetTds} ppm (requires Stage 2 EDI polishing).`,
-                `Stage 1 (MCDI/RO): Bulk ion removal from ${tds} ppm down to ~25 ppm.`,
-                `Stage 2 (EDI): High-purity final deionization to ${targetTds} ppm.`,
-                "Prevents membrane scaling and avoids excessive current density in EDI module."
-            ];
-        }
-    } else if (tds <= 1000) {
-        if (requiredRemoval > 75.0) {
-            selectedTechnology = "MCDI";
-            recommendedProcess = "Membrane Capacitive Deionization (MCDI)";
-            reason = `Moderate feed TDS (${tds} ppm) with high removal requirement (${requiredRemoval.toFixed(1)}%) favors MCDI. Ion-exchange membranes (AEM & CEM) block co-ion expulsion, increasing charge efficiency to >92% compared to standard CDI (~82%).`;
-            criteria = [
-                `Feed TDS is moderate (${tds} ppm).`,
-                `High removal required (${requiredRemoval.toFixed(1)}%).`,
-                "AEM & CEM ion exchange membranes eliminate co-ion repulsion.",
-                "Higher charge efficiency (>92%) and higher water recovery (95%)."
-            ];
-        } else {
-            selectedTechnology = "CDI";
-            recommendedProcess = "Capacitive Deionization (CDI)";
-            reason = `Low feed TDS (${tds} ppm) with moderate removal requirement (${requiredRemoval.toFixed(1)}%) is optimal for standard CDI. Lowest capital investment (CAPEX) due to non-membrane cell design.`;
-            criteria = [
-                `Feed TDS is low (${tds} ppm).`,
-                `Moderate removal requirement (${requiredRemoval.toFixed(1)}%).`,
-                "Lowest capital expenditure (CAPEX) with simple cell construction.",
-                "Non-membrane carbon electrode architecture."
-            ];
-        }
-    } else {
-        selectedTechnology = "FCDI";
-        recommendedProcess = "Flowable Electrode CDI (FCDI)";
-        reason = `Brackish feed TDS (${tds} ppm) favors Flowable Electrode CDI (FCDI) continuous desalting without batch cycle pauses.`;
-        criteria = [
-            `Feed TDS is ${tds} ppm.`,
-            "High salinity tolerance via carbon slurry flow.",
-            "Continuous non-stop desalination loop."
-        ];
-    }
+        const outletTDS = Number((eng.outletTDS || 0).toFixed(1));
+        const feedQualityFeasible = Boolean(eng.feedQualityFeasible);
+        const targetAchievable = Boolean(eng.isTargetAchieved);
+        const isFeasible = feedQualityFeasible && targetAchievable;
 
-    // Technology comparative reasoning matrix
-    comparativeRationale = {
-        whyCDI: `CDI is optimal for low feed TDS (<500 ppm) when lowest capital cost (CAPEX) is prioritized. It uses simple porous carbon electrodes without ion-exchange membranes, suitable for moderate desalting requirements.`,
-        whyMCDIBetter: `MCDI improves upon CDI by adding Anion and Cation Exchange Membranes (AEM & CEM). Membranes block co-ion repulsion during charging, increasing charge efficiency from ~82% to >92%, boosting salt removal capacity, and achieving 95% water recovery.`,
-        whyFCDIRequired: `FCDI is required for high feed TDS streams (>1,500 - 3,000+ ppm) where static carbon electrodes in CDI/MCDI rapidly reach saturation. FCDI uses continuous carbon slurry circulation loops (Anolyte & Catholyte) to provide unlimited electrosorption capacity without batch cycle pauses.`,
-        whyEDIRequired: `EDI is required for ultra-pure water production (target TDS < 10 ppm or resistivity up to 18.2 MΩ·cm). EDI combines mixed-bed ion-exchange resins with AEM/CEM membranes and Titanium MMO electrodes. In-situ electrolytic water splitting (H+/OH-) continuously regenerates the resin bed without chemical reagents.`
-    };
+        const sec = Number((eng.sec || 0.314).toFixed(3));
+        const recovery = Number((eng.waterRecovery || 95).toFixed(1));
+        const power = Number((eng.power || 0).toFixed(1));
 
-    const techForCalculation = selectedTechnology.includes("FCDI") ? "FCDI" : (selectedTechnology.includes("EDI") ? "EDI" : selectedTechnology);
+        // Authoritative removal efficiency calculation directly from feed and outlet TDS
+        const removalEfficiency = tds > 0
+            ? Number((((tds - outletTDS) / tds) * 100).toFixed(2))
+            : 90.0;
 
-    // Run exact physical engineering calculation for the recommended technology
-    const eng = calculateEngineering({
-        technology: techForCalculation,
-        feedWater,
-        flowRate
+        // Weighted Multi-Objective Score (0 - 100)
+        let score = 0;
+
+        // 1. Target Achievement Gate (Primary: 50 pts)
+        score += targetAchievable ? 50 : Math.max(0, 20 - (outletTDS - targetTds) * 0.5);
+
+        // 2. Direct Feed Quality Gate (20 pts)
+        score += feedQualityFeasible ? 20 : 5;
+
+        // 3. Energy Efficiency (SEC) (15 pts max)
+        score += Math.max(0, Math.min(15, 15 * (1 - (sec - 0.1) / 1.9)));
+
+        // 4. Water Recovery (15 pts max)
+        score += Math.max(0, Math.min(15, (recovery / 100) * 15));
+
+        const totalScore = Math.min(100, Math.max(10, Math.round(score)));
+
+        return {
+            technology: techKey,
+            processTrainName: eng.processTrainName || techKey,
+            feedQualityFeasible,
+            ediDirectFeedFeasible: eng.ediDirectFeedFeasible,
+            feedQualityWarning: eng.feedQualityWarning,
+            targetAchievable,
+            isFeasible,
+            outletTDS,
+            sec,
+            power,
+            recovery,
+            removalEfficiency,
+            score: totalScore,
+            engineering: eng
+        };
     });
 
-    // Dynamic Rule-Based AI Confidence Calculation
-    let confidence = 94.0;
-    if (tds <= 30 && selectedTechnology === "EDI") confidence += 4.5;
-    else if (tds <= 1000 && selectedTechnology === "MCDI") confidence += 3.5;
-    else if (tds > 1500 && selectedTechnology === "FCDI") confidence += 3.0;
-    else if (tds <= 500 && selectedTechnology === "CDI") confidence += 2.0;
+    // 1. Filter candidates that achieve Target TDS
+    const targetAchievingCandidates = evaluations.filter(e => e.targetAchievable);
+    targetAchievingCandidates.sort((a, b) => b.score - a.score);
 
-    if (requiredRemoval > 90.0 && selectedTechnology === "CDI") confidence -= 5.0;
-    if (tds > 100 && selectedTechnology === "EDI" && !recommendedProcess.includes("→")) confidence -= 6.0;
+    // 2. Filter candidates that pass both gates
+    const fullyFeasibleCandidates = evaluations.filter(e => e.isFeasible);
+    fullyFeasibleCandidates.sort((a, b) => b.score - a.score);
 
-    const dynamicConfidence = Math.min(98.5, Math.max(82.0, Number(confidence.toFixed(1))));
+    // Pick top target-achieving technology if available; otherwise best candidate
+    evaluations.sort((a, b) => b.score - a.score);
+    const bestEval = fullyFeasibleCandidates.length > 0
+        ? fullyFeasibleCandidates[0]
+        : (targetAchievingCandidates.length > 0 ? targetAchievingCandidates[0] : evaluations[0]);
+
+    const selectedTechnology = bestEval.technology;
+    const recommendedProcess = selectedTechnology;
+
+    let reason = `Selected ${recommendedProcess} based on Target Feasibility Evaluation (Score: ${bestEval.score}/100, Predicted Outlet: ${bestEval.outletTDS} ppm).`;
+    if (selectedTechnology === "EDI" && bestEval.targetAchievable) {
+        reason = `EDI is selected because it is the only technology achieving the target TDS (${bestEval.outletTDS} ppm ≤ ${targetTds} ppm). Note: Suitable upstream feed conditioning is required for raw feed water.`;
+    } else if (selectedTechnology === "MCDI" && bestEval.targetAchievable) {
+        reason = `MCDI is selected for brackish feed (${tds} ppm). Ion-exchange membranes provide high charge efficiency (>92%) and achieve ${bestEval.outletTDS} ppm outlet TDS.`;
+    } else if (selectedTechnology === "FCDI" && bestEval.targetAchievable) {
+        reason = `FCDI is selected for continuous flow-electrode operation, achieving target TDS (${bestEval.outletTDS} ppm).`;
+    } else if (!bestEval.targetAchievable) {
+        reason = `Auto selection evaluated all single-stage technologies. ${selectedTechnology} provides lowest achievable outlet TDS (${bestEval.outletTDS} ppm), but single-stage target (${targetTds} ppm) is not fully met. Multi-stage design is recommended.`;
+    }
+
+    const criteria = [
+        `Feed Quality: ${tds} mg/L TDS (${conductivity} µS/cm, ${hardness} mg/L Hardness).`,
+        `Selected Technology: ${selectedTechnology} (Score: ${bestEval.score}/100).`,
+        `Target Achievement Gate: ${bestEval.targetAchievable ? "PASSED (Target Achieved)" : "TARGET NOT ACHIEVED"}.`,
+        `Direct Feed Quality Gate: ${bestEval.feedQualityFeasible ? "Passed" : "Feed Conditioning Required"}.`,
+        `Predicted Outlet TDS: ${bestEval.outletTDS} mg/L.`,
+        `Total Process SEC: ${bestEval.sec} kWh/m³.`
+    ];
+
+    const comparativeRationale = {
+        whyCDI: `CDI uses membrane-free porous carbon electrodes, ideal for low-salinity streams (<1,000 mg/L).`,
+        whyMCDIBetter: `MCDI incorporates AEM & CEM membranes to block co-ion expulsion, boosting charge efficiency to >92% with 95% recovery.`,
+        whyFCDIRequired: `FCDI utilizes circulating carbon slurry electrodes to eliminate batch adsorption saturation for high salinity (>3,000 mg/L).`,
+        whyEDIRequired: `EDI employs mixed-bed resin beads and water-splitting H+/OH- auto-regeneration. Achieves ultra-pure polishing (< 10 mg/L).`
+    };
 
     return {
         selectedTechnology,
-        technology: selectedTechnology,
+        recommendedTechnology: selectedTechnology,
         recommendedProcess,
-        confidence: dynamicConfidence,
+        confidence: bestEval.score / 100,
         reason,
         criteria,
         comparativeRationale,
-        voltage: eng.voltage,
-        current: eng.current,
-        cellPairs: eng.cellPairs,
-        electrodeArea: eng.electrodeArea,
-        flowRate: eng.flowRate,
-        flowVelocity: eng.flowVelocity,
-        residenceTime: eng.residenceTime,
-        pressureDrop: eng.pressureDrop,
-        pumpPower: eng.pumpPower,
-        waterRecovery: eng.waterRecovery,
-        recommendedVoltage: eng.voltage,
-        recommendedCurrent: eng.current,
-        recommendedCellPairs: eng.cellPairs,
-        expectedRemoval: eng.removalEfficiency,
-        expectedOutletTDS: eng.outletTDS,
-        expectedSEC: eng.sec,
-        operatingMode: selectedTechnology.includes("EDI") ? "Continuous Ion Migration & Water Splitting" : (selectedTechnology.includes("FCDI") ? "Continuous Slurry Flow" : "Adsorption / Desorption")
+        evaluations,
+        bestEval
     };
 }
 

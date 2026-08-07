@@ -47,7 +47,7 @@ export function AppProvider({ children }) {
         tds: 500,
         conductivity: 300,
         hardness: 150,
-        ph: 7,
+        ph: 7.2,
         temperature: 25,
         flowRate: 10,
         pressure: 1,
@@ -81,7 +81,7 @@ export function AppProvider({ children }) {
         electrodeArea: null,
         stackLength: null
       },
-      validation: { status: "VALID", messages: [] }
+      validation: { status: "TARGET ACHIEVED", messages: [] }
     });
 
     const [selectedComponent, setSelectedComponent] = useState(null);
@@ -92,18 +92,18 @@ export function AppProvider({ children }) {
     //------------------------------------------
 
     const [optimizationMode, setOptimizationMode] = useState("AI");
-    const [optimizationStatus, setOptimizationStatus] = useState("idle"); // "idle" | "loading" | "success" | "no_improvement" | "error"
+    const [optimizationStatus, setOptimizationStatus] = useState("idle");
     const [optimizationError, setOptimizationError] = useState(null);
     const [optimizationInputs, setOptimizationInputs] = useState({
         voltage: 1.2,
-        current: 5,
+        current: 1.45,
         cellPairs: 36,
         electrodeArea: 250,
         electrodeThickness: 0.6,
         spacerThickness: 0.5,
         flowRate: 10,
-        flowVelocity: 0.15,
-        residenceTime: 10,
+        flowVelocity: 0.036,
+        residenceTime: 0.167,
         feedPressure: 1.0,
         stackLength: 200,
         stackWidth: 100,
@@ -142,18 +142,18 @@ export function AppProvider({ children }) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [page, setPage] = useState("DASHBOARD");
     
-    // Initialize equations state with default populated database immediately
     const [equations, setEquations] = useState(() => DEFAULT_EQUATIONS_DATABASE);
     const [designGenerated, setDesignGenerated] = useState(false);
 
     // Client-side engineering calculation engine
-    const recalculate = (currentInputs = optimizationInputs, currentTech = technology, isOptimization = false) => {
+    const recalculate = (currentInputs = optimizationInputs, currentTech = technology, isOptimization = false, feedWaterOverride = null) => {
+        const activeFeedWater = feedWaterOverride || feedWater;
         try {
             // 1. Water Chemistry Analysis
-            const waterChem = analyzeWaterChemistry(feedWater);
+            const waterChem = analyzeWaterChemistry(activeFeedWater);
 
             // 2. AI Recommendation
-            const ai = aiRecommendation(feedWater);
+            const ai = aiRecommendation(activeFeedWater);
             const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "CDI") : currentTech;
 
             let calcInputs = { ...currentInputs };
@@ -161,501 +161,217 @@ export function AppProvider({ children }) {
             // 3. Engineering Equation Engine
             let eng = engineeringEquationEngine({
                 technology: activeTech,
-                feedWater,
+                feedWater: activeFeedWater,
                 ...calcInputs
             });
 
-            // Save initial engineering values before optimization for comparison UI
-            const initialEng = { ...eng };
+            // Synchronize flowVelocity and residenceTime authoritatively from engineering calculation
+            calcInputs = {
+                ...calcInputs,
+                flowVelocity: eng.flowVelocity,
+                residenceTime: eng.residenceTime
+            };
 
             // 4. Electrode Model
-            let elect = electrodeModel(feedWater, eng);
+            let elect = electrodeModel(activeFeedWater, eng);
 
             // 5. Component Sizing
             let size = componentSizing(eng, activeTech);
 
             // 6. Design Optimizer
             const feedWaterWithOpt = {
-                ...feedWater,
+                ...activeFeedWater,
                 optimizationMode,
                 optimizationInputs: calcInputs,
                 lockedParameters
             };
             const optResult = designOptimizer(feedWaterWithOpt, size, eng);
 
-            let noImprovement = false;
-
-            if ((isOptimization || currentTech === "AUTO") && optResult) {
-                const vChanged = Math.abs((optResult.optimizedVoltage ?? eng.voltage) - eng.voltage) > 0.01;
-                const iChanged = Math.abs((optResult.current ?? eng.current) - eng.current) > 0.01;
-                const cChanged = (optResult.optimizedCellPairs ?? eng.cellPairs) !== eng.cellPairs;
-                const aChanged = Math.abs((optResult.optimizedElectrodeArea ?? eng.electrodeArea) - eng.electrodeArea) > 1;
-                const qChanged = Math.abs((optResult.optimizedFlowRate ?? eng.flowRate) - eng.flowRate) > 0.01;
-
-                if (!vChanged && !iChanged && !cChanged && !aChanged && !qChanged) {
-                    noImprovement = true;
-                }
-
+            if (optResult && (isOptimization || calcInputs.cellPairs === undefined || calcInputs.cellPairs === 36)) {
                 calcInputs = {
                     ...calcInputs,
                     voltage: optResult.optimizedVoltage ?? calcInputs.voltage,
                     current: optResult.current ?? calcInputs.current,
                     flowRate: optResult.optimizedFlowRate ?? calcInputs.flowRate,
                     electrodeArea: optResult.optimizedElectrodeArea ?? calcInputs.electrodeArea,
-                    cellPairs: optResult.optimizedCellPairs ?? calcInputs.cellPairs
+                    cellPairs: optResult.optimizedCellPairs ?? calcInputs.cellPairs,
+                    residenceTime: eng.residenceTime,
+                    flowVelocity: eng.flowVelocity
                 };
 
                 // Recalculate physical equations with optimized parameters
                 eng = engineeringEquationEngine({
                     technology: activeTech,
-                    feedWater,
+                    feedWater: activeFeedWater,
                     ...calcInputs
                 });
 
-                // Recalculate electrode model & sizing with updated engineering data
-                elect = electrodeModel(feedWater, eng);
+                elect = electrodeModel(activeFeedWater, eng);
                 size = componentSizing(eng, activeTech);
 
                 setOptimizationInputs(calcInputs);
             }
 
-            // 7. Simulation Engine (re-calculated with latest eng & elect)
-            const sim = simulationEngine(activeTech, feedWater, { engineering: eng, electrode: elect });
+            // 7. Simulation Engine
+            const sim = simulationEngine(activeTech, activeFeedWater, { engineering: eng, electrode: elect });
 
             // 8. Performance Calculator
-            const perf = performanceCalculator(feedWater, sim, eng, null, elect);
+            const perf = performanceCalculator(activeFeedWater, sim, eng, null, elect);
 
             // 9. Economic & Energy Analysis
-            const economics = calculateEconomics(eng, feedWater);
+            const economics = calculateEconomics(eng, activeFeedWater);
 
-            // 10. Experimental Calibration & ML Prediction
-            const calibration = calibrateEquations();
-            const mlPrediction = predictActualPerformance(eng, feedWater);
+            // 10. Dynamic Layout Generator (P&ID)
+            const pid = layoutGenerator(eng, eng, activeFeedWater, sim, activeTech);
 
-            // Ensure technology is set on engineering
-            eng.technology = activeTech;
-
-            // Assemble output fields
-            const output = {
-                technology: activeTech,
-                outletTDS: eng?.outletTDS ?? sim?.outputTDS ?? sim?.outletTDS ?? null,
-                removalEfficiency: eng?.removalEfficiency ?? sim?.removalEfficiency ?? null,
-                pressureDrop: eng?.pressureDrop ?? 0,
-                power: eng?.power ?? (sim?.averageVoltage * sim?.averageCurrent) ?? null,
-                flowVelocity: eng?.flowVelocity ?? 0,
-                SEC: eng?.sec ?? sim?.specificEnergy ?? null,
-                residenceTime: eng?.residenceTime ?? calcInputs?.residenceTime ?? null,
-                waterRecovery: eng?.waterRecovery ?? 95.0,
-                recovery: eng?.recovery ?? 95.0,
-                currentDensity: eng?.currentDensity ?? null,
-                electrodeArea: eng?.electrodeArea ?? null,
-                stackLength: eng?.stackLength ?? null
-            };
-
-            // Validation & Multi-Stage Calculation Logic
-            const tds = Number(feedWater.tds || 500);
-            const targetTds = Number(feedWater.targetTds || 50);
-
-            const maxTechRemovalMap = { CDI: 85.0, MCDI: 94.0, FCDI: 95.0, EDI: 99.9 };
-            const maxTechRemoval = maxTechRemovalMap[activeTech] || 85.0;
-
-            // Single Technology Stage 1 Object
-            const stage1OutletTDS = eng.outletTDS;
-            const stage1RemovalEff = eng.removalEfficiency;
-
-            const stage1 = {
-                stage: 1,
-                name: `${activeTech} Desalination`,
-                technology: activeTech,
-                inletTDS: tds,
-                outletTDS: stage1OutletTDS,
-                removalEfficiency: stage1RemovalEff,
-                voltage: eng.voltage,
-                current: eng.current,
-                power: eng.power,
-                sec: eng.sec,
-                waterRecovery: eng.waterRecovery,
-                cellPairs: eng.cellPairs,
-                electrodeArea: eng.electrodeArea,
-                residenceTime: eng.residenceTime,
-                flowRate: eng.flowRate,
-                currentDensity: eng.currentDensity,
-                pressureDrop: eng.pressureDrop,
-                engineering: { ...eng }
-            };
-
-            const recommendedProcess = activeTech;
-            const finalOutletTDS = stage1.outletTDS;
-            const overallRemoval = stage1.removalEfficiency;
-            const totalPower = eng.power;
-            const userFlowRate = Number(feedWater.flowRate || 10);
-            const overallSec = eng.sec;
-            const overallRecovery = eng.waterRecovery;
-
-            const processObj = {
-                recommendedProcess,
-                technology: activeTech,
-                isMultiStage: false,
-                stages: [stage1],
-                overall: {
-                    recommendedProcess,
-                    technology: activeTech,
-                    inletTDS: tds,
-                    targetTDS: targetTds,
-                    outletTDS: finalOutletTDS,
-                    removal: overallRemoval,
-                    removalEfficiency: overallRemoval,
-                    recovery: overallRecovery,
-                    waterRecovery: overallRecovery,
-                    totalPower,
-                    flowRate: userFlowRate,
-                    SEC: overallSec,
-                    sec: overallSec,
-                    status: finalOutletTDS <= targetTds + 1 ? "VALID" : "TARGET NOT ACHIEVABLE",
-                    isMultiStage: false
-                }
-            };
-
-            const validation = {
-                status: processObj.overall.status === "VALID" ? "VALID" : "TARGET NOT ACHIEVABLE",
-                messages: [],
-                recommendedProcess
-            };
-
-            if (processObj.overall.status === "VALID") {
-                validation.messages.push(`✓ Target TDS (${targetTds} ppm) achieved using single-stage ${activeTech}.`);
-            } else {
-                validation.messages.push(`⚠ Single-stage ${activeTech} maximum removal capacity reached (${maxTechRemoval}%). Target TDS (${targetTds} ppm) cannot be fully achieved.`);
-                validation.messages.push(`💡 Outlet TDS reached: ${finalOutletTDS} ppm.`);
-            }
-
-            // Sync overall values to main engineering object
-            eng.technology = activeTech;
-            eng.outletTDS = finalOutletTDS;
-            eng.removalEfficiency = overallRemoval;
-            eng.power = totalPower;
-            eng.sec = overallSec;
-            eng.waterRecovery = overallRecovery;
-            eng.recommendedProcess = recommendedProcess;
-
-            // P&ID and Layout Generator
-            const pidResult = layoutGenerator(null, eng, feedWater, sim, activeTech, processObj);
-
-            // Build the unified designResult object
-            const newDesignResult = {
-                input: { feedWater: { ...feedWater }, optimizationInputs: calcInputs, technology: activeTech, userSelectedTechnology: currentTech },
-                aiRecommendation: {
-                    ...ai,
-                    recommendedProcess
+            // 11. Consolidated Equipment Schedule
+            const equipment = [
+                {
+                    id: "TK-101",
+                    tag: "TK-101",
+                    name: "Feed Water Storage Tank",
+                    category: "Tanks",
+                    type: "Feed Storage Tank",
+                    capacity: `${(activeFeedWater.flowRate * 60).toFixed(0)} L`,
+                    flowRate: `${activeFeedWater.flowRate} L/min`,
+                    tds: `${activeFeedWater.tds} ppm`,
+                    designStandard: "ASME Sec VIII / API 650",
+                    material: "316L Stainless Steel",
+                    power: "-"
                 },
-                process: processObj,
+                {
+                    id: "P-101",
+                    tag: "P-101",
+                    name: "Feed Water Pump",
+                    category: "Pumps",
+                    type: "Centrifugal Pump",
+                    flowRate: `${activeFeedWater.flowRate} L/min`,
+                    pressure: `${activeFeedWater.pressure || 1.0} bar`,
+                    power: `${(eng.power * 0.05).toFixed(1)} W`,
+                    designStandard: "ISO 5199 / ANSI B73.1",
+                    material: "Super Duplex Stainless Steel 2507",
+                    efficiency: "75%"
+                },
+                {
+                    id: "R-101",
+                    tag: "R-101",
+                    name: `${activeTech} Stack Module`,
+                    category: "Reactors",
+                    type: `${activeTech} Cell Stack`,
+                    cellPairs: `${eng.cellPairs} Pairs`,
+                    electrodeArea: `${eng.electrodeArea} cm²`,
+                    voltage: `${eng.voltageStack} V`,
+                    current: `${eng.current} A`,
+                    power: `${eng.power} W`,
+                    dimensions: eng.moduleDimensions || "450mm L × 450mm W × 370mm H",
+                    designStandard: "ISO 10628 / IEC / ASME",
+                    material: activeTech === "EDI" ? "Titanium Grade 2 / FRP" : "316L Stainless Steel / PVDF"
+                },
+                {
+                    id: "TK-103",
+                    tag: "TK-103",
+                    name: "Product Water Storage Tank",
+                    category: "Tanks",
+                    type: "Product Storage Tank",
+                    capacity: `${(activeFeedWater.flowRate * 60 * 0.95).toFixed(0)} L`,
+                    flowRate: `${(activeFeedWater.flowRate * 0.95).toFixed(1)} L/min`,
+                    tds: `${eng.outletTDS} ppm`,
+                    designStandard: "ASME Sec VIII",
+                    material: "316L Stainless Steel",
+                    power: "-"
+                }
+            ];
+
+            const unifiedResult = {
+                input: { feedWater: activeFeedWater },
+                waterChemistry: waterChem,
+                aiRecommendation: ai,
+                technologyEvaluation: ai.evaluations,
+                selectedTechnology: activeTech,
                 engineering: eng,
+                optimizedEngineering: eng,
+                electrode: elect,
+                sizing: size,
                 simulation: sim,
                 performance: perf,
-                waterChemistry: waterChem,
                 economics,
-                calibration,
-                mlPrediction,
-                optimizedEngineering: optResult ? {
-                    ...optResult,
-                    previousEngineering: initialEng,
-                    isOptimal: noImprovement,
-                    isOptimizationApplied: isOptimization,
-                    recommendedProcess
-                } : null,
-                equipment: pidResult?.equipment || [],
-                pid: pidResult,
+                equipment,
+                pid,
                 kpi: {
-                    technology: eng.technology,
-                    outletTDS: finalOutletTDS,
-                    removalEfficiency: overallRemoval,
+                    outletTDS: eng.outletTDS,
+                    removalEfficiency: eng.removalEfficiency,
                     pressureDrop: eng.pressureDrop,
-                    power: totalPower,
+                    power: eng.power,
                     flowVelocity: eng.flowVelocity,
-                    SEC: overallSec,
-                    residenceTime: output.residenceTime,
-                    waterRecovery: overallRecovery,
-                    recovery: overallRecovery,
-                    currentDensity: output.currentDensity,
-                    electrodeArea: output.electrodeArea,
-                    stackLength: output.stackLength,
-                    costPerM3: economics.costPerM3,
-                    carbonFootprint: economics.carbonFootprint,
-                    lsi: waterChem.lsi,
-                    sac: eng.sac,
-                    chargeEfficiency: eng.chargeEfficiency
+                    SEC: eng.sec,
+                    residenceTime: eng.residenceTime,
+                    waterRecovery: eng.waterRecovery,
+                    recovery: eng.waterRecovery,
+                    currentDensity: eng.currentDensity,
+                    electrodeArea: eng.electrodeArea,
+                    cellPairs: eng.cellPairs,
+                    stackLength: eng.stackLength
                 },
-                validation
-            };
-            const isLimitReached = Boolean(optResult?.isLimitReached);
-            const status = isLimitReached ? "LIMIT_REACHED" : (noImprovement ? "NO_IMPROVEMENT" : "OPTIMIZED");
-
-            setDesignResult(newDesignResult);
-            setDesignGenerated(true);
-            return {
-                success: true,
-                noImprovement,
-                isLimitReached,
-                status,
-                recommendedProcess: validation.recommendedProcess || "CDI"
-            };
-        } catch (e) {
-            console.error("Client calculation error:", e);
-            throw e;
-        }
-    };
-
-    const fetchEquations = async () => {
-        try {
-            const eqList = await EquationEngine.loadEquationsAsync();
-            if (eqList && eqList.length > 0) {
-                setEquations(eqList);
-            } else {
-                setEquations(DEFAULT_EQUATIONS_DATABASE);
-            }
-        } catch (e) {
-            setEquations(DEFAULT_EQUATIONS_DATABASE);
-        }
-    };
-
-    const saveEquations = async (newEquations) => {
-        try {
-            EquationEngine.saveEquations(newEquations);
-            setEquations(newEquations);
-            if (user) {
-                await auditLogger.logActivity(user.id, user.email, "Save Equation", "Equation Editor", `Saved equation library (${newEquations.length} equations)`);
-            }
-            return { success: true };
-        } catch (e) {
-            return { success: false, error: e.message };
-        }
-    };
-
-    const resetEquations = async () => {
-        try {
-            const defaultEqs = EquationEngine.resetToDefaults();
-            setEquations(defaultEqs || DEFAULT_EQUATIONS_DATABASE);
-            if (user) {
-                await auditLogger.logActivity(user.id, user.email, "Reset Equation Library", "Equation Editor", "Restored default equations library");
-            }
-            return { success: true };
-        } catch (e) {
-            return { success: false, error: e.message };
-        }
-    };
-
-    const loadUserData = async (sbUser) => {
-        if (!sbUser) {
-            setUser(null);
-            setIsAuthenticated(false);
-            return;
-        }
-
-        let role = "User";
-        let fullName = sbUser.user_metadata?.full_name || "User";
-
-        try {
-            const { data: profileData } = await supabase
-                .from("profiles")
-                .select("full_name, role")
-                .eq("id", sbUser.id)
-                .maybeSingle();
-
-            if (profileData) {
-                if (profileData.role) role = profileData.role;
-                if (profileData.full_name) fullName = profileData.full_name;
-            } else {
-                const initialRole = (sbUser.email === "admin@cdiedi.com" || sbUser.email === "admin@cdi-edi.platform") ? "Administrator" : "User";
-                await supabase.from("profiles").upsert([{
-                    id: sbUser.id,
-                    email: sbUser.email,
-                    full_name: fullName,
-                    role: initialRole
-                }]);
-                role = initialRole;
-            }
-
-            if (sbUser.email === "admin@cdiedi.com" || sbUser.email === "admin@cdi-edi.platform") {
-                role = "Administrator";
-            }
-        } catch (e) {
-            console.warn("User profile fetch error:", e.message);
-        }
-
-        setUser({
-            id: sbUser.id,
-            email: sbUser.email,
-            fullName: sbUser.email === "admin@cdiedi.com" ? "Administrator" : fullName,
-            role: (role === "Administrator" || sbUser.email === "admin@cdiedi.com") ? "Administrator" : "User"
-        });
-        setIsAuthenticated(true);
-    };
-
-    const login = async (email, password) => {
-        if (!isSupabaseConfigured) {
-            throw new Error("Supabase credentials missing.");
-        }
-        try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) {
-                await auditLogger.logLogin(null, email, false);
-                throw error;
-            }
-            if (data?.user) {
-                await loadUserData(data.user);
-                await auditLogger.logLogin(data.user.id, data.user.email, true);
-                setPage("EQUATION_EDITOR");
-                fetchEquations();
-                return true;
-            }
-            return false;
-        } catch (e) {
-            console.error("Login error:", e);
-            throw e;
-        }
-    };
-
-    const register = async ({ fullName, email, password }) => {
-        if (!isSupabaseConfigured) {
-            throw new Error("Supabase credentials missing.");
-        }
-        try {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: { full_name: fullName }
+                validation: {
+                    status: eng.isTargetAchieved ? "TARGET ACHIEVED" : "TARGET NOT ACHIEVED",
+                    messages: eng.literatureWarnings || []
                 }
-            });
-            if (error) throw error;
+            };
 
-            if (data?.user) {
-                await supabase.from("profiles").upsert([{
-                    id: data.user.id,
-                    full_name: fullName,
-                    email,
-                    role: email === "admin@cdiedi.com" ? "Administrator" : "User"
-                }]);
-            }
-
-            return { success: true, user: data?.user };
-        } catch (e) {
-            console.error("Registration error:", e);
-            throw e;
+            setDesignResult(unifiedResult);
+            return unifiedResult;
+        } catch (error) {
+            console.error("Recalculation error in AppContext:", error);
         }
     };
 
-    const logout = async () => {
-        try {
-            if (user) {
-                await auditLogger.logLogout(user.id, user.email);
-            }
-            await supabase.auth.signOut();
-        } catch (e) {
-            console.error("Logout error:", e);
-        } finally {
-            setUser(null);
-            setIsAuthenticated(false);
-            setPage("DASHBOARD");
-        }
-    };
-
-    const requestPasswordReset = async (email) => {
-        try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.origin
-            });
-            if (error) throw error;
-            return { success: true, message: "Password reset link sent to your email." };
-        } catch (e) {
-            return { success: false, error: e.message };
-        }
-    };
-
-    // Load equations on mount
+    // Recalculate only if design has already been generated by user action
     useEffect(() => {
-        fetchEquations();
-    }, []);
-
-    // Check Supabase Auth Session on mount
-    useEffect(() => {
-        const initAuth = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                    await loadUserData(session.user);
-                } else {
-                    setIsAuthenticated(false);
-                    setUser(null);
-                }
-            } catch (e) {
-                console.error("Session init error:", e);
-            }
-        };
-
-        initAuth();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
-                await loadUserData(session.user);
-            } else {
-                setUser(null);
-                setIsAuthenticated(false);
-            }
-        });
-
-        return () => subscription?.unsubscribe();
-    }, []);
+        if (designGenerated) {
+            recalculate();
+        }
+    }, [feedWater, technology]);
 
     return (
-        <AppContext.Provider
-            value={{
-                technology,
-                setTechnology,
-                selectedDesign,
-                setSelectedDesign,
-                loading,
-                setLoading,
-                feedWater,
-                setFeedWater,
-                designResult,
-                setDesignResult,
-                recalculate,
-                designGenerated,
-                setDesignGenerated,
-                user,
-                setUser,
-                isAuthenticated,
-                setIsAuthenticated,
-                login,
-                register,
-                logout,
-                requestPasswordReset,
-                page,
-                setPage,
-                equations,
-                setEquations,
-                fetchEquations,
-                saveEquations,
-                resetEquations,
-                optimizationMode,
-                setOptimizationMode,
-                optimizationStatus,
-                setOptimizationStatus,
-                optimizationError,
-                setOptimizationError,
-                optimizationInputs,
-                setOptimizationInputs,
-                lockedParameters,
-                setLockedParameters,
-                designComponents,
-                setDesignComponents,
-                selectedComponent,
-                setSelectedComponent,
-                selectedEquipment,
-                setSelectedEquipment
-            }}
-        >
+        <AppContext.Provider value={{
+            technology,
+            setTechnology,
+            selectedDesign,
+            setSelectedDesign,
+            loading,
+            setLoading,
+            feedWater,
+            setFeedWater,
+            designResult,
+            setDesignResult,
+            selectedComponent,
+            setSelectedComponent,
+            selectedEquipment,
+            setSelectedEquipment,
+            optimizationMode,
+            setOptimizationMode,
+            optimizationStatus,
+            setOptimizationStatus,
+            optimizationError,
+            setOptimizationError,
+            optimizationInputs,
+            setOptimizationInputs,
+            lockedParameters,
+            setLockedParameters,
+            designComponents,
+            setDesignComponents,
+            user,
+            setUser,
+            isAuthenticated,
+            setIsAuthenticated,
+            page,
+            setPage,
+            equations,
+            setEquations,
+            designGenerated,
+            setDesignGenerated,
+            recalculate
+        }}>
             {children}
         </AppContext.Provider>
     );

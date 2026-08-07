@@ -1,9 +1,11 @@
 import calculateEngineering from "./engineeringEquationEngine.js";
 
 /**
- * True Engineering Optimization Engine
+ * Target-Driven Design Optimizer
  * Iteratively solves for operating voltage, current, cell pairs, electrode area, and flow parameters
- * until Outlet TDS approaches Target TDS while minimizing Power, SEC, Pressure Drop, and Current Density.
+ * to achieve Target TDS as an active setpoint while minimizing SEC and over-treatment.
+ * Primary Objective: minimize |Outlet TDS - Target TDS| subject to Outlet TDS <= Target TDS + 0.5 ppm
+ * Secondary Objective: minimize Specific Energy Consumption (SEC)
  */
 function optimize(
     feedWater = {},
@@ -20,28 +22,48 @@ function optimize(
         const userInput = feedWater.optimizationInputs || {};
         const locked = feedWater.lockedParameters || {};
 
-        // Technology parameter bounds
+        // Technology Parameter Search Bounds
         const BOUNDS = {
-            CDI: { minV: 0.8, maxV: 1.5, minI: 1.0, maxI: 10.0, minCells: 10, maxCells: 80, minArea: 100, maxArea: 800 },
-            MCDI: { minV: 1.0, maxV: 1.6, minI: 2.0, maxI: 15.0, minCells: 15, maxCells: 100, minArea: 150, maxArea: 1000 },
-            FCDI: { minV: 1.2, maxV: 2.0, minI: 3.0, maxI: 20.0, minCells: 20, maxCells: 120, minArea: 200, maxArea: 1200 },
-            EDI: { minV: 5.0, maxV: 50.0, minI: 1.0, maxI: 10.0, minCells: 50, maxCells: 200, minArea: 250, maxArea: 1500 }
+            CDI: { minV: 0.8, maxV: 1.5, minI: 1.0, maxI: 10.0, minCells: 12, maxCells: 150, minArea: 150, maxArea: 1200 },
+            MCDI: { minV: 1.0, maxV: 1.6, minI: 2.0, maxI: 15.0, minCells: 15, maxCells: 180, minArea: 200, maxArea: 1600 },
+            FCDI: { minV: 1.2, maxV: 2.0, minI: 3.0, maxI: 20.0, minCells: 20, maxCells: 180, minArea: 250, maxArea: 1800 },
+            EDI: { minV: 5.0, maxV: 50.0, minI: 0.1, maxI: 10.0, minCells: 30, maxCells: 200, minArea: 200, maxArea: 1800 }
         };
 
         const b = BOUNDS[technology] || BOUNDS.CDI;
 
-        // Numerical search grids for coordinate descent / iterative optimization
-        const vSteps = 10;
-        const cellSteps = 8;
-        const areaSteps = 8;
-        const flowSteps = 5;
-
-        const vStep = (b.maxV - b.minV) / vSteps;
-        const cellStep = Math.max(1, Math.floor((b.maxCells - b.minCells) / cellSteps));
-        const areaStep = Math.floor((b.maxArea - b.minArea) / areaSteps);
-
+        // Baseline target-driven auto calculation
+        const baseAutoResult = calculateEngineering({ technology, feedWater });
         let bestResult = null;
         let minPenalty = Infinity;
+
+        if (baseAutoResult) {
+            const isBaseAchieved = baseAutoResult.outletTDS <= targetTDS + 0.5;
+            const targetDiff = Math.abs(baseAutoResult.outletTDS - targetTDS);
+            const overtreat = baseAutoResult.outletTDS < targetTDS ? (targetTDS - baseAutoResult.outletTDS) * 15.0 : 0;
+            const basePenalty = (isBaseAchieved ? 0 : 5000.0) + targetDiff * 30.0 + overtreat + baseAutoResult.sec * 10.0;
+            minPenalty = basePenalty;
+
+            bestResult = {
+                ...baseAutoResult,
+                optimizedVoltage: baseAutoResult.voltage,
+                optimizedCellPairs: baseAutoResult.cellPairs,
+                optimizedElectrodeArea: baseAutoResult.electrodeArea,
+                optimizedFlowRate: baseAutoResult.flowRate,
+                isTargetAchieved: isBaseAchieved,
+                score: Number(Math.max(0, 100 - minPenalty * 0.05).toFixed(2)),
+                mode
+            };
+        }
+
+        // Numerical search grid
+        const vSteps = 6;
+        const cellSteps = 8;
+        const areaSteps = 8;
+
+        const vStep = (b.maxV - b.minV) / Math.max(1, vSteps);
+        const cellStep = Math.max(1, Math.floor((b.maxCells - b.minCells) / Math.max(1, cellSteps)));
+        const areaStep = Math.max(10, Math.floor((b.maxArea - b.minArea) / Math.max(1, areaSteps)));
 
         for (let vIdx = 0; vIdx <= vSteps; vIdx++) {
             let V = b.minV + vIdx * vStep;
@@ -51,127 +73,84 @@ function optimize(
 
                 for (let aIdx = 0; aIdx <= areaSteps; aIdx++) {
                     let A = b.minArea + aIdx * areaStep;
+                    let Q = flowRateInput;
 
-                    for (let qIdx = 0; qIdx <= flowSteps; qIdx++) {
-                        let Q = Math.max(1.0, flowRateInput * (0.8 + qIdx * 0.1));
+                    if (mode === "MANUAL") {
+                        V = Number(userInput.voltage ?? V);
+                        C = Number(userInput.cellPairs ?? C);
+                        A = Number(userInput.electrodeArea ?? A);
+                        Q = Number(userInput.flowRate ?? Q);
+                    } else if (mode === "HYBRID") {
+                        if (locked.voltage) V = Number(userInput.voltage);
+                        if (locked.cellPairs) C = Number(userInput.cellPairs);
+                        if (locked.electrodeArea) A = Number(userInput.electrodeArea);
+                        if (locked.flowRate) Q = Number(userInput.flowRate);
+                    }
 
-                        let I = (A / 10000) * (b.minI + (b.maxI - b.minI) * 0.5);
+                    const result = calculateEngineering({
+                        technology,
+                        feedWater,
+                        voltage: V,
+                        cellPairs: C,
+                        electrodeArea: A,
+                        flowRate: Q
+                    });
 
-                        if (mode === "MANUAL") {
-                            V = Number(userInput.voltage ?? V);
-                            I = Number(userInput.current ?? I);
-                            C = Number(userInput.cellPairs ?? C);
-                            A = Number(userInput.electrodeArea ?? A);
-                            Q = Number(userInput.flowRate ?? Q);
-                        } else if (mode === "HYBRID") {
-                            if (locked.voltage) V = Number(userInput.voltage);
-                            if (locked.current) I = Number(userInput.current);
-                            if (locked.cellPairs) C = Number(userInput.cellPairs);
-                            if (locked.electrodeArea) A = Number(userInput.electrodeArea);
-                            if (locked.flowRate) Q = Number(userInput.flowRate);
-                        }
+                    const isAchieved = result.outletTDS <= targetTDS + 0.5;
+                    const targetDiff = Math.abs(result.outletTDS - targetTDS);
+                    const overtreat = result.outletTDS < targetTDS ? (targetTDS - result.outletTDS) * 15.0 : 0;
 
-                        const result = calculateEngineering({
-                            technology,
-                            feedWater,
-                            voltage: V,
-                            current: I,
-                            cellPairs: C,
-                            electrodeArea: A,
-                            flowRate: Q
-                        });
+                    // Penalty function: Primary target setpoint match + Over-treatment penalty + Secondary SEC minimization
+                    const penalty = (isAchieved ? 0 : 5000.0) +
+                        targetDiff * 30.0 +
+                        overtreat +
+                        result.sec * 10.0 +
+                        result.power * 0.01;
 
-                        const tdsError = Math.max(0, result.outletTDS - targetTDS);
-                        const isTargetAchieved = result.outletTDS <= targetTDS;
-                        const isOutletHigherThanFeed = result.outletTDS > inletTDS;
-
-                        const penalty = (isTargetAchieved ? 0 : 50.0) +
-                            (isOutletHigherThanFeed ? 500.0 : 0) +
-                            tdsError * 15.0 +
-                            result.sec * 5.0 +
-                            result.power * 0.05 +
-                            result.pressureDrop * 0.001 +
-                            (result.currentDensityCm2 > 0.03 ? 20.0 : 0);
-
-                        if (penalty < minPenalty || bestResult === null) {
-                            minPenalty = penalty;
-                            bestResult = {
-                                technology,
-                                voltage: result.voltage,
-                                optimizedVoltage: result.voltage,
-                                current: result.current,
-                                cellPairs: result.cellPairs,
-                                optimizedCellPairs: result.cellPairs,
-                                electrodeArea: result.electrodeArea,
-                                optimizedElectrodeArea: result.electrodeArea,
-                                flowRate: result.flowRate,
-                                optimizedFlowRate: result.flowRate,
-                                flowVelocity: result.flowVelocity,
-                                residenceTime: result.residenceTime,
-                                outletTDS: Math.min(inletTDS, result.outletTDS),
-                                predictedRemoval: result.removalEfficiency,
-                                removalEfficiency: result.removalEfficiency,
-                                power: result.power,
-                                sec: result.sec,
-                                specificEnergy: result.sec,
-                                pressureDrop: result.pressureDrop,
-                                currentDensity: result.currentDensity,
-                                currentDensityCm2: result.currentDensityCm2,
-                                waterRecovery: result.waterRecovery,
-                                recovery: result.waterRecovery,
-                                sac: result.sac,
-                                electrodeMass: result.electrodeMass,
-                                score: Number(Math.max(0, 100 - minPenalty * 0.5).toFixed(2)),
-                                confidence: 95,
-                                mode
-                            };
-                        }
+                    if (penalty < minPenalty) {
+                        minPenalty = penalty;
+                        bestResult = {
+                            ...result,
+                            optimizedVoltage: result.voltage,
+                            optimizedCellPairs: result.cellPairs,
+                            optimizedElectrodeArea: result.electrodeArea,
+                            optimizedFlowRate: result.flowRate,
+                            isTargetAchieved: isAchieved,
+                            score: Number(Math.max(0, 100 - minPenalty * 0.05).toFixed(2)),
+                            mode
+                        };
                     }
                 }
             }
         }
 
-        const maxRemovalMap = { CDI: 85.0, MCDI: 94.0, FCDI: 95.0, EDI: 99.9 };
-        const maxRemoval = maxRemovalMap[technology] || 85.0;
-        const requiredRemoval = inletTDS > 0 ? ((inletTDS - targetTDS) / inletTDS) * 100 : 90.0;
-
-        const isTargetAchieved = bestResult ? bestResult.outletTDS <= targetTDS : false;
-        const isLimitExceeded = !isTargetAchieved && (requiredRemoval > maxRemoval || (inletTDS > 3000 && technology !== "EDI") || (bestResult && bestResult.predictedRemoval >= (maxRemoval - 2.0)));
+        const isTargetAchieved = bestResult ? bestResult.isTargetAchieved : false;
 
         if (bestResult) {
-            if (isLimitExceeded) {
-                bestResult.isLimitReached = true;
-                bestResult.isMultiStage = false;
-                bestResult.status = "LIMIT_REACHED";
-                bestResult.recommendedProcess = technology;
-                bestResult.score = "90%";
-                bestResult.reason = `Single-stage technology removal limit reached for ${technology}. Best achievable outlet TDS: ${bestResult.outletTDS} ppm.`;
-            } else {
-                bestResult.isLimitReached = false;
-                bestResult.isMultiStage = false;
-                bestResult.status = "OPTIMIZED";
-                bestResult.score = isTargetAchieved ? "98%" : "85%";
-                bestResult.recommendedProcess = technology;
-                bestResult.reason = `Single-stage ${technology} optimization completed successfully.`;
-            }
+            bestResult.isLimitReached = !isTargetAchieved;
+            bestResult.status = isTargetAchieved ? "OPTIMIZED" : "LIMIT_REACHED";
+            bestResult.recommendedProcess = bestResult.processTrainName || technology;
+            bestResult.reason = isTargetAchieved
+                ? `Single-stage ${technology} target-driven optimization achieved setpoint (${bestResult.outletTDS} ppm ≈ ${targetTDS} ppm).`
+                : `Target ${targetTDS} ppm not achievable within ${technology} single-stage physical bounds (${bestResult.outletTDS} ppm achieved). Multi-stage or EDI process train required.`;
         }
 
         const finalResult = bestResult || {
             technology,
-            isLimitReached: Boolean(isLimitExceeded),
-            status: isLimitExceeded ? "LIMIT_REACHED" : "OPTIMIZED",
-            recommendedProcess: isLimitExceeded ? "FCDI → EDI" : technology,
-            reason: isLimitExceeded ? "Technology limit reached." : "Optimization completed."
+            isLimitReached: true,
+            status: "LIMIT_REACHED",
+            recommendedProcess: technology,
+            reason: "Optimization bounds reached."
         };
 
         return {
             ...finalResult,
             engineering: finalResult,
             optimizedEngineering: finalResult,
-            status: finalResult.status || (isLimitExceeded ? "LIMIT_REACHED" : "OPTIMIZED"),
+            status: finalResult.status,
             isLimitReached: Boolean(finalResult.isLimitReached),
-            recommendedProcess: finalResult.recommendedProcess || (isLimitExceeded ? "FCDI → EDI" : technology),
-            reason: finalResult.reason || "Optimization processed."
+            recommendedProcess: finalResult.recommendedProcess,
+            reason: finalResult.reason
         };
     } catch (error) {
         console.error("Optimization Error in designOptimizer:", error);

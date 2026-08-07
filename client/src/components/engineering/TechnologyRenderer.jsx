@@ -7,14 +7,11 @@ import FCDISchematic from "./FCDISchematic";
 import EDISchematic from "./EDISchematic";
 import MultiStageSchematic from "./MultiStageSchematic";
 import EquipmentInspectorModal from "./EquipmentInspectorModal";
-import TechComparisonModal from "./TechComparisonModal";
-import { BarChart2, GitMerge, RotateCcw, Activity } from "lucide-react";
 
 /**
  * TechnologyRenderer
- * Master technology renderer delegating schematics dynamically to CDISchematic,
- * MCDISchematic, FCDISchematic, EDISchematic, or MultiStageSchematic.
- * Includes TechErrorBoundary protection.
+ * Clean, centered CAD Schematic Canvas displaying equipment, tags, vector flow lines,
+ * and ion animation without redundant parameter summary bars.
  */
 export default function TechnologyRenderer({
     technology = "CDI",
@@ -22,15 +19,13 @@ export default function TechnologyRenderer({
     optimization = {},
     sizing = {},
     feedWater = {},
-    simulation = {}
+    simulation = {},
+    cycleStep = "ADSORPTION"
 }) {
     const [hoverSpec, setHoverSpec] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
     const [selectedEquipment, setSelectedEquipment] = useState(null);
-    const [isCompareOpen, setIsCompareOpen] = useState(false);
-    const [forceMultiStage, setForceMultiStage] = useState(false);
     const [particleOffset, setParticleOffset] = useState(0);
-    const [cycleStep, setCycleStep] = useState("ADSORPTION"); // "ADSORPTION" | "REGENERATION"
 
     // Particle Animation Loop
     useEffect(() => {
@@ -40,12 +35,7 @@ export default function TechnologyRenderer({
         return () => clearInterval(interval);
     }, []);
 
-    // Toggle Cycle Step for Batch Electrosorption (CDI / MCDI)
-    const toggleCycle = () => {
-        setCycleStep(prev => prev === "ADSORPTION" ? "REGENERATION" : "ADSORPTION");
-    };
-
-    // Memoize primitive values for stable memoization
+    // Memoize primitive values
     const engVoltage = engineering?.voltage;
     const engCurrent = engineering?.current;
     const engArea = engineering?.electrodeArea;
@@ -87,12 +77,10 @@ export default function TechnologyRenderer({
         technology: activeTech,
         labels = {},
         geometry = {},
-        electrical = {},
-        equipment = []
+        electrical = {}
     } = structure || {};
 
-    // Detect if Multi-Stage system is required (e.g. Feed TDS > 2000 ppm and Target TDS < 100 ppm)
-    const isMultiStageRequired = forceMultiStage || (feedWater.tds > 2000 && (engineering.outletTDS || 50) < 100);
+    const isMultiStageRequired = feedWater.tds > 2000 && (engineering.outletTDS || 50) < 100;
 
     const handleHover = (spec, e) => {
         if (!spec) {
@@ -105,152 +93,39 @@ export default function TechnologyRenderer({
         }
     };
 
+    const handleEquipmentClick = (spec) => {
+        if (spec) {
+            setSelectedEquipment(spec);
+        }
+    };
+
     return (
         <TechErrorBoundary key={activeTech} onReset={() => setParticleOffset(0)}>
             <div className="technology-renderer-container" style={{
                 position: "relative",
                 width: "100%",
-                background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
-                borderRadius: "14px",
-                border: "1px solid #CBD5E1",
-                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)",
-                padding: "18px",
+                background: "#FFFFFF",
+                borderRadius: "8px",
+                border: "1px solid #D9DEE7",
+                padding: "14px",
                 boxSizing: "border-box"
             }}>
-                {/* Top Bar with Mode Toggles */}
-                <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "14px",
-                    flexWrap: "wrap",
-                    gap: "10px"
-                }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <span style={{ fontSize: "14px", fontWeight: "800", color: "#0F172A", display: "flex", alignItems: "center", gap: "6px" }}>
-                            <Activity size={18} color="#2563EB" />
-                            {activeTech} Engineering Schematic
-                        </span>
-
-                        {(activeTech === "CDI" || activeTech === "MCDI") && (
-                            <button
-                                onClick={toggleCycle}
-                                style={{
-                                    background: cycleStep === "ADSORPTION" ? "#DCFCE7" : "#FEE2E2",
-                                    color: cycleStep === "ADSORPTION" ? "#15803D" : "#B91C1C",
-                                    border: `1px solid ${cycleStep === "ADSORPTION" ? "#86EFAC" : "#FCA5A5"}`,
-                                    padding: "5px 12px",
-                                    borderRadius: "6px",
-                                    fontWeight: "700",
-                                    fontSize: "11.5px",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "6px"
-                                }}
-                            >
-                                <RotateCcw size={14} /> Cycle: {cycleStep === "ADSORPTION" ? "Adsorption (Desalting)" : "Desorption (Regeneration)"}
-                            </button>
-                        )}
-
-                        {isMultiStageRequired && (
-                            <button
-                                onClick={() => setForceMultiStage(!forceMultiStage)}
-                                style={{
-                                    background: "#4F46E5",
-                                    color: "#FFFFFF",
-                                    border: "1px solid #CBD5E1",
-                                    padding: "5px 12px",
-                                    borderRadius: "6px",
-                                    fontWeight: "700",
-                                    fontSize: "12px",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "6px",
-                                    transition: "all 0.2s"
-                                }}
-                            >
-                                <GitMerge size={15} /> Sequential Multi-Stage Active (FCDI → EDI)
-                            </button>
-                        )}
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        {/* Technology Comparison Button */}
-                        <button
-                            onClick={() => setIsCompareOpen(true)}
-                            style={{
-                                background: "#1E293B",
-                                color: "#FFFFFF",
-                                border: "none",
-                                padding: "6px 14px",
-                                borderRadius: "6px",
-                                fontWeight: "600",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px"
-                            }}
-                        >
-                            <BarChart2 size={15} /> Compare CDI / MCDI / FCDI / EDI
-                        </button>
-                    </div>
-                </div>
-
-                {/* Overlaid Engineering Parameter Labels Bar */}
-                <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(6, 1fr)",
-                    gap: "8px",
-                    marginBottom: "16px",
-                    background: "#F1F5F9",
-                    borderRadius: "10px",
-                    padding: "10px 14px",
-                    border: "1px solid #E2E8F0"
-                }}>
-                    <div style={{ fontSize: "11px" }}>
-                        <span style={{ color: "#64748B", display: "block" }}>Electrode Area</span>
-                        <strong style={{ color: "#1F2937", fontSize: "12.5px" }}>{labels.electrodeArea || "350 cm²"}</strong>
-                    </div>
-                    <div style={{ fontSize: "11px" }}>
-                        <span style={{ color: "#64748B", display: "block" }}>Cell Pairs</span>
-                        <strong style={{ color: "#1F2937", fontSize: "12.5px" }}>{labels.cellPairs || "95 pairs"}</strong>
-                    </div>
-                    <div style={{ fontSize: "11px" }}>
-                        <span style={{ color: "#64748B", display: "block" }}>Voltage / Current</span>
-                        <strong style={{ color: "#2563EB", fontSize: "12.5px" }}>{labels.voltage || "1.20 V"} / {labels.current || "15.00 A"}</strong>
-                    </div>
-                    <div style={{ fontSize: "11px" }}>
-                        <span style={{ color: "#64748B", display: "block" }}>Flow / Pressure</span>
-                        <strong style={{ color: "#0284C7", fontSize: "12.5px" }}>{labels.flowRate || "10.0 L/min"} ({labels.pressure || "1.00 bar"})</strong>
-                    </div>
-                    <div style={{ fontSize: "11px" }}>
-                        <span style={{ color: "#64748B", display: "block" }}>Removal / Recovery</span>
-                        <strong style={{ color: "#16A34A", fontSize: "12.5px" }}>{labels.removalEfficiency || "90.0 %"} / {labels.waterRecovery || "95.0 %"}</strong>
-                    </div>
-                    <div style={{ fontSize: "11px" }}>
-                        <span style={{ color: "#64748B", display: "block" }}>{activeTech === "EDI" ? "Charge Eff / SEC" : "SAC / SEC"}</span>
-                        <strong style={{ color: "#7C3AED", fontSize: "12.5px" }}>{activeTech === "EDI" ? (labels.chargeEfficiency || "98.0 %") : (labels.sac || "14.5 mg/g")} / {labels.sec || "0.45 kWh/m³"}</strong>
-                    </div>
-                </div>
-
                 {/* DYNAMIC SCHEMATIC SVG CANVAS */}
                 <div className="svg-canvas-wrapper" style={{
                     background: "#FAFAFA",
-                    borderRadius: "12px",
+                    borderRadius: "6px",
                     border: "1px solid #E2E8F0",
                     position: "relative",
-                    overflowX: "auto"
+                    overflowX: "auto",
+                    minHeight: "450px"
                 }}>
-                    <svg width="1060" height="410" viewBox="0 0 1060 410" style={{ width: "100%", height: "auto", minWidth: "980px" }}>
+                    <svg width="980" height="440" viewBox="0 0 980 440" style={{ width: "100%", height: "440px", minWidth: "850px", display: "block" }}>
                         {/* CAD Grid Pattern */}
                         <g opacity="0.15">
                             <pattern id="cadGridTech" width="40" height="40" patternUnits="userSpaceOnUse">
                                 <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#64748B" strokeWidth="0.5" />
                             </pattern>
-                            <rect width="1060" height="410" fill="url(#cadGridTech)" />
+                            <rect width="980" height="440" fill="url(#cadGridTech)" />
                         </g>
 
                         {/* Render MultiStage or Single Tech Schematic */}
@@ -262,7 +137,9 @@ export default function TechnologyRenderer({
                                 feedWater={feedWater}
                                 engineering={engineering}
                                 particleOffset={particleOffset}
+                                cycleStep={cycleStep}
                                 onHover={handleHover}
+                                onClickEquipment={handleEquipmentClick}
                             />
                         ) : (
                             <>
@@ -276,6 +153,7 @@ export default function TechnologyRenderer({
                                         particleOffset={particleOffset}
                                         cycleStep={cycleStep}
                                         onHover={handleHover}
+                                        onClickEquipment={handleEquipmentClick}
                                     />
                                 )}
                                 {activeTech === "MCDI" && (
@@ -289,6 +167,7 @@ export default function TechnologyRenderer({
                                         particleOffset={particleOffset}
                                         cycleStep={cycleStep}
                                         onHover={handleHover}
+                                        onClickEquipment={handleEquipmentClick}
                                     />
                                 )}
                                 {activeTech === "FCDI" && (
@@ -299,7 +178,9 @@ export default function TechnologyRenderer({
                                         feedWater={feedWater}
                                         engineering={engineering}
                                         particleOffset={particleOffset}
+                                        cycleStep={cycleStep}
                                         onHover={handleHover}
+                                        onClickEquipment={handleEquipmentClick}
                                     />
                                 )}
                                 {activeTech === "EDI" && (
@@ -310,7 +191,9 @@ export default function TechnologyRenderer({
                                         feedWater={feedWater}
                                         engineering={engineering}
                                         particleOffset={particleOffset}
+                                        cycleStep={cycleStep}
                                         onHover={handleHover}
+                                        onClickEquipment={handleEquipmentClick}
                                     />
                                 )}
                             </>
@@ -326,9 +209,9 @@ export default function TechnologyRenderer({
                         top: `${tooltipPos.y}px`,
                         background: "#0F172A",
                         color: "#FFFFFF",
-                        padding: "10px 14px",
-                        borderRadius: "8px",
-                        boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
+                        padding: "8px 12px",
+                        borderRadius: "6px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
                         fontSize: "11.5px",
                         zIndex: 99999,
                         pointerEvents: "none",
@@ -349,17 +232,10 @@ export default function TechnologyRenderer({
                     </div>
                 )}
 
-                {/* Modals */}
+                {/* Datasheet Modal */}
                 <EquipmentInspectorModal
                     equipment={selectedEquipment}
                     onClose={() => setSelectedEquipment(null)}
-                />
-                <TechComparisonModal
-                    isOpen={isCompareOpen}
-                    onClose={() => setIsCompareOpen(false)}
-                    currentTech={activeTech}
-                    engineering={engineering}
-                    feedWater={feedWater}
                 />
             </div>
         </TechErrorBoundary>

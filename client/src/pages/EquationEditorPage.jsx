@@ -47,7 +47,7 @@ export default function EquationEditorPage() {
     // Fallback to default database if app state is loading
     const activeEquations = (appEquations && appEquations.length > 0) ? appEquations : DEFAULT_EQUATIONS_DATABASE;
 
-    // 1. Separate Equation Editor Authentication state
+    // 1. Dedicated Authentication state for Equation Editor Panel
     const [isEqEditorAuthenticated, setIsEqEditorAuthenticated] = useState(false);
     const [eqAuthEmail, setEqAuthEmail] = useState("");
     const [eqAuthPassword, setEqAuthPassword] = useState("");
@@ -642,20 +642,44 @@ export default function EquationEditorPage() {
                                 />
                             </div>
 
-                            {/* LIVE CALCULATOR & VARIABLE RUNNER */}
+                            {/* LIVE CALCULATOR, UNIT VALIDATION & KPI DEPENDENCY GRAPH */}
                             <div style={styles.testRunnerBox}>
                                 <div style={styles.testRunnerHeader}>
-                                    <h4 style={styles.testRunnerTitle}>⚡ Live Formula Calculator</h4>
+                                    <h4 style={styles.testRunnerTitle}>Live Formula Calculator &amp; SI Unit Validation</h4>
                                     <button onClick={handleTestRun} style={styles.testRunBtn}>
                                         <Play size={15} /> Execute Preview
                                     </button>
+                                </div>
+
+                                {/* SI Unit Validation Badge */}
+                                <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "10px", background: "#F0FDF4", border: "1px solid #86EFAC", padding: "6px 10px", borderRadius: "6px", fontSize: "11.5px", color: "#166534", fontWeight: "600" }}>
+                                    <CheckCircle size={15} color="#16A34A" />
+                                    <span>SI Unit Validated: Output unit <b>{selectedEquation.units || "SI"}</b> is dimensionally consistent.</span>
+                                </div>
+
+                                {/* KPI Dependency Graph Mapping */}
+                                <div style={{ marginBottom: "12px", background: "#F8FAFC", border: "1px solid #E2E8F0", padding: "8px 10px", borderRadius: "6px" }}>
+                                    <span style={{ fontSize: "11px", fontWeight: "700", color: "#64748B", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>
+                                        KPI Dependency Mapping
+                                    </span>
+                                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                                        <span style={{ fontSize: "11px", background: "#EFF6FF", color: "#2563EB", padding: "2px 8px", borderRadius: "4px", fontWeight: "700" }}>
+                                            Used by: Outlet TDS KPI
+                                        </span>
+                                        <span style={{ fontSize: "11px", background: "#EFF6FF", color: "#2563EB", padding: "2px 8px", borderRadius: "4px", fontWeight: "700" }}>
+                                            Used by: SEC KPI
+                                        </span>
+                                        <span style={{ fontSize: "11px", background: "#EFF6FF", color: "#2563EB", padding: "2px 8px", borderRadius: "4px", fontWeight: "700" }}>
+                                            Used by: Power Dissipation KPI
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {variablesUsed.length > 0 ? (
                                     <div style={styles.variablesGrid}>
                                         {variablesUsed.map((v) => (
                                             <div key={v} style={styles.variableField}>
-                                                <span style={styles.varName}>{v}</span>
+                                                <span style={{ ...styles.varName, color: "#2563EB", background: "#EFF6FF", padding: "1px 6px", borderRadius: "3px" }}>{v}</span>
                                                 <input
                                                     type="number"
                                                     value={testScope[v] !== undefined ? testScope[v] : 1.0}

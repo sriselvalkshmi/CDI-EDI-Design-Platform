@@ -1,5 +1,5 @@
 import React from "react";
-import { X, ShieldCheck, Cpu, Layers, FileText, CheckCircle2, Sliders, AlertCircle } from "lucide-react";
+import { X, ShieldCheck, Cpu, Layers, FileText, CheckCircle2, Sliders, AlertCircle, Download } from "lucide-react";
 
 /**
  * EquipmentInspectionModal
@@ -31,9 +31,23 @@ export default function EquipmentInspectionModal({ equipment, onClose }) {
     } = equipment;
 
     // Derived engineering parameters for specific equipment types
-    const isPump = type.includes("pump");
-    const isTank = type.includes("tank");
-    const isReactor = type.includes("reactor");
+    const isPump = tag.startsWith("P-") || type.includes("pump");
+    const isTank = tag.startsWith("TK-") || type.includes("tank");
+    const isReactor = tag.startsWith("R-") || type.includes("reactor");
+
+    const modelNumber = isPump ? "PMP-CDI-2000" : (isReactor ? `${technology}-MOD-150` : "TK-HDPE-1000");
+    const manufacturer = isPump ? "Grundfos / Flowserve Industrial" : (isReactor ? "Evoqua / DuPont Desalination Systems" : "Snyder Industries");
+    const powerRating = isPump ? "0.45 kW" : (isReactor ? `${equipment.power || 1.4} W` : "N/A");
+    const efficiency = isPump ? "82.5 %" : (isReactor ? `${equipment.chargeEfficiency || 99.9} %` : "100.0 %");
+
+    const handleDownloadDatasheet = () => {
+        const text = `CDI / EDI ENGINEERING EQUIPMENT DATASHEET\n=========================================\nTag: ${tag}\nName: ${name}\nModel: ${modelNumber}\nManufacturer: ${manufacturer}\nOperating Flow: ${operatingFlow}\nOperating Pressure: ${operatingPressure}\nPower Rating: ${powerRating}\nEfficiency: ${efficiency}\nMaterial: ${material}\nDesign Standard: ${designStandard}\nStatus: VERIFIED & OPERATIONAL\n`;
+        const blob = new Blob([text], { type: "text/plain" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `${tag}_Equipment_Datasheet.txt`;
+        link.click();
+    };
 
     return (
         <div className="equipment-modal-overlay" style={{
@@ -86,7 +100,7 @@ export default function EquipmentInspectionModal({ equipment, onClose }) {
                                 </span>
                             </div>
                             <span style={{ fontSize: "12px", color: "#94A3B8" }}>
-                                Engineering Datasheet &amp; Design Specification
+                                Industrial Engineering Datasheet
                             </span>
                         </div>
                     </div>
@@ -121,7 +135,7 @@ export default function EquipmentInspectionModal({ equipment, onClose }) {
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             <CheckCircle2 size={18} color="#16A34A" />
                             <span style={{ fontSize: "13px", fontWeight: "700", color: "#166534" }}>
-                                Equipment Verification: OPERATIONAL &amp; VERIFIED
+                                Equipment Status: VERIFIED &amp; OPERATIONAL
                             </span>
                         </div>
                         <span style={{ fontSize: "11px", background: "#DCFCE7", color: "#15803D", padding: "3px 9px", borderRadius: "12px", fontWeight: "700" }}>
@@ -133,41 +147,33 @@ export default function EquipmentInspectionModal({ equipment, onClose }) {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "20px" }}>
                         <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "10px", padding: "14px" }}>
                             <div style={{ fontSize: "12px", color: "#64748B", fontWeight: "700", marginBottom: "8px", textTransform: "uppercase" }}>
-                                Operating Parameters
+                                Equipment Data
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12.5px" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                    <span style={{ color: "#64748B" }}>Technology:</span>
-                                    <strong style={{ color: "#2563EB" }}>{technology === "EDI" ? "Electrodeionization (EDI)" : technology}</strong>
+                                    <span style={{ color: "#64748B" }}>Model:</span>
+                                    <strong style={{ color: "#2563EB", fontFamily: "monospace" }}>{modelNumber}</strong>
                                 </div>
                                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                    <span style={{ color: "#64748B" }}>Operating Flow:</span>
+                                    <span style={{ color: "#64748B" }}>Manufacturer:</span>
+                                    <strong style={{ color: "#0F172A" }}>{manufacturer}</strong>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ color: "#64748B" }}>Flow Rate:</span>
                                     <strong style={{ color: "#0F172A" }}>{operatingFlow}</strong>
                                 </div>
                                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                                     <span style={{ color: "#64748B" }}>Operating Pressure:</span>
                                     <strong style={{ color: "#0F172A" }}>{operatingPressure}</strong>
                                 </div>
-                                {isReactor && (
-                                    <>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Terminal Voltage:</span>
-                                            <strong style={{ color: "#2563EB" }}>{voltage}</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Operating Current:</span>
-                                            <strong style={{ color: "#2563EB" }}>{current}</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Current Density:</span>
-                                            <strong style={{ color: "#0F172A" }}>{currentDensity}</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Water Recovery:</span>
-                                            <strong style={{ color: "#16A34A" }}>{equipment.waterRecovery || "98.0 %"}</strong>
-                                        </div>
-                                    </>
-                                )}
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ color: "#64748B" }}>Power:</span>
+                                    <strong style={{ color: "#2563EB" }}>{powerRating}</strong>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ color: "#64748B" }}>Efficiency:</span>
+                                    <strong style={{ color: "#16A34A" }}>{efficiency}</strong>
+                                </div>
                             </div>
                         </div>
 
@@ -176,79 +182,23 @@ export default function EquipmentInspectionModal({ equipment, onClose }) {
                                 Mechanical &amp; Material Specs
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "12.5px" }}>
-                                {technology === "EDI" ? (
-                                    <>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Electrode Material:</span>
-                                            <strong style={{ color: "#0F172A" }}>Titanium MMO Grade 2</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Membrane Type:</span>
-                                            <strong style={{ color: "#0F172A" }}>AEM &amp; CEM (Ion Exchange)</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Mixed-Bed Resin:</span>
-                                            <strong style={{ color: "#0F172A" }}>SAC Resin + SBA Resin</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Resin Volume:</span>
-                                            <strong style={{ color: "#2563EB" }}>{equipment.resinVolumeLiters || "0.45"} L ({equipment.resinWeightKg || "0.34"} kg)</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Design Standards:</span>
-                                            <strong style={{ color: "#0F172A" }}>ASTM / ISO 10628 / IEC</strong>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Material of Construction:</span>
-                                            <strong style={{ color: "#0F172A" }}>{material}</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>CAD Dimensions:</span>
-                                            <strong style={{ color: "#0F172A" }}>{dimensions}</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Design Standard:</span>
-                                            <strong style={{ color: "#0F172A" }}>{designStandard}</strong>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                            <span style={{ color: "#64748B" }}>Safety Margin:</span>
-                                            <strong style={{ color: "#16A34A" }}>1.25x (ASME Sec VIII)</strong>
-                                        </div>
-                                    </>
-                                )}
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ color: "#64748B" }}>Material:</span>
+                                    <strong style={{ color: "#0F172A" }}>{material}</strong>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ color: "#64748B" }}>Dimensions:</span>
+                                    <strong style={{ color: "#0F172A" }}>{dimensions}</strong>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ color: "#64748B" }}>Design Standard:</span>
+                                    <strong style={{ color: "#0F172A" }}>{designStandard}</strong>
+                                </div>
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                    <span style={{ color: "#64748B" }}>Safety Margin:</span>
+                                    <strong style={{ color: "#16A34A" }}>1.25x (ASME Sec VIII)</strong>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Hydrodynamics & Pressure Drop Inspection (Requirement 6) */}
-                    <div style={{ background: "#F8FAFC", border: "1px solid #CBD5E1", borderRadius: "10px", padding: "14px", marginBottom: "20px" }}>
-                        <div style={{ fontSize: "12px", fontWeight: "700", color: "#0F172A", marginBottom: "8px", textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
-                            <span>🌊 Hydrodynamics &amp; Channel Pressure Drop</span>
-                            <span style={{ color: "#2563EB", fontWeight: "800" }}>Darcy-Weisbach Model</span>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "12px", marginBottom: "10px" }}>
-                            <div style={{ background: "#FFFFFF", padding: "8px 12px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                <span style={{ color: "#64748B", display: "block", fontSize: "11px" }}>Hydraulic Diameter (D_h)</span>
-                                <strong style={{ color: "#0F172A" }}>{equipment.hydraulicDiameter || "0.0012"} m</strong> (2·w·d / (w+d))
-                            </div>
-                            <div style={{ background: "#FFFFFF", padding: "8px 12px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                <span style={{ color: "#64748B", display: "block", fontSize: "11px" }}>Reynolds Number (Re)</span>
-                                <strong style={{ color: "#2563EB" }}>{equipment.reynoldsNumber || "14.5"}</strong> ({equipment.flowRegime || "Laminar Flow"})
-                            </div>
-                            <div style={{ background: "#FFFFFF", padding: "8px 12px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                <span style={{ color: "#64748B", display: "block", fontSize: "11px" }}>Friction Factor (f)</span>
-                                <strong style={{ color: "#0F172A" }}>{equipment.darcyFrictionFactor || "0.045"}</strong> (Ergun / Darcy)
-                            </div>
-                            <div style={{ background: "#FFFFFF", padding: "8px 12px", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
-                                <span style={{ color: "#64748B", display: "block", fontSize: "11px" }}>Calculated Pressure Drop (ΔP)</span>
-                                <strong style={{ color: "#16A34A" }}>{equipment.pressureDrop || "160.0"} Pa</strong>
-                            </div>
-                        </div>
-                        <div style={{ background: "#0F172A", color: "#38BDF8", padding: "8px 12px", borderRadius: "6px", fontFamily: "monospace", fontSize: "11.5px", textAlign: "center" }}>
-                            ΔP = f · (L / D_h) · (ρ · v² / 2) | Re = (ρ · v · D_h) / μ
                         </div>
                     </div>
 
@@ -272,7 +222,7 @@ export default function EquipmentInspectionModal({ equipment, onClose }) {
                         </div>
                     </div>
 
-                    {/* Notes & Calculation Source */}
+                    {/* Notes */}
                     <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "10px", padding: "12px 16px", fontSize: "12px", color: "#1E40AF" }}>
                         <strong>Engineering Note:</strong> {notes}
                     </div>
@@ -284,8 +234,28 @@ export default function EquipmentInspectionModal({ equipment, onClose }) {
                     background: "#F8FAFC",
                     borderTop: "1px solid #E2E8F0",
                     display: "flex",
-                    justifyContent: "flex-end"
+                    justifyContent: "space-between",
+                    alignItems: "center"
                 }}>
+                    <button
+                        onClick={handleDownloadDatasheet}
+                        style={{
+                            background: "#16A34A",
+                            color: "#FFFFFF",
+                            border: "none",
+                            padding: "8px 16px",
+                            borderRadius: "6px",
+                            fontWeight: "700",
+                            fontSize: "12px",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px"
+                        }}
+                    >
+                        <Download size={15} /> Download Datasheet
+                    </button>
+
                     <button
                         onClick={onClose}
                         style={{

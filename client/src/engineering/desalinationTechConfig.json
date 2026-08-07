@@ -1,0 +1,161 @@
+{
+  "constants": {
+    "faradayConstant": 96485,
+    "molarMassNaCl": 58.44,
+    "waterDensityKgM3": 1000,
+    "dynamicViscosityWaterPaS": 0.001
+  },
+  "technologyEnvelope": {
+    "CDI": {
+      "name": "Capacitive Deionization",
+      "maxDirectFeedTds": 1000,
+      "maxDirectFeedConductivity": 1500,
+      "maxDirectFeedHardness": 200,
+      "source": "Published Literature Review (Porada et al.)",
+      "confidence": "Medium (Literature Correlations)"
+    },
+    "MCDI": {
+      "name": "Membrane Capacitive Deionization",
+      "maxDirectFeedTds": 3000,
+      "maxDirectFeedConductivity": 4500,
+      "maxDirectFeedHardness": 300,
+      "source": "Published Literature Review (Zhao et al.)",
+      "confidence": "Medium (Literature Correlations)"
+    },
+    "FCDI": {
+      "name": "Flow-Electrode Capacitive Deionization",
+      "maxDirectFeedTds": 30000,
+      "maxDirectFeedConductivity": 45000,
+      "maxDirectFeedHardness": 500,
+      "source": "Flow-Electrode Charge Transport Studies (Rommerskirchen et al.)",
+      "confidence": "High (Literature & Pilot Data)"
+    },
+    "EDI": {
+      "name": "Electrodeionization",
+      "maxDirectFeedTds": 30,
+      "maxDirectFeedConductivity": 50,
+      "maxDirectFeedHardness": 0.5,
+      "source": "DuPont EDI-310 Vendor Technical Specification & ASTM Standards",
+      "confidence": "High (Vendor Specification)"
+    }
+  },
+  "technologies": {
+    "CDI": {
+      "name": "Capacitive Deionization",
+      "membrane": "None (Direct Porous Carbon Contact)",
+      "minVoltage": 0.8,
+      "maxVoltage": 1.5,
+      "defaultVoltage": 1.2,
+      "minCurrentDensity": 10.0,
+      "maxCurrentDensity": 150.0,
+      "baseRemoval": 0.80,
+      "maxRemoval": 0.85,
+      "chargeEfficiency": 0.82,
+      "waterRecovery": 90.0,
+      "sacBaseMgG": 15.0,
+      "membraneThicknessMm": 0,
+      "typicalFeedTdsRange": "< 1,000 mg/L",
+      "secLiteratureRangeKwhM3": "0.10 - 0.45",
+      "maxDirectFeedTds": 1000,
+      "maxDirectFeedConductivity": 1500,
+      "maxDirectFeedHardness": 200,
+      "advantages": [
+        "Low electrical energy consumption for low-salinity feed",
+        "Low initial capital expenditure without ion-exchange membranes",
+        "Simple cell construction and straightforward operational control"
+      ],
+      "limitations": [
+        "Subject to co-ion expulsion loss, reducing charge efficiency (~82%)",
+        "Lower water recovery (~90%) compared to membrane-enhanced systems",
+        "Unsuitable for high feed salinity (> 1,000 mg/L TDS)"
+      ]
+    },
+    "MCDI": {
+      "name": "Membrane Capacitive Deionization",
+      "membrane": "AEM (Anion) & CEM (Cation) Ion-Exchange Membranes",
+      "minVoltage": 1.0,
+      "maxVoltage": 1.6,
+      "defaultVoltage": 1.4,
+      "minCurrentDensity": 20.0,
+      "maxCurrentDensity": 250.0,
+      "baseRemoval": 0.88,
+      "maxRemoval": 0.94,
+      "chargeEfficiency": 0.92,
+      "waterRecovery": 95.0,
+      "sacBaseMgG": 25.0,
+      "membraneThicknessMm": 0.15,
+      "typicalFeedTdsRange": "500 - 3,000 mg/L",
+      "secLiteratureRangeKwhM3": "0.15 - 0.80",
+      "maxDirectFeedTds": 3000,
+      "maxDirectFeedConductivity": 4500,
+      "maxDirectFeedHardness": 300,
+      "advantages": [
+        "Ion-exchange membranes block co-ion expulsion, boosting charge efficiency (~92%)",
+        "Higher salt removal rate (up to 94%) and higher water recovery (~95%)",
+        "Faster desorption flush with reversed polarity operation"
+      ],
+      "limitations": [
+        "Higher capital cost due to ion-exchange membrane sheets",
+        "Potential risk of organic or scaling membrane fouling under hard water"
+      ]
+    },
+    "FCDI": {
+      "name": "Flow-Electrode Capacitive Deionization",
+      "membrane": "AEM & CEM + Carbon Slurry Flow Channels",
+      "minVoltage": 1.2,
+      "maxVoltage": 2.0,
+      "defaultVoltage": 1.8,
+      "minCurrentDensity": 30.0,
+      "maxCurrentDensity": 350.0,
+      "baseRemoval": 0.90,
+      "maxRemoval": 0.95,
+      "chargeEfficiency": 0.90,
+      "waterRecovery": 95.0,
+      "sacBaseMgG": 35.0,
+      "membraneThicknessMm": 0.18,
+      "typicalFeedTdsRange": "3,000 - 30,000 mg/L",
+      "secLiteratureRangeKwhM3": "0.35 - 1.50",
+      "maxDirectFeedTds": 30000,
+      "maxDirectFeedConductivity": 45000,
+      "maxDirectFeedHardness": 500,
+      "advantages": [
+        "Continuous desalination operation without batch adsorption/desorption pause cycles",
+        "High salt sorption capacity via continuously circulating carbon slurry electrodes",
+        "Capable of treating high-salinity feed water (> 3,000 to 30,000 mg/L TDS)"
+      ],
+      "limitations": [
+        "Complex slurry circulation loops, hose pumps, and regeneration infrastructure",
+        "Higher parasitic pumping energy for viscous slurry flow"
+      ]
+    },
+    "EDI": {
+      "name": "Electrodeionization",
+      "membrane": "Mixed-Bed Ion Exchange Resin + AEM / CEM",
+      "minVoltage": 5.0,
+      "maxVoltage": 50.0,
+      "defaultVoltage": 15.0,
+      "minCurrentDensity": 50.0,
+      "maxCurrentDensity": 500.0,
+      "baseRemoval": 0.99,
+      "maxRemoval": 0.999,
+      "chargeEfficiency": 0.98,
+      "waterRecovery": 98.0,
+      "sacBaseMgG": 50.0,
+      "membraneThicknessMm": 0.20,
+      "typicalFeedTdsRange": "< 30 mg/L (RO Permeate Polishing)",
+      "secLiteratureRangeKwhM3": "0.20 - 0.80",
+      "maxDirectFeedTds": 30,
+      "maxDirectFeedConductivity": 50,
+      "maxDirectFeedHardness": 0.5,
+      "advantages": [
+        "Produces ultra-pure water (< 0.1 to 1 ppm TDS / up to 18.2 MΩ·cm)",
+        "Continuous electrochemical resin auto-regeneration via water splitting (H+ / OH-)",
+        "No hazardous chemical regeneration (acid/caustic) required"
+      ],
+      "limitations": [
+        "Requires low TDS feed (< 30 mg/L TDS / RO permeate) & hardness <= 0.5 ppm as CaCO3",
+        "Direct raw feed operation is not feasible without upstream feed conditioning"
+      ]
+    }
+  }
+}

@@ -1,245 +1,225 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
-import CalculationTraceabilityModal from "./engineering/CalculationTraceabilityModal";
-import { Calculator, Info } from "lucide-react";
 
-export default function KPIDashboard() {
-    const { designResult, feedWater, optimizationInputs } = useApp();
-    const [selectedTraceParam, setSelectedTraceParam] = useState(null);
+export default function KPIDashboard({ onSelectKpi }) {
+    const { designResult } = useApp();
+    const [selectedKpi, setSelectedKpi] = useState(null);
 
-    const format = (value, digits = 2) => {
-        if (value === undefined || value === null || isNaN(value)) {
-            return "N/A";
-        }
-        return Number(value).toFixed(digits);
-    };
-
-    if (!designResult || !designResult.kpi || designResult.kpi.outletTDS == null) {
-        return (
-            <div className="panel">
-                <h3 className="panel-title">Key Performance Indicators</h3>
-                <p style={{ color: "#6B7280", fontSize: "14px", margin: "10px 0 0 0" }}>Generate a design to calculate KPIs.</p>
-            </div>
-        );
+    if (!designResult || !designResult.engineering) {
+        return null;
     }
 
-    const processOverall = designResult?.process?.overall || {};
-    const engineering = designResult?.engineering || {};
-    const kpi = designResult?.kpi || {};
+    const engineering = designResult.engineering;
+    const feedWater = designResult.input?.feedWater || {};
 
-    const outletTDS = format(processOverall?.outletTDS ?? kpi?.outletTDS);
-    const removalEff = format(processOverall?.removalEfficiency ?? kpi?.removalEfficiency);
-    const power = format(processOverall?.totalPower ?? engineering?.power ?? kpi?.power);
-    const sec = format(processOverall?.sec ?? kpi?.SEC, 4);
-    const flowVel = format(engineering?.flowVelocity ?? kpi?.flowVelocity, 3);
-    const pressDrop = format(engineering?.pressureDrop ?? kpi?.pressureDrop, 1);
-    const activeTech = processOverall?.recommendedProcess || processOverall?.technology || engineering?.technology || "CDI";
+    const format = (val, digits = 2) => {
+        if (val === undefined || val === null || isNaN(val)) return "-";
+        return Number(val).toFixed(digits);
+    };
 
-    const openTrace = (paramKey) => {
-        let traceConfig = {
-            title: "Outlet TDS",
-            symbol: "C_out",
-            value: outletTDS,
-            unit: "ppm",
-            equation: "C_out = C_in * (1 - η_removal / 100)",
-            description: "Final desalinated product water total dissolved solids concentration.",
-            inputs: [
-                { name: "Inlet Feed TDS", symbol: "C_in", value: `${feedWater.tds || 500}`, unit: "ppm" },
-                { name: "Salt Removal Efficiency", symbol: "η_removal", value: `${removalEff}`, unit: "%" }
+    const outletTDS = format(engineering.outletTDS, 1);
+    const removalEff = format(engineering.removalEfficiency, 2);
+    const sec = format(engineering.sec, 4);
+    const power = format(engineering.power, 1);
+    const recovery = format(engineering.waterRecovery || engineering.recovery || 95.0, 1);
+    const pressureDrop = format(engineering.pressureDrop, 0);
+
+    const kpis = [
+        {
+            key: "outletTDS",
+            label: "Outlet TDS",
+            value: `${outletTDS} ppm`,
+            color: "#2563EB",
+            equation: "C_out = C_feed × (1 - η_rem / 100)",
+            variablesList: [
+                { name: "C_feed (Feed TDS)", val: `${feedWater.tds || 500} ppm` },
+                { name: "η_rem (Removal Efficiency)", val: `${removalEff} %` }
             ],
-            steps: [
-                `Extract feed water salinity C_in = ${feedWater.tds || 500} ppm.`,
-                `Apply electrosorption & ion-exchange kinetic model: η_removal = ${removalEff}%.`,
-                `Compute product concentration C_out = ${feedWater.tds || 500} * (1 - ${removalEff}/100) = ${outletTDS} ppm.`
+            resultVal: `${outletTDS} ppm`,
+            notes: "Single-stage MCDI electro-adsorption mass balance calculation based on Faradaic charge transfer."
+        },
+        {
+            key: "removal",
+            label: "Removal",
+            value: `${removalEff} %`,
+            color: "#16A34A",
+            equation: "η_rem = ((C_feed - C_out) / C_feed) × 100%",
+            variablesList: [
+                { name: "C_feed (Feed TDS)", val: `${feedWater.tds || 500} ppm` },
+                { name: "C_out (Outlet TDS)", val: `${outletTDS} ppm` }
             ],
-            sourceModule: "performanceCalculator.js & engineeringEquationEngine.js"
-        };
-
-        if (paramKey === "power") {
-            traceConfig = {
-                title: "Power Consumption & Pump Derivation",
-                symbol: "P_total",
-                value: power,
-                unit: "W",
-                equation: "P_total = P_dc + P_pump = (V_cell * I_cell) + (Q * ΔP / η_pump)",
-                description: "Total electrical power drawn by stack rectifiers and hydraulic booster pump.",
-                inputs: [
-                    { name: "Stack Terminal Voltage", symbol: "V_cell", value: `${optimizationInputs.voltage || 1.2}`, unit: "V" },
-                    { name: "Faraday Operating Current", symbol: "I_cell", value: `${engineering.current || optimizationInputs.current || 15.0}`, unit: "A" },
-                    { name: "Hydraulic Pump Motor Rating", symbol: "P_motor", value: `${engineering.pumpPowerKw || 0.40}`, unit: "kW" }
-                ],
-                steps: [
-                    `Compute Faraday stack DC power: P_dc = ${optimizationInputs.voltage || 1.2} V * ${engineering.current || 15.0} A = ${(Number(optimizationInputs.voltage || 1.2) * Number(engineering.current || 15.0)).toFixed(2)} W.`,
-                    `Compute hydraulic fluid power: P_hyd = Q * ΔP = ${((feedWater.flowRate || 10) / 60000).toFixed(5)} m³/s * ${pressDrop} Pa = ${(engineering.hydraulicPowerWatts || 0.10).toFixed(2)} W.`,
-                    `Compute pump shaft & motor power: P_motor = P_hyd / (η_pump * η_motor) = ${(engineering.motorPowerKw || 0.40)} kW.`,
-                    `Sum total system power requirement P_total = ${power} W.`
-                ],
-                sourceModule: "stackDesigner.js & engineeringEquationEngine.js"
-            };
-        } else if (paramKey === "sec") {
-            traceConfig = {
-                title: "Specific Energy Consumption",
-                symbol: "SEC",
-                value: sec,
-                unit: "kWh/m³",
-                equation: "SEC = (P_total / 1000) / Q_product_m3h",
-                description: "Electrical energy required per cubic meter of desalinated product water produced.",
-                inputs: [
-                    { name: "Total Power Draw", symbol: "P_total", value: `${power}`, unit: "W" },
-                    { name: "Product Flow Rate", symbol: "Q_product", value: `${feedWater.flowRate || 10}`, unit: "L/min" }
-                ],
-                steps: [
-                    `Convert flow rate Q = ${(feedWater.flowRate || 10)} L/min to m³/h (Q_m3h = ${((feedWater.flowRate || 10) * 0.06).toFixed(2)} m³/h).`,
-                    `Calculate specific energy index SEC = (${power} / 1000) / ${((feedWater.flowRate || 10) * 0.06).toFixed(2)} = ${sec} kWh/m³.`
-                ],
-                sourceModule: "performanceCalculator.js & economicsEngine.js"
-            };
-        } else if (paramKey === "removal") {
-            traceConfig = {
-                title: "Removal Efficiency",
-                symbol: "η_removal",
-                value: `${removalEff}`,
-                unit: "%",
-                equation: "η = ((C_in - C_out) / C_in) * 100%",
-                description: "Percentage of total dissolved ions removed from the feed water stream.",
-                inputs: [
-                    { name: "Inlet TDS", symbol: "C_in", value: `${feedWater.tds || 500}`, unit: "ppm" },
-                    { name: "Outlet TDS", symbol: "C_out", value: `${outletTDS}`, unit: "ppm" }
-                ],
-                steps: [
-                    `Compute ion mass delta: C_in - C_out = ${(feedWater.tds || 500) - parseFloat(outletTDS)} ppm.`,
-                    `Normalize over feed concentration: η = (${(feedWater.tds || 500) - parseFloat(outletTDS)} / ${feedWater.tds || 500}) * 100% = ${removalEff}%.`
-                ],
-                sourceModule: "performanceCalculator.js"
-            };
-        } else if (paramKey === "velocity") {
-            traceConfig = {
-                title: "Flow Velocity",
-                symbol: "v_flow",
-                value: flowVel,
-                unit: "m/s",
-                equation: "v = Q / (N_channels * A_channel)",
-                description: "Average linear water flow velocity inside cell spacer channels.",
-                inputs: [
-                    { name: "Volumetric Flow Rate", symbol: "Q", value: `${feedWater.flowRate || 10}`, unit: "L/min" },
-                    { name: "Number of Cell Channels", symbol: "N_channels", value: `${optimizationInputs.cellPairs || 36}`, unit: "channels" }
-                ],
-                steps: [
-                    `Compute cross-sectional channel flow area A_channel.`,
-                    `Divide flow rate by total flow area to get linear channel velocity v = ${flowVel} m/s.`
-                ],
-                sourceModule: "componentSizing.js & layoutGenerator.js"
-            };
-        } else if (paramKey === "pressure") {
-            traceConfig = {
-                title: "Hydraulic Pressure Drop (Darcy-Weisbach & Ergun)",
-                symbol: "ΔP",
-                value: pressDrop,
-                unit: "Pa",
-                equation: "ΔP = f * (L / D_h) * (ρ * v^2 / 2)",
-                description: "Frictional pressure head loss across packed spacer mesh.",
-                inputs: [
-                    { name: "Flow Velocity", symbol: "v", value: `${flowVel}`, unit: "m/s" },
-                    { name: "Hydraulic Diameter", symbol: "D_h", value: `${engineering.hydraulicDiameter || 0.0012}`, unit: "m" },
-                    { name: "Reynolds Number", symbol: "Re", value: `${engineering.reynoldsNumber || 14.5}`, unit: "dimensionless" },
-                    { name: "Ergun Friction Factor", symbol: "f", value: `${engineering.darcyFrictionFactor || 0.045}`, unit: "dimensionless" }
-                ],
-                steps: [
-                    `Evaluate Hydraulic Diameter: D_h = 2 * (w * d) / (w + d) = ${engineering.hydraulicDiameter || 0.0012} m.`,
-                    `Compute Reynolds Number: Re = (ρ * v * D_h) / μ = ${engineering.reynoldsNumber || 14.5} (${engineering.flowRegime || "Laminar"}).`,
-                    `Evaluate Ergun Friction Factor: f = 150/Re + 1.75 = ${engineering.darcyFrictionFactor || 0.045}.`,
-                    `Calculate Darcy-Weisbach head loss: ΔP = f * (L/D_h) * (ρ v^2 / 2) = ${pressDrop} Pa.`
-                ],
-                sourceModule: "engineeringEquationEngine.js & hydrodynamicEngine.js"
-            };
+            resultVal: `${removalEff} %`,
+            notes: "Fraction of dissolved ionic species removed across the capacitive electrode stack matrix."
+        },
+        {
+            key: "recovery",
+            label: "Recovery",
+            value: `${recovery} %`,
+            color: "#16A34A",
+            equation: "R = (Q_product / Q_feed) × 100%",
+            variablesList: [
+                { name: "Q_product (Product Flow Rate)", val: `${(feedWater.flowRate * (recovery / 100)).toFixed(1)} L/min` },
+                { name: "Q_feed (Feed Flow Rate)", val: `${feedWater.flowRate || 10} L/min` }
+            ],
+            resultVal: `${recovery} %`,
+            notes: "Percentage of feed water converted into purified product water."
+        },
+        {
+            key: "sec",
+            label: "SEC",
+            value: `${sec} kWh/m³`,
+            color: "#D97706",
+            equation: "SEC = (V_stack × I) / (Q_product × 60)  [kWh/m³]",
+            variablesList: [
+                { name: "V_cell (Cell Pair Voltage)", val: `${engineering.voltageCell || engineering.voltage || 1.2} V` },
+                { name: "V_stack (N_cells × V_cell)", val: `${(engineering.voltageStack || (engineering.cellPairs * (engineering.voltageCell || 1.2))).toFixed(1)} V` },
+                { name: "I (Operating Current)", val: `${engineering.current || 5.0} A` },
+                { name: "Q_product", val: `${(feedWater.flowRate * (recovery / 100)).toFixed(1)} L/min` }
+            ],
+            resultVal: `${sec} kWh/m³`,
+            notes: "Specific energy consumption per unit volume of purified product water."
+        },
+        {
+            key: "power",
+            label: "Power",
+            value: `${power} W`,
+            color: "#0284C7",
+            equation: "P = V_stack × I = (N_cells × V_cell) × I  [W]",
+            variablesList: [
+                { name: "V_cell (Cell Pair Voltage)", val: `${engineering.voltageCell || engineering.voltage || 1.2} V` },
+                { name: "N_cells (Cell Pairs)", val: `${engineering.cellPairs || 36}` },
+                { name: "V_stack (Total Stack Voltage)", val: `${(engineering.voltageStack || (engineering.cellPairs * (engineering.voltageCell || 1.2))).toFixed(1)} V` },
+                { name: "I (Operating Current)", val: `${engineering.current || 5.0} A` }
+            ],
+            resultVal: `${power} W`,
+            notes: "Total real-time DC electrical power dissipated across reactor stack electrodes (P = V_stack × I)."
+        },
+        {
+            key: "pressureDrop",
+            label: "Pressure Drop",
+            value: `${pressureDrop} Pa`,
+            color: "#0F172A",
+            equation: "ΔP = f × (L / D_h) × (ρ × v² / 2)  [Pa]",
+            variablesList: [
+                { name: "f (Friction Factor)", val: "0.045" },
+                { name: "L (Channel Length)", val: "0.15 m" },
+                { name: "v (Flow Velocity)", val: `${(engineering.flowVelocity || 0.035).toFixed(3)} m/s` }
+            ],
+            resultVal: `${pressureDrop} Pa`,
+            notes: "Darcy-Weisbach pressure drop formulation through net-type spacer channel matrix."
         }
+    ];
 
-        setSelectedTraceParam(traceConfig);
+    const handleClick = (kpi) => {
+        if (onSelectKpi) {
+            onSelectKpi(kpi.key);
+        } else {
+            setSelectedKpi(kpi);
+        }
     };
 
     return (
-        <div className="panel">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <h3 className="panel-title" style={{ margin: 0, fontSize: "16px", fontWeight: "600", color: "#1F2937" }}>Key Performance Indicators</h3>
-                <span style={{ fontSize: "12px", background: "#DCFCE7", color: "#166534", padding: "4px 10px", borderRadius: "12px", fontWeight: "600" }}>● {activeTech} System</span>
+        <div className="panel kpi-panel" style={{
+            background: "#FFFFFF",
+            border: "1px solid #E2E8F0",
+            borderRadius: "6px",
+            padding: "8px 10px",
+            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.02)"
+        }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "8px" }}>
+                {kpis.map((kpi, idx) => (
+                    <div
+                        key={idx}
+                        onClick={() => handleClick(kpi)}
+                        style={{
+                            background: "#F8FAFC",
+                            border: "1px solid #E2E8F0",
+                            borderRadius: "4px",
+                            padding: "8px 10px",
+                            cursor: "pointer",
+                            transition: "border-color 0.15s ease",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "center"
+                        }}
+                    >
+                        <div style={{ fontSize: "11.5px", color: "#64748B", fontWeight: "600" }}>{kpi.label}</div>
+                        <div style={{ fontSize: "15px", fontWeight: "700", color: kpi.color, marginTop: "2px" }}>{kpi.value}</div>
+                    </div>
+                ))}
             </div>
 
-            <div className="kpi-grid-container" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
-                {/* Card 1: Outlet TDS & Product Water Quality */}
-                <div className="kpi-card" onClick={() => openTrace("tds")} style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px", cursor: "pointer", position: "relative" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontSize: "12px", color: "#6B7280", fontWeight: "500" }}>Outlet TDS / Quality</div>
-                        <Calculator size={14} color="#3B82F6" />
-                    </div>
-                    <div style={{ fontSize: "18px", fontWeight: "700", color: "#1F2937", marginTop: "4px" }}>
-                        {outletTDS} <span style={{ fontSize: "12px", fontWeight: "500", color: "#6B7280" }}>ppm</span>
-                        {activeTech.includes("EDI") && (
-                            <span style={{ fontSize: "11.5px", fontWeight: "600", color: "#2563EB", display: "block", marginTop: "2px" }}>
-                                {Number(outletTDS) <= 0.03 
-                                    ? "(18.2 MΩ·cm Ultrapure)" 
-                                    : `(${ (Number(outletTDS) / 0.65).toFixed(1) } µS/cm, ${ (0.65 / Math.max(0.001, Number(outletTDS))).toFixed(3) } MΩ·cm)`}
-                            </span>
-                        )}
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#16A34A", marginTop: "4px", fontWeight: "600" }}>↓ {removalEff}% Removal (Inspect Formula)</div>
-                </div>
+            {/* Governing Equation Slide Drawer / Modal */}
+            {selectedKpi && (
+                <div style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "rgba(15, 23, 42, 0.5)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 9999
+                }}>
+                    <div style={{
+                        background: "#FFFFFF",
+                        borderRadius: "8px",
+                        border: "1px solid #CBD5E1",
+                        width: "100%",
+                        maxWidth: "460px",
+                        padding: "16px",
+                        boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.2)"
+                    }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", borderBottom: "1px solid #E2E8F0", paddingBottom: "8px" }}>
+                            <h4 style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#0F172A" }}>
+                                {selectedKpi.label} Governing Equation
+                            </h4>
+                            <button
+                                onClick={() => setSelectedKpi(null)}
+                                style={{ background: "none", border: "none", fontSize: "16px", fontWeight: "700", color: "#64748B", cursor: "pointer" }}
+                            >
+                                ✕
+                            </button>
+                        </div>
 
-                {/* Card 2: Power Consumption */}
-                <div className="kpi-card" onClick={() => openTrace("power")} style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px", cursor: "pointer" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontSize: "12px", color: "#6B7280", fontWeight: "500" }}>Power Consumption</div>
-                        <Calculator size={14} color="#3B82F6" />
-                    </div>
-                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1F2937", marginTop: "4px" }}>{power} <span style={{ fontSize: "12px", fontWeight: "500", color: "#6B7280" }}>W</span></div>
-                    <div style={{ fontSize: "11px", color: "#2563EB", marginTop: "4px" }}>P = V × I + P_pump (Inspect Formula)</div>
-                </div>
+                        {/* Equation Box */}
+                        <div style={{ background: "#0F172A", color: "#38BDF8", padding: "10px 14px", borderRadius: "6px", fontFamily: "monospace", fontSize: "13px", fontWeight: "700", marginBottom: "12px", textAlign: "center" }}>
+                            {selectedKpi.equation}
+                        </div>
 
-                {/* Card 3: Specific Energy */}
-                <div className="kpi-card" onClick={() => openTrace("sec")} style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px", cursor: "pointer" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontSize: "12px", color: "#6B7280", fontWeight: "500" }}>Specific Energy</div>
-                        <Calculator size={14} color="#3B82F6" />
-                    </div>
-                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1F2937", marginTop: "4px" }}>{sec} <span style={{ fontSize: "12px", fontWeight: "500", color: "#6B7280" }}>kWh/m³</span></div>
-                    <div style={{ fontSize: "11px", color: "#2563EB", marginTop: "4px" }}>SEC Index (Inspect Formula)</div>
-                </div>
+                        {/* Variables List */}
+                        <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "6px", padding: "10px", marginBottom: "12px" }}>
+                            <div style={{ fontSize: "11.5px", fontWeight: "700", color: "#64748B", marginBottom: "6px" }}>Variables</div>
+                            {selectedKpi.variablesList.map((v, i) => (
+                                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "3px 0" }}>
+                                    <span style={{ color: "#475569" }}>{v.name}</span>
+                                    <span style={{ fontWeight: "700", color: "#0F172A" }}>{v.val}</span>
+                                </div>
+                            ))}
+                        </div>
 
-                {/* Card 4: Removal Efficiency */}
-                <div className="kpi-card" onClick={() => openTrace("removal")} style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px", cursor: "pointer" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontSize: "12px", color: "#6B7280", fontWeight: "500" }}>Removal Efficiency</div>
-                        <Calculator size={14} color="#3B82F6" />
-                    </div>
-                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1F2937", marginTop: "4px" }}>{removalEff}%</div>
-                    <div style={{ fontSize: "11px", color: "#16A34A", marginTop: "4px" }}>((Cin-Cout)/Cin)×100 (Inspect)</div>
-                </div>
+                        {/* Calculated Result */}
+                        <div style={{ background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: "6px", padding: "8px 12px", marginBottom: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontSize: "12px", fontWeight: "600", color: "#166534" }}>Calculated Result</span>
+                            <span style={{ fontSize: "14px", fontWeight: "800", color: "#166534" }}>{selectedKpi.resultVal}</span>
+                        </div>
 
-                {/* Card 5: Flow Velocity */}
-                <div className="kpi-card" onClick={() => openTrace("velocity")} style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px", cursor: "pointer" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontSize: "12px", color: "#6B7280", fontWeight: "500" }}>Flow Velocity</div>
-                        <Calculator size={14} color="#3B82F6" />
-                    </div>
-                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1F2937", marginTop: "4px" }}>{flowVel} <span style={{ fontSize: "12px", fontWeight: "500", color: "#6B7280" }}>m/s</span></div>
-                    <div style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>v = Q / A (Inspect Formula)</div>
-                </div>
+                        {/* Engineering Notes */}
+                        <div style={{ fontSize: "11.5px", color: "#64748B", lineHeight: "1.4", marginBottom: "14px" }}>
+                            <strong>Engineering Note:</strong> {selectedKpi.notes}
+                        </div>
 
-                {/* Card 6: Pressure Drop */}
-                <div className="kpi-card" onClick={() => openTrace("pressure")} style={{ background: "#FFFFFF", border: "1px solid #D9E2EC", borderRadius: "8px", padding: "12px", cursor: "pointer" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontSize: "12px", color: "#6B7280", fontWeight: "500" }}>Pressure Drop</div>
-                        <Calculator size={14} color="#3B82F6" />
+                        <button
+                            onClick={() => setSelectedKpi(null)}
+                            style={{ width: "100%", padding: "7px", background: "#2563EB", color: "#FFFFFF", border: "none", borderRadius: "4px", fontWeight: "700", fontSize: "12px", cursor: "pointer" }}
+                        >
+                            Close Inspector
+                        </button>
                     </div>
-                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#1F2937", marginTop: "4px" }}>{pressDrop} <span style={{ fontSize: "12px", fontWeight: "500", color: "#6B7280" }}>Pa</span></div>
-                    <div style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>Darcy-Weisbach Re (Inspect)</div>
                 </div>
-            </div>
-
-            {/* Formula & Calculation Traceability Modal */}
-            <CalculationTraceabilityModal
-                paramData={selectedTraceParam}
-                onClose={() => setSelectedTraceParam(null)}
-            />
+            )}
         </div>
     );
 }

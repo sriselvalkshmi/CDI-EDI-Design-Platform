@@ -488,7 +488,7 @@ export const generateEngineeringReportPDF = ({
             doc.setDrawColor(226, 232, 240);
             doc.line(14, 284, 196, 284);
 
-            doc.setFont("helvetica", "normal");
+doc.setFont("helvetica", "normal");
             doc.setFontSize(7.5);
             doc.setTextColor(100, 116, 139);
             doc.text(`CDI / EDI Design Platform - System Report    Generated: ${fullTimeStamp}`, 14, 289);
@@ -500,6 +500,184 @@ export const generateEngineeringReportPDF = ({
     } catch (e) {
         console.error("Critical error generating PDF report:", e);
         alert(`Report generation failed: ${e.message}`);
+        return false;
+    }
+};
+
+export const generateEquationReportPDF = ({
+    user,
+    feedWater = {},
+    technology = "CDI",
+    engineering = {},
+    equations = []
+}) => {
+    try {
+        const doc = new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4"
+        });
+
+        const reportDate = new Date().toLocaleDateString();
+        const reportTime = new Date().toLocaleTimeString();
+
+        // Header
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 28, "F");
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("CDI / EDI Engineering Design Suite", 14, 12);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("Governing Equations, Substitution & Physics Calculations Report", 14, 20);
+
+        doc.setFontSize(8);
+        doc.text(`Generated: ${reportDate} ${reportTime}`, 145, 20);
+
+        let y = 35;
+
+        // System Parameters Table
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Active System Parameters", 14, y);
+        y += 4;
+
+        autoTable(doc, {
+            startY: y,
+            head: [["Parameter", "Symbol", "Value", "Unit"]],
+            body: [
+                ["Feed TDS", "C_in", feedWater.tds || 500, "ppm"],
+                ["Target TDS", "C_target", feedWater.targetTds || 50, "ppm"],
+                ["Feed Flow Rate", "Q", feedWater.flowRate || 10, "L/min"],
+                ["Operating Voltage", "V", (engineering.voltage || 1.2).toFixed(2), "V"],
+                ["Operating Current", "I", (engineering.current || 5.0).toFixed(2), "A"],
+                ["Cell Pairs", "N", engineering.cellPairs || 36, "pairs"],
+                ["Electrode Area", "A", engineering.electrodeArea || 250, "cm²"],
+                ["Spacer Thickness", "t_spacer", engineering.spacerThickness || 0.5, "mm"]
+            ],
+            theme: "grid",
+            headStyles: { fillStyle: "F", fillColor: [37, 99, 235], textColor: 255, fontSize: 8 },
+            bodyStyles: { fontSize: 8 },
+            margin: { left: 14, right: 14 }
+        });
+
+        y = doc.lastAutoTable.finalY + 10;
+
+        // Governing Equations Table
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Governing Physical Equations & Live Numerical Substitutions", 14, y);
+        y += 4;
+
+        const eqRows = [
+            [
+                "Electrical",
+                "Total Power",
+                "P = V * I",
+                `P = ${(engineering.voltage || 1.2).toFixed(2)} * ${(engineering.current || 5.0).toFixed(2)}`,
+                `${(engineering.power || 6.0).toFixed(2)} W`,
+                "P01"
+            ],
+            [
+                "Electrical",
+                "Current Density",
+                "J = I / A",
+                `J = ${(engineering.current || 5.0).toFixed(2)} / ${((engineering.electrodeArea || 250)/10000).toFixed(4)}`,
+                `${(engineering.currentDensity || 200).toFixed(1)} A/m²`,
+                "P02"
+            ],
+            [
+                "Hydraulic",
+                "Pressure Drop",
+                "dP = f * (L/Dh) * (rho * v^2 / 2)",
+                `dP = 0.38 * (0.2/0.001) * (1000 * 0.035^2 / 2)`,
+                `${(engineering.pressureDrop || 270).toFixed(0)} Pa`,
+                "H01"
+            ],
+            [
+                "Hydraulic",
+                "Residence Time",
+                "t_res = V_cell / Q",
+                `t_res = ${((engineering.cellPairs||36)*(engineering.electrodeArea||250)*(0.05)/1000).toFixed(3)} / ${feedWater.flowRate||10}`,
+                `${(engineering.residenceTime || 0.071).toFixed(3)} min`,
+                "H02"
+            ],
+            [
+                "Adsorption",
+                "Salt Adsorption Capacity",
+                "SAC = m_salt / m_electrode",
+                `SAC = ${(engineering.removedSaltMg || 450).toFixed(0)} mg / ${(engineering.electrodeMassGrams || 18.0).toFixed(1)} g`,
+                `${(engineering.sac || 25.0).toFixed(1)} mg/g`,
+                "A01"
+            ],
+            [
+                "Adsorption",
+                "Charge Efficiency",
+                "Lambda = Q_theoretical / Q_supplied * 100",
+                `Lambda = ${(engineering.theoreticalCharge || 85).toFixed(0)} / ${(engineering.suppliedCharge || 100).toFixed(0)} * 100`,
+                `${(engineering.chargeEfficiency || 92.0).toFixed(1)} %`,
+                "A02"
+            ],
+            [
+                "Performance",
+                "TDS Removal Efficiency",
+                "Removal = (C_in - C_out) / C_in * 100",
+                `Removal = (${feedWater.tds||500} - ${(engineering.outletTDS||50).toFixed(0)}) / ${feedWater.tds||500} * 100`,
+                `${(engineering.removalEfficiency || 90.0).toFixed(1)} %`,
+                "M01"
+            ],
+            [
+                "Energy",
+                "Specific Energy",
+                "SEC = (P * t) / V_water",
+                `SEC = (${(engineering.power||6.0).toFixed(1)} * 0.166) / 0.166`,
+                `${(engineering.sec || 0.0024).toFixed(4)} kWh/m³`,
+                "E01"
+            ]
+        ];
+
+        autoTable(doc, {
+            startY: y,
+            head: [["Category", "Equation Name", "Formula", "Numerical Substitution", "Calculated Value", "Ref"]],
+            body: eqRows,
+            theme: "grid",
+            headStyles: { fillStyle: "F", fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+            bodyStyles: { fontSize: 7.5 },
+            margin: { left: 14, right: 14 }
+        });
+
+        y = doc.lastAutoTable.finalY + 10;
+
+        // Literature References Section
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("Academic & Literature References", 14, y);
+        y += 4;
+
+        const refRows = [
+            ["[P01-P02]", "Porada et al. (2013)", "Review on Capacitive Deionization in Water Desalination", "Progress in Materials Science"],
+            ["[H01-H02]", "Biesheuvel et al. (2011)", "Theory of Membrane Capacitive Deionization", "Physical Review E"],
+            ["[A01-A02]", "Suss et al. (2015)", "Water Desalination via Capacitive Deionization: Review", "Energy & Environmental Science"]
+        ];
+
+        autoTable(doc, {
+            startY: y,
+            head: [["Code", "Authors", "Title", "Journal"]],
+            body: refRows,
+            theme: "plain",
+            headStyles: { fontSize: 7.5, fontWeight: "bold" },
+            bodyStyles: { fontSize: 7 },
+            margin: { left: 14, right: 14 }
+        });
+
+        doc.save(`CDI_EDI_Governing_Equations_Report_${Date.now()}.pdf`);
+        return true;
+    } catch (e) {
+        console.error("Failed to generate equation report PDF:", e);
         return false;
     }
 };

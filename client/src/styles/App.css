@@ -6,11 +6,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg-main: #F7F9FC;
+  --bg-main: #F4F6F9;
   --bg-panel: #FFFFFF;
   --bg-subtle: #FFFFFF;
-  --border-color: #D9E2EC;
-  --border-divider: #E5E7EB;
+  --border-color: #CBD5E1;
+  --border-divider: #E2E8F0;
   
   --primary: #2563EB;
   --primary-hover: #1D4ED8;
@@ -19,9 +19,9 @@
   --warning: #F59E0B;
   --danger: #DC2626;
   
-  --text-main: #1F2937;
-  --text-header: #111827;
-  --text-muted: #6B7280;
+  --text-main: #1E293B;
+  --text-header: #0F172A;
+  --text-muted: #64748B;
   
   --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-hover: 0 4px 6px rgba(0, 0, 0, 0.06);
@@ -30,7 +30,6 @@
   --radius-md: 8px;
   --radius-lg: 10px;
 }
-
 
 * {
   box-sizing: border-box;
@@ -41,9 +40,8 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
-  overflow: hidden !important;
   font-family: 'Inter', 'Segoe UI', 'Roboto', 'Arial', sans-serif;
   background-color: var(--bg-main);
   color: var(--text-main);
@@ -56,275 +54,82 @@ button, input, select, table {
 }
 
 /* --------------------------------------------------------------------------
-   DESKTOP WORKSTATION FIXED LAYOUT (1920x1080)
+   DESKTOP WORKSTATION FLEX/GRID LAYOUT (TIGHTENED RESPONSIVE SPACING)
    -------------------------------------------------------------------------- */
 
 .dashboard-app-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   width: 100vw;
-  overflow: hidden;
   background-color: var(--bg-main);
 }
 
 .dashboard-body {
   display: grid;
-  grid-template-columns: 340px 1fr;
-  height: calc(100vh - 60px);
+  grid-template-columns: 300px 1fr;
   width: 100vw;
-  overflow: hidden;
+  padding: 12px;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .main-workspace-container {
-  height: calc(100vh - 60px);
-  overflow-y: auto;
-  padding: 18px;
-  background-color: var(--bg-main);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: transparent;
 }
 
 .grid-workspace-layout {
   display: grid;
-  grid-template-columns: 1.7fr 1.3fr;
-  grid-template-rows: 340px 360px 1fr;
-  gap: 18px;
-  max-width: 1800px;
-  margin: 0 auto;
+  grid-template-columns: 1.65fr 1.35fr;
+  gap: 12px;
+  width: 100%;
 }
 
-/* KPI GRID AND CARD STYLES */
-.kpi-grid-container {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 12px;
-    margin-bottom: 16px;
-}
-
-.kpi-card {
-    background: var(--bg-subtle);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    padding: 12px;
-    height: 90px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.kpi-card-title {
-    font-size: 12px;
-    color: var(--text-muted);
-    font-weight: 500;
-    margin-bottom: 4px;
-}
-
-.kpi-card-value {
-    font-size: 20px;
-    font-weight: 700;
-    line-height: 1.2;
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-}
-
-.kpi-card-subtitle {
-    font-size: 11px;
-    font-weight: 600;
-    margin-top: 4px;
-}
-
-
-/* --------------------------------------------------------------------------
-   SIDEBAR (320px)
-   -------------------------------------------------------------------------- */
-
-.sidebar {
-  width: 340px;
-  height: calc(100vh - 56px);
-  background-color: var(--bg-panel);
-  border-right: 1px solid var(--border-color);
-  padding: 18px 16px;
+.left-column {
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  gap: 12px;
+  min-width: 0;
 }
 
-.sidebar-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-header);
-  margin-bottom: 12px;
-  letter-spacing: -0.2px;
-}
-
-.sidebar-divider {
-  border: 0;
-  border-top: 1px solid var(--border-divider);
-  margin: 16px 0;
-}
-
-.form-group {
-  margin-bottom: 12px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 8px 10px;
-  font-size: 14px;
-  font-family: 'Inter', sans-serif;
-  color: var(--text-main);
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  outline: none;
-  transition: all 0.2s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  border-color: var(--primary);
-  background-color: #FFFFFF;
-  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.1);
-}
-
-/* --------------------------------------------------------------------------
-   BUTTONS
-   -------------------------------------------------------------------------- */
-
-.btn-generate-design {
-  width: 100%;
-  padding: 12px;
-  background-color: var(--primary);
-  color: #FFFFFF;
-  font-family: 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  margin-top: 12px;
-  transition: all 0.2s ease-in-out;
-  box-shadow: 0 4px 12px rgba(21, 101, 192, 0.2);
+.right-column {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
 
-.btn-generate-design:hover:not(:disabled) {
-  background-color: var(--primary-hover);
-  transform: translateY(-1px);
-}
-
-.btn-generate-design:disabled {
-  background-color: #90A4AE;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.btn-optimize-design {
-  width: 100%;
-  padding: 10px;
-  background-color: #ECEFF1;
-  color: var(--text-main);
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  margin-top: 8px;
-  transition: all 0.2s ease;
-}
-
-.btn-optimize-design:hover:not(:disabled) {
-  background-color: #CFD8DC;
-}
-
-/* --------------------------------------------------------------------------
-   SIEMENS / ASPEN STYLE PANELS
-   -------------------------------------------------------------------------- */
-
+/* PANELS */
 .panel {
   background: var(--bg-panel);
-  border-radius: var(--radius-lg);
-  padding: 18px;
+  border-radius: var(--radius-md);
+  padding: 14px;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-panel);
-  margin-bottom: 18px;
-  transition: box-shadow 0.2s ease;
-}
-
-.panel:hover {
-  box-shadow: var(--shadow-hover);
 }
 
 .panel-title {
-  font-size: 16px;
+  font-size: 14.5px;
   font-weight: 700;
   color: var(--text-header);
   border-bottom: 1px solid var(--border-divider);
-  padding-bottom: 8px;
-  margin-bottom: 14px;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
 }
 
-/* --------------------------------------------------------------------------
-   STARTUP PLACEHOLDER
-   -------------------------------------------------------------------------- */
+/* RESPONSIVE MEDIA QUERIES FOR SCREEN SIZES */
+@media (max-width: 1280px) {
+  .dashboard-body {
+    grid-template-columns: 280px 1fr;
+    padding: 8px;
+    gap: 8px;
+  }
 
-.placeholder-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: calc(100vh - 120px);
-  padding: 20px;
-}
-
-.placeholder-card {
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 48px 36px;
-  max-width: 520px;
-  box-shadow: var(--shadow-panel);
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.placeholder-icon-badge {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background-color: #E3F2FD;
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  border: 1px solid #BBDEFB;
-}
-
-.placeholder-card h2 {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-header);
-  margin-bottom: 8px;
-}
-
-.placeholder-card p {
-  font-size: 14px;
-  color: var(--text-muted);
+  .grid-workspace-layout {
+    grid-template-columns: 1fr;
+  }
 }
