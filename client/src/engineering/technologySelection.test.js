@@ -169,6 +169,23 @@ describe("Automated Technology Selection & Engineering Regression Test Suite", (
         expect(rec.screening.MCDI.targetAchievable).toBe(true);
     });
 
+    it("Permanent Regression Test: selects MCDI for 100 mg/L feed -> 5 mg/L target and verifies downstream consistency", () => {
+        const feedInput = { tds: 100, targetTds: 5, hardness: 150, flowRate: 10 };
+        const rec = aiRecommendation(feedInput);
+
+        expect(rec.selectedTechnology).toBe("MCDI");
+        expect(rec.screening.CDI.targetAchievable).toBe(false);
+        expect(rec.screening.CDI.predictedOutletTDS).toBe(15.0);
+        expect(rec.screening.MCDI.feasible).toBe(true);
+        expect(rec.screening.MCDI.targetAchievable).toBe(true);
+        expect(rec.screening.MCDI.predictedOutletTDS).toBe(5.0);
+
+        const eng = calculateEngineering({ technology: rec.selectedTechnology, feedWater: feedInput });
+        expect(eng.technology).toBe("MCDI");
+        expect(eng.outletTDS).toBe(5.0);
+        expect(eng.isTargetAchieved).toBe(true);
+    });
+
     // Hard Feasibility Rule Verification Tests (Step 6)
     it("selection must equal highest scoring feasible technology", () => {
         const rec = aiRecommendation(rawFeedWater);

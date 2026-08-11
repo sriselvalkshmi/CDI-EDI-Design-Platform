@@ -27,7 +27,7 @@ export const MCDI_ENVELOPE = {
     membraneThicknessMm: 0.15, // mm per AEM/CEM sheet
     membranePermselectivity: 0.98, // AEM/CEM selectivity factor
     sacNominal: 25.0, // mg salt / g carbon (membrane-assisted capacity)
-    calibrationStatus: "Validated against peer-reviewed literature (Zhao et al., 2012)"
+    calibrationStatus: "MCDI Model Operating Envelope: 100–3,000 mg/L TDS. Supported by literature and project calibration; applicability depends on specified operating conditions."
 };
 
 /**
