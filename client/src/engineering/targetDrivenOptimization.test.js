@@ -1,5 +1,4 @@
-"use strict";
-
+import { describe, it, expect } from "vitest";
 import calculateEngineering from "./engineeringEquationEngine.js";
 import optimize from "./designOptimizer.js";
 
@@ -10,55 +9,30 @@ import optimize from "./designOptimizer.js";
  * 2. Target = 50 ppm -> Outlet TDS ≈ 50.0 ppm
  * 3. Target = 5 ppm -> Target Not Achievable for MCDI single-stage
  */
-function runTargetDrivenOptimizationTests() {
-    console.log("=========================================================");
-    console.log("RUNNING TARGET-DRIVEN PHYSICS SIZING TEST SUITE");
-    console.log("=========================================================\n");
-
-    let passedCount = 0;
-    let totalCount = 0;
-
-    function assert(condition, message) {
-        totalCount++;
-        if (condition) {
-            console.log(`✅ PASS: ${message}`);
-            passedCount++;
-        } else {
-            console.error(`❌ FAIL: ${message}`);
-        }
-    }
-
+describe("Target-Driven Physics Sizing & Energy Optimization Test Suite", () => {
     const feed500 = { tds: 500, conductivity: 300, hardness: 150, ph: 7.2, flowRate: 10 };
 
-    // TEST 1: Target = 100 ppm
-    console.log("--- TEST 1: MCDI Target = 100 ppm Setpoint ---");
-    const mcdi100 = calculateEngineering({ technology: "MCDI", feedWater: { ...feed500, targetTds: 100 } });
-    assert(mcdi100.outletTDS <= 100.5 && mcdi100.outletTDS >= 95.0, `MCDI Outlet TDS (${mcdi100.outletTDS} ppm) matches ~100 ppm target setpoint`);
-    assert(mcdi100.isTargetAchieved === true, `MCDI Target Achieved is TRUE for 100 ppm target`);
+    it("TEST 1: MCDI Target = 100 ppm Setpoint", () => {
+        const mcdi100 = calculateEngineering({ technology: "MCDI", feedWater: { ...feed500, targetTds: 100 } });
+        expect(mcdi100.outletTDS).toBeLessThanOrEqual(100.5);
+        expect(mcdi100.outletTDS).toBeGreaterThanOrEqual(95.0);
+        expect(mcdi100.isTargetAchieved).toBe(true);
+    });
 
-    // TEST 2: Target = 50 ppm
-    console.log("\n--- TEST 2: MCDI Target = 50 ppm Setpoint ---");
-    const mcdi50 = calculateEngineering({ technology: "MCDI", feedWater: { ...feed500, targetTds: 50 } });
-    assert(mcdi50.outletTDS <= 50.5 && mcdi50.outletTDS >= 45.0, `MCDI Outlet TDS (${mcdi50.outletTDS} ppm) matches ~50 ppm target setpoint`);
-    assert(mcdi50.isTargetAchieved === true, `MCDI Target Achieved is TRUE for 50 ppm target`);
+    it("TEST 2: MCDI Target = 50 ppm Setpoint", () => {
+        const mcdi50 = calculateEngineering({ technology: "MCDI", feedWater: { ...feed500, targetTds: 50 } });
+        expect(mcdi50.outletTDS).toBeLessThanOrEqual(50.5);
+        expect(mcdi50.outletTDS).toBeGreaterThanOrEqual(45.0);
+        expect(mcdi50.isTargetAchieved).toBe(true);
+    });
 
-    // TEST 3: Target = 5 ppm (Unachievable for MCDI single-stage)
-    console.log("\n--- TEST 3: MCDI Target = 5 ppm Unachievable Boundary ---");
-    const mcdi5 = calculateEngineering({ technology: "MCDI", feedWater: { ...feed500, targetTds: 5 } });
-    assert(mcdi5.isTargetAchieved === false, `MCDI Target Achieved is FALSE for 5 ppm target (Calculated Outlet: ${mcdi5.outletTDS} ppm > 5.0 ppm)`);
+    it("TEST 3: MCDI Target = 5 ppm Unachievable Boundary", () => {
+        const mcdi5 = calculateEngineering({ technology: "MCDI", feedWater: { ...feed500, targetTds: 5 } });
+        expect(mcdi5.isTargetAchieved).toBe(false);
+    });
 
-    // TEST 4: Design Optimizer Target Setpoint Match
-    console.log("\n--- TEST 4: Design Optimizer Setpoint Minimization ---");
-    const optRes = optimize({ ...feed500, targetTds: 50 }, {}, { technology: "MCDI" });
-    assert(optRes.outletTDS <= 50.5, `Optimized Outlet TDS (${optRes.outletTDS} ppm) achieves <= 50.5 ppm target setpoint`);
-
-    console.log("\n=========================================================");
-    console.log(`TARGET-DRIVEN OPTIMIZATION SUMMARY: ${passedCount} / ${totalCount} PASSED`);
-    console.log("=========================================================\n");
-
-    if (passedCount !== totalCount) {
-        process.exit(1);
-    }
-}
-
-runTargetDrivenOptimizationTests();
+    it("TEST 4: Design Optimizer Setpoint Minimization", () => {
+        const optRes = optimize({ ...feed500, targetTds: 50 }, {}, { technology: "MCDI" });
+        expect(optRes.outletTDS).toBeLessThanOrEqual(50.5);
+    });
+});

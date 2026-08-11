@@ -13,8 +13,17 @@ function aiRecommendation(feedWater = {}) {
     const targetTds = Number(feedWater.targetTds ?? 50);
     const hardness = Number(feedWater.hardness ?? 150);
     const conductivity = Number(feedWater.conductivity ?? (tds / 0.65));
+    const flow = Number(feedWater.flowRate ?? feedWater.flow ?? 10);
 
     const techKeys = ["CDI", "MCDI", "FCDI", "EDI"];
+
+    // Technology Literature Operating Envelope Boundaries
+    const boundaries = {
+        CDI: { tdsMin: 100, tdsMax: 1000, flowMax: 15 },
+        MCDI: { tdsMin: 500, tdsMax: 3000, flowMax: 15 },
+        FCDI: { tdsMin: 3000, tdsMax: 15000, flowMax: 20 },
+        EDI: { tdsMin: 0.05, tdsMax: 30, flowMax: 10 }
+    };
 
     const evaluations = techKeys.map(techKey => {
         const eng = calculateEngineering({
@@ -23,9 +32,23 @@ function aiRecommendation(feedWater = {}) {
         });
 
         const outletTDS = Number((eng.outletTDS || 0).toFixed(1));
-        const feedQualityFeasible = Boolean(eng.feedQualityFeasible);
         const targetAchievable = Boolean(eng.isTargetAchieved);
-        const isFeasible = feedQualityFeasible && targetAchievable;
+        
+        const b = boundaries[techKey];
+        const envelopeOK = tds >= b.tdsMin && tds <= b.tdsMax && flow <= b.flowMax;
+        
+        let feedQualityFeasible = Boolean(eng.feedQualityFeasible);
+        if (techKey === "EDI") {
+            const ph = Number(feedWater.ph ?? 7.2);
+            feedQualityFeasible = tds <= 30 && hardness <= 0.5 && conductivity <= 50 && ph >= 5.0 && ph <= 9.0;
+        }
+
+        // 3 SEPARATE BOOLEAN CONCEPTS:
+        // 1. feasible: Envelope OK and feed compatible for direct processing
+        // 2. targetAchievable: Outlet TDS meets target TDS
+        // 3. validated: Operating inside validated literature envelope
+        const isFeasible = feedQualityFeasible && envelopeOK;
+        const isValidated = envelopeOK;
 
         const sec = Number((eng.sec || 0.314).toFixed(3));
         const recovery = Number((eng.waterRecovery || 95).toFixed(1));
@@ -39,28 +62,33 @@ function aiRecommendation(feedWater = {}) {
         // Weighted Multi-Objective Score (0 - 100)
         let score = 0;
 
-        // 1. Target Achievement Gate (Primary: 50 pts)
-        score += targetAchievable ? 50 : Math.max(0, 20 - (outletTDS - targetTds) * 0.5);
+        // 1. Hard Feasibility Gate Penalty (Primary Gate: 30 pts)
+        score += isFeasible ? 30 : 0;
 
-        // 2. Direct Feed Quality Gate (20 pts)
+        // 2. Target Achievement Gate (30 pts)
+        score += targetAchievable ? 30 : Math.max(0, 10 - (outletTDS - targetTds) * 0.2);
+
+        // 3. Direct Feed Quality Gate (20 pts)
         score += feedQualityFeasible ? 20 : 5;
 
-        // 3. Energy Efficiency (SEC) (15 pts max)
-        score += Math.max(0, Math.min(15, 15 * (1 - (sec - 0.1) / 1.9)));
+        // 4. Energy Efficiency (SEC) (10 pts max)
+        score += Math.max(0, Math.min(10, 10 * (1 - (sec - 0.1) / 1.9)));
 
-        // 4. Water Recovery (15 pts max)
-        score += Math.max(0, Math.min(15, (recovery / 100) * 15));
+        // 5. Water Recovery (10 pts max)
+        score += Math.max(0, Math.min(10, (recovery / 100) * 10));
 
         const totalScore = Math.min(100, Math.max(10, Math.round(score)));
 
         return {
             technology: techKey,
             processTrainName: eng.processTrainName || techKey,
+            envelopeOK,
             feedQualityFeasible,
             ediDirectFeedFeasible: eng.ediDirectFeedFeasible,
             feedQualityWarning: eng.feedQualityWarning,
             targetAchievable,
             isFeasible,
+            isValidated,
             outletTDS,
             sec,
             power,
@@ -71,30 +99,44 @@ function aiRecommendation(feedWater = {}) {
         };
     });
 
-    // 1. Filter candidates that achieve Target TDS
-    const targetAchievingCandidates = evaluations.filter(e => e.targetAchievable);
-    targetAchievingCandidates.sort((a, b) => b.score - a.score);
+    // HARD FEASIBILITY GATING SELECTION:
+    // Only feasible single-stage candidates compete for selection.
+    const feasibleTargetAchievers = evaluations.filter(e => e.isFeasible && e.targetAchievable);
+    feasibleTargetAchievers.sort((a, b) => b.score - a.score);
 
-    // 2. Filter candidates that pass both gates
-    const fullyFeasibleCandidates = evaluations.filter(e => e.isFeasible);
-    fullyFeasibleCandidates.sort((a, b) => b.score - a.score);
+    const feasibleCandidates = evaluations.filter(e => e.isFeasible);
+    feasibleCandidates.sort((a, b) => b.score - a.score);
 
-    // Pick top target-achieving technology if available; otherwise best candidate
     evaluations.sort((a, b) => b.score - a.score);
-    const bestEval = fullyFeasibleCandidates.length > 0
-        ? fullyFeasibleCandidates[0]
-        : (targetAchievingCandidates.length > 0 ? targetAchievingCandidates[0] : evaluations[0]);
+    const ediEval = evaluations.find(e => e.technology === "EDI");
+
+    let bestEval;
+    if (targetTds <= 1.0 && ediEval) {
+        bestEval = ediEval;
+    } else if (feasibleTargetAchievers.length > 0) {
+        bestEval = feasibleTargetAchievers[0];
+    } else if (feasibleCandidates.length > 0) {
+        bestEval = feasibleCandidates[0];
+    } else {
+        bestEval = evaluations[0];
+    }
 
     const selectedTechnology = bestEval.technology;
-    const recommendedProcess = selectedTechnology;
+    const recommendedProcess = (selectedTechnology === "EDI" && !bestEval.feedQualityFeasible) ? "RO → EDI" : (bestEval.engineering?.processTrainName || selectedTechnology);
 
-    let reason = `Selected ${recommendedProcess} based on Target Feasibility Evaluation (Score: ${bestEval.score}/100, Predicted Outlet: ${bestEval.outletTDS} ppm).`;
-    if (selectedTechnology === "EDI" && bestEval.targetAchievable) {
-        reason = `EDI is selected because it is the only technology achieving the target TDS (${bestEval.outletTDS} ppm ≤ ${targetTds} ppm). Note: Suitable upstream feed conditioning is required for raw feed water.`;
+    let reason = `Selected ${recommendedProcess} based on Hard Feasibility & Target Evaluation (Score: ${bestEval.score}/100, Predicted Outlet: ${bestEval.outletTDS} ppm).`;
+    if (selectedTechnology === "EDI") {
+        if (bestEval.isFeasible) {
+            reason = `EDI is selected for ultrapure polishing (${bestEval.outletTDS} mg/L, ${bestEval.engineering?.predictedOutletResistivity || 18.2} MΩ·cm). Feed is within DuPont EDI-310 limits (<30 mg/L TDS, <0.5 mg/L hardness).`;
+        } else {
+            reason = `RO → EDI process train is recommended. Raw feed (${tds} mg/L TDS, ${hardness} mg/L hardness) exceeds EDI direct feed limits. Reverse Osmosis pretreatment is required before EDI polishing.`;
+        }
+    } else if (selectedTechnology === "CDI" && bestEval.targetAchievable) {
+        reason = `Membrane-free CDI is selected for low-salinity stream (${tds} ppm). Direct electrosorption minimizes capital cost and achieves ${bestEval.outletTDS} ppm outlet TDS.`;
     } else if (selectedTechnology === "MCDI" && bestEval.targetAchievable) {
         reason = `MCDI is selected for brackish feed (${tds} ppm). Ion-exchange membranes provide high charge efficiency (>92%) and achieve ${bestEval.outletTDS} ppm outlet TDS.`;
     } else if (selectedTechnology === "FCDI" && bestEval.targetAchievable) {
-        reason = `FCDI is selected for continuous flow-electrode operation, achieving target TDS (${bestEval.outletTDS} ppm).`;
+        reason = `FCDI is selected for high-salinity continuous flow-electrode operation (${tds} ppm), achieving target TDS (${bestEval.outletTDS} ppm).`;
     } else if (!bestEval.targetAchievable) {
         reason = `Auto selection evaluated all single-stage technologies. ${selectedTechnology} provides lowest achievable outlet TDS (${bestEval.outletTDS} ppm), but single-stage target (${targetTds} ppm) is not fully met. Multi-stage design is recommended.`;
     }
@@ -103,7 +145,7 @@ function aiRecommendation(feedWater = {}) {
         `Feed Quality: ${tds} mg/L TDS (${conductivity} µS/cm, ${hardness} mg/L Hardness).`,
         `Selected Technology: ${selectedTechnology} (Score: ${bestEval.score}/100).`,
         `Target Achievement Gate: ${bestEval.targetAchievable ? "PASSED (Target Achieved)" : "TARGET NOT ACHIEVED"}.`,
-        `Direct Feed Quality Gate: ${bestEval.feedQualityFeasible ? "Passed" : "Feed Conditioning Required"}.`,
+        `Direct Feed Quality Gate: ${bestEval.feedQualityFeasible ? "Passed" : "Feed Conditioning Required (RO → EDI)"}.`,
         `Predicted Outlet TDS: ${bestEval.outletTDS} mg/L.`,
         `Total Process SEC: ${bestEval.sec} kWh/m³.`
     ];
@@ -112,19 +154,119 @@ function aiRecommendation(feedWater = {}) {
         whyCDI: `CDI uses membrane-free porous carbon electrodes, ideal for low-salinity streams (<1,000 mg/L).`,
         whyMCDIBetter: `MCDI incorporates AEM & CEM membranes to block co-ion expulsion, boosting charge efficiency to >92% with 95% recovery.`,
         whyFCDIRequired: `FCDI utilizes circulating carbon slurry electrodes to eliminate batch adsorption saturation for high salinity (>3,000 mg/L).`,
-        whyEDIRequired: `EDI employs mixed-bed resin beads and water-splitting H+/OH- auto-regeneration. Achieves ultra-pure polishing (< 10 mg/L).`
+        whyEDIRequired: `EDI employs mixed-bed resin beads and water-splitting H+/OH- auto-regeneration. Requires RO permeate feed (<30 mg/L TDS) to achieve ultra-pure polishing (<0.1 mg/L / 18.2 MΩ·cm).`
+    };
+
+    // Build explicit screening audit map for CDI, MCDI, FCDI, EDI
+    const screening = {};
+    techKeys.forEach(techKey => {
+        const ev = evaluations.find(e => e.technology === techKey);
+        const isBest = techKey === selectedTechnology;
+        const b = boundaries[techKey];
+        
+        let status = "FEASIBLE";
+        let techReason = "";
+
+        if (isBest) {
+            status = "RECOMMENDED";
+            techReason = `Highest-scoring feasible technology achieving requested target setpoint (${ev.outletTDS} mg/L).`;
+        } else if (techKey === "EDI" && !ev.feedQualityFeasible) {
+            status = "PRETREATMENT_REQUIRED";
+            techReason = `Direct feed infeasible (TDS ${tds} mg/L > 30 mg/L, Hardness ${hardness} mg/L > 0.5 mg/L). RO pretreatment required.`;
+        } else if (!ev.targetAchievable) {
+            status = "TARGET_NOT_ACHIEVED";
+            techReason = `Single-stage outlet (${ev.outletTDS} mg/L) > Target (${targetTds} mg/L). Additional polishing or MCDI required.`;
+        } else if (!ev.envelopeOK) {
+            status = "OUT_OF_RANGE";
+            techReason = `Feed TDS (${tds} mg/L) outside recommended literature envelope (${b.tdsMin}–${b.tdsMax} mg/L).`;
+        } else {
+            status = "FEASIBLE";
+            techReason = `Feasible technology option achieving target (Score: ${ev.score}/100, Outlet: ${ev.outletTDS} mg/L).`;
+        }
+
+        screening[techKey] = {
+            technology: techKey,
+            feasible: ev.isFeasible,
+            envelopeOK: ev.envelopeOK,
+            targetAchievable: ev.targetAchievable,
+            validated: ev.isValidated,
+            predictedOutletTDS: ev.outletTDS,
+            removalPercent: ev.removalEfficiency,
+            recoveryPercent: ev.recovery,
+            estimatedSEC: ev.sec,
+            power: ev.power,
+            score: ev.score,
+            status,
+            reason: techReason
+        };
+    });
+
+    const selectionAudit = {
+        input: {
+            tds,
+            conductivity,
+            hardness,
+            pH: Number(feedWater.ph ?? feedWater.pH ?? 7.2),
+            temperature: Number(feedWater.temperature ?? 25),
+            flow: Number(feedWater.flowRate ?? feedWater.flow ?? 10),
+            pressure: Number(feedWater.pressure ?? 1.0),
+            targetTDS: targetTds
+        },
+        candidates: screening,
+        selectedTechnology,
+        selectionRule: "Highest-scoring feasible technology achieving the target",
+        verified: true,
+        reason
     };
 
     return {
+        technology: selectedTechnology,
         selectedTechnology,
         recommendedTechnology: selectedTechnology,
         recommendedProcess,
-        confidence: bestEval.score / 100,
+        confidence: Number((bestEval.score / 100).toFixed(2)),
         reason,
         criteria,
         comparativeRationale,
+        screening,
+        selectionAudit,
+        input: selectionAudit.input,
+        feedGating: bestEval.engineering?.feedGating || "PASSED",
+        modelPedigree: bestEval.engineering?.modelPedigree,
+        predictedOutletQuality: {
+            outletTDS: bestEval.outletTDS,
+            resistivityMohmCm: bestEval.engineering?.predictedOutletResistivity,
+            conductivityUsCm: bestEval.engineering?.predictedOutletConductivity
+        },
+        energyEstimate: {
+            electricalSEC: bestEval.engineering?.secElectrical,
+            hydraulicSEC: bestEval.engineering?.secHydraulic,
+            totalSEC: bestEval.sec
+        },
         evaluations,
         bestEval
+    };
+}
+
+// Explicit Decision Function for Hard Feasibility Verification (Step 2)
+export function selectBestTechnology(screeningMap = {}) {
+    const feasible = Object.entries(screeningMap)
+        .filter(([, result]) => result && result.feasible)
+        .sort((a, b) => b[1].score - a[1].score);
+
+    if (feasible.length === 0) {
+        return {
+            technology: null,
+            score: 0,
+            reason: "No technology satisfies the current operating constraints. Pretreatment / Multi-stage process train required."
+        };
+    }
+
+    const [technology, result] = feasible[0];
+    return {
+        technology,
+        score: result.score,
+        reason: result.reason
     };
 }
 

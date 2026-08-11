@@ -72,29 +72,52 @@ export default function SimulationGraphs() {
     }));
 
     return (
-        <div className="panel simulation-panel" style={{
+        <div className="panel simulation-panel simulation-section" style={{
             background: "#FFFFFF",
             border: "1px solid #E2E8F0",
             borderRadius: "8px",
             padding: "12px",
-            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)",
+            position: "relative",
+            clear: "both",
+            marginTop: "12px",
+            width: "100%",
+            boxSizing: "border-box"
         }}>
+            <style>{`
+                .simulation-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 10px;
+                    margin-bottom: 10px;
+                    width: 100%;
+                }
+                @media (max-width: 900px) {
+                    .simulation-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            `}</style>
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                 <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0F172A" }}>
-                    Dynamic Process Simulation ({engineering.technology || "CDI"})
+                    Dynamic Process Simulation ({engineering.processTrainName || engineering.technology || technology || "CDI"})
                 </h3>
 
                 {/* Simulation Live Status Badge */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#F0FDF4", border: "1px solid #BBF7D0", padding: "3px 10px", borderRadius: "12px" }}>
-                    <span style={{ height: "8px", width: "8px", borderRadius: "50%", background: "#16A34A", display: "inline-block" }}></span>
-                    <span style={{ fontSize: "11.5px", fontWeight: "700", color: "#15803D" }}>
-                        Physics Kinetic Simulation
-                    </span>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#F0FDF4", border: "1px solid #BBF7D0", padding: "3px 10px", borderRadius: "12px" }}>
+                        <span style={{ height: "8px", width: "8px", borderRadius: "50%", background: "#16A34A", display: "inline-block" }}></span>
+                        <span style={{ fontSize: "11.5px", fontWeight: "700", color: "#15803D" }}>
+                            Dynamic Model Simulation
+                        </span>
+                    </div>
+                    <div style={{ fontSize: "10px", color: "#64748B" }}>Computational model — not experimental validation</div>
                 </div>
             </div>
 
             {/* 2-Column Grid with 4 main charts */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px", marginBottom: "10px" }}>
+            <div className="simulation-grid">
                 <ChartCard
                     title="Outlet TDS vs Time (Transient -> Steady State)"
                     data={fullData}

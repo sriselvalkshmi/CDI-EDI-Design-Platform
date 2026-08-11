@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import StructureRenderer from "./engineering/StructureRenderer";
+import CAD3DStackViewer from "./engineering/CAD3DStackViewer";
 import "../styles/pid.css";
 
 export default function PIDDiagram() {
@@ -11,7 +12,7 @@ export default function PIDDiagram() {
         optimizationInputs
     } = useApp();
 
-    const [viewMode, setViewMode] = useState("DYNAMIC_STRUCTURE"); // "DYNAMIC_STRUCTURE" | "PID"
+    const [viewMode, setViewMode] = useState("3D_CAD"); // "3D_CAD" | "DYNAMIC_STRUCTURE" | "PID"
     const [particleOffset, setParticleOffset] = useState(0);
     const [cycleStep, setCycleStep] = useState("ADSORPTION");
 
@@ -52,12 +53,12 @@ export default function PIDDiagram() {
     const currentFlowRate = feedWater.flowRate || overall.flowRate || engineering.flowRate;
 
     return (
-        <div className="panel pid-panel" style={{ background: "#FFFFFF", border: "1px solid #D9DEE7", borderRadius: "8px", padding: "16px", minHeight: "520px" }}>
+        <div className="panel pid-panel cad-section" style={{ background: "#FFFFFF", border: "1px solid #D9DEE7", borderRadius: "8px", padding: "14px", marginBottom: "12px", width: "100%", boxSizing: "border-box" }}>
             {/* Header & Sub-Tabs Switcher */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "10px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0F172A" }}>
-                        Process Flow &amp; P&amp;ID
+                        Process Flow &amp; CAD Visualization
                     </h3>
 
                     {/* Highlighted Tab Buttons */}
@@ -68,6 +69,22 @@ export default function PIDDiagram() {
                         borderRadius: "6px",
                         border: "1px solid #E2E8F0"
                     }}>
+                        <button
+                            onClick={() => setViewMode("3D_CAD")}
+                            style={{
+                                background: viewMode === "3D_CAD" ? "#2563EB" : "transparent",
+                                color: viewMode === "3D_CAD" ? "#FFFFFF" : "#64748B",
+                                border: "none",
+                                padding: "5px 14px",
+                                borderRadius: "4px",
+                                fontSize: "12px",
+                                fontWeight: "700",
+                                cursor: "pointer",
+                                boxShadow: viewMode === "3D_CAD" ? "0 1px 3px rgba(0,0,0,0.15)" : "none"
+                            }}
+                        >
+                            Parametric 3D CAD
+                        </button>
                         <button
                             onClick={() => setViewMode("DYNAMIC_STRUCTURE")}
                             style={{
@@ -124,7 +141,10 @@ export default function PIDDiagram() {
                 )}
             </div>
 
-            {/* TAB 1: DYNAMIC SCHEMATIC */}
+            {/* TAB 1: PARAMETRIC 3D CAD VISUALIZATION */}
+            {viewMode === "3D_CAD" && (
+                <CAD3DStackViewer technology={activeTech} />
+            )}
             {viewMode === "DYNAMIC_STRUCTURE" && (
                 <StructureRenderer
                     technology={activeTech}
@@ -177,7 +197,7 @@ export default function PIDDiagram() {
                         {/* Equipment Blocks */}
                         {equipment && equipment.map((eq) => {
                             if (eq.type === "tank") {
-                                const isProduct = eq.id === "PROD_TANK";
+                                const isProduct = eq.id === "PROD_TANK" || eq.id === "TK102" || eq.id === "TK103";
                                 const isIntermediate = eq.id === "INT_TANK";
                                 const tankTDS = isProduct 
                                     ? (overall.outletTDS || engineering.outletTDS)
@@ -185,7 +205,7 @@ export default function PIDDiagram() {
                                 
                                 return (
                                     <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
-                                        setSelectedEquipment({
+                                        setSelectedEquipment && setSelectedEquipment({
                                             tag: eq.id || "TK-101",
                                             name: eq.name || (isProduct ? "Product Storage Tank" : (isIntermediate ? "Intermediate Storage Tank" : "Feed Storage Tank")),
                                             type: "Process Storage Tank",
@@ -196,7 +216,7 @@ export default function PIDDiagram() {
                                             material: "High-Density Polyethylene (HDPE)",
                                             designStandard: "API 650 / ISO 10628",
                                             operatingPressure: "1.0 bar",
-                                            dimensions: `${eq.width || 100} × ${eq.height || 130} mm`
+                                            dimensions: `${eq.width || 140} × ${eq.height || 130} mm`
                                         });
                                     }}>
                                         <rect
@@ -209,9 +229,9 @@ export default function PIDDiagram() {
                                             strokeWidth="2"
                                             rx="6"
                                         />
-                                        <text x={eq.x + 8} y={eq.y + 24} fontWeight="600" fontSize="11" fill="#1F2937">{eq.name}</text>
-                                        <text x={eq.x + 8} y={eq.y + 44} fontSize="10.5" fill="#6B7280">TDS: {tankTDS} ppm</text>
-                                        <text x={eq.x + 8} y={eq.y + 60} fontSize="10.5" fill="#6B7280">Flow: {currentFlowRate} L/min</text>
+                                        <text x={eq.x + 8} y={eq.y + 24} fontWeight="700" fontSize="11" fill="#1F2937">{eq.name}</text>
+                                        <text x={eq.x + 8} y={eq.y + 46} fontSize="10.5" fill="#4B5563">TDS: {tankTDS} ppm</text>
+                                        <text x={eq.x + 8} y={eq.y + 64} fontSize="10.5" fill="#4B5563">Flow: {currentFlowRate} L/min</text>
                                     </g>
                                 );
                             }
@@ -220,9 +240,9 @@ export default function PIDDiagram() {
                                 const isSlurry = eq.id === "SPUMP";
                                 return (
                                     <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
-                                        setSelectedEquipment({
-                                            tag: isSlurry ? "SP-101" : "P-101",
-                                            name: isSlurry ? "Slurry Circulation Pump" : "Feed Water Pump",
+                                        setSelectedEquipment && setSelectedEquipment({
+                                            tag: isSlurry ? "SP-101" : (eq.id || "P-101"),
+                                            name: isSlurry ? "Slurry Circulation Pump" : (eq.name || "Feed Water Pump"),
                                             type: isSlurry ? "Slurry Hose Peristaltic Pump" : "Centrifugal Feed Pump",
                                             voltage: "230 V (AC)",
                                             current: "1.5 A",
@@ -242,9 +262,48 @@ export default function PIDDiagram() {
                                             stroke={statusBadgeColor}
                                             strokeWidth="2.5"
                                         />
-                                        <text x={eq.x - 14} y={eq.y + 4} fontSize="10" fontWeight="600" fill="#1F2937">
+                                        <text x={eq.x - 14} y={eq.y + 4} fontSize="10" fontWeight="700" fill="#1F2937">
                                             {isSlurry ? "SPUMP" : "PUMP"}
                                         </text>
+                                    </g>
+                                );
+                            }
+
+                            if (eq.type === "filter") {
+                                return (
+                                    <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
+                                        setSelectedEquipment && setSelectedEquipment({
+                                            tag: eq.id || "F-101",
+                                            name: eq.name || "Pre-Filter F-101",
+                                            type: "Multimedia Cartridge Filter",
+                                            material: "Polypropylene Housing / 5µm Cartridge",
+                                            operatingPressure: "0.35 bar",
+                                            dimensions: `${eq.width} × ${eq.height} mm`
+                                        });
+                                    }}>
+                                        <rect x={eq.x} y={eq.y} width={eq.width} height={eq.height} fill="#F8FAFC" stroke="#0284C7" strokeWidth="2" rx="4" />
+                                        <polygon points={`${eq.x + 10},${eq.y + 10} ${eq.x + eq.width - 10},${eq.y + 10} ${eq.x + eq.width / 2},${eq.y + eq.height - 18}`} fill="#E0F2FE" stroke="#0284C7" strokeWidth="1.5" />
+                                        <text x={eq.x + 6} y={eq.y + eq.height - 6} fontSize="10" fontWeight="700" fill="#0369A1">{eq.name || "Pre-Filter"}</text>
+                                    </g>
+                                );
+                            }
+
+                            if (eq.type === "ro_skid") {
+                                return (
+                                    <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
+                                        setSelectedEquipment && setSelectedEquipment({
+                                            tag: eq.id || "RO-101",
+                                            name: eq.name || "RO Pretreatment Skid RO-101",
+                                            type: "Reverse Osmosis Skid Unit",
+                                            material: "Polyamide Thin-Film Composite / FRP Pressure Vessels",
+                                            operatingPressure: "12.5 bar",
+                                            dimensions: `${eq.width} × ${eq.height} mm`
+                                        });
+                                    }}>
+                                        <rect x={eq.x} y={eq.y} width={eq.width} height={eq.height} fill="#F0FDF4" stroke="#16A34A" strokeWidth="2" rx="6" />
+                                        <line x1={eq.x + 8} y1={eq.y + 25} x2={eq.x + eq.width - 8} y2={eq.y + 25} stroke="#16A34A" strokeWidth="3" />
+                                        <line x1={eq.x + 8} y1={eq.y + 45} x2={eq.x + eq.width - 8} y2={eq.y + 45} stroke="#16A34A" strokeWidth="3" />
+                                        <text x={eq.x + 6} y={eq.y + eq.height - 6} fontSize="10" fontWeight="700" fill="#15803D">RO Skid</text>
                                     </g>
                                 );
                             }
@@ -253,18 +312,18 @@ export default function PIDDiagram() {
                                 const s1Eng = stage1Data?.engineering || stage1Data || {};
                                 return (
                                     <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
-                                        setSelectedEquipment({
+                                        setSelectedEquipment && setSelectedEquipment({
                                             tag: "R-101",
                                             name: eq.name || (activeTech + " Desalination Reactor Stack"),
                                             type: activeTech + " Module Stack",
-                                            voltage: (s1Eng.voltage || engineering.voltage) + " V",
-                                            current: (s1Eng.current || engineering.current) + " A",
-                                            currentDensity: (s1Eng.currentDensity || engineering.currentDensity || 150) + " A/m²",
+                                            voltage: (s1Eng.voltage || engineering.voltage || 142.8) + " V",
+                                            current: (s1Eng.current || engineering.current || 1.45) + " A",
+                                            currentDensity: (s1Eng.currentDensity || engineering.currentDensity || 14.5) + " A/m²",
                                             chargeEfficiency: (engineering.chargeEfficiency || 92.0) + "%",
                                             material: "PVDF Housing / Porous Carbon Electrodes",
                                             designStandard: "IEC 61140 / ISO 10628",
                                             operatingPressure: "1.0 bar",
-                                            dimensions: `${eq.width || 180} × ${eq.height || 180} mm`
+                                            dimensions: `${eq.width || 170} × ${eq.height || 130} mm`
                                         });
                                     }}>
                                         <rect
@@ -277,11 +336,11 @@ export default function PIDDiagram() {
                                             strokeWidth="2.5"
                                             rx="6"
                                         />
-                                        <text x={eq.x + 10} y={eq.y + 24} fontWeight="700" fontSize="12" fill="#2563EB">{eq.name || (activeTech + " Reactor")}</text>
-                                        <text x={eq.x + 10} y={eq.y + 46} fontSize="10.5" fill="#1F2937">Voltage: {s1Eng.voltage || engineering.voltage} V</text>
-                                        <text x={eq.x + 10} y={eq.y + 64} fontSize="10.5" fill="#1F2937">Current: {s1Eng.current || engineering.current} A</text>
-                                        <text x={eq.x + 10} y={eq.y + 82} fontSize="10.5" fill="#1F2937">Outlet: {stage1Data?.outletTDS || s1Eng.outletTDS || engineering.outletTDS} ppm</text>
-                                        <text x={eq.x + 10} y={eq.y + 100} fontSize="10.5" fill="#6B7280">Cell Pairs: {s1Eng.cellPairs || engineering.cellPairs}</text>
+                                        <text x={eq.x + 10} y={eq.y + 24} fontWeight="700" fontSize="11.5" fill="#2563EB">{eq.name || (activeTech + " Reactor")}</text>
+                                        <text x={eq.x + 10} y={eq.y + 46} fontSize="10.5" fill="#1F2937">Voltage: {s1Eng.voltage || engineering.voltageStack || engineering.voltage || 142.8} V</text>
+                                        <text x={eq.x + 10} y={eq.y + 64} fontSize="10.5" fill="#1F2937">Current: {s1Eng.current || engineering.current || 1.45} A</text>
+                                        <text x={eq.x + 10} y={eq.y + 82} fontSize="10.5" fill="#1F2937">Outlet: {stage1Data?.outletTDS || s1Eng.outletTDS || engineering.outletTDS || 50} ppm</text>
+                                        <text x={eq.x + 10} y={eq.y + 100} fontSize="10.5" fill="#6B7280">Cell Pairs: {s1Eng.cellPairs || engineering.cellPairs || 102}</text>
                                     </g>
                                 );
                             }

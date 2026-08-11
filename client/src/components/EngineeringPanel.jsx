@@ -10,7 +10,7 @@ export default function EngineeringPanel() {
 
     const engineering = designResult.engineering || {};
     const feedWater = designResult.input?.feedWater || {};
-    const processTrainName = engineering.processTrainName || technology || "MCDI";
+    const processTrainName = engineering.processTrainName || engineering.technology || technology || "MCDI";
     const targetTds = Number(feedWater.targetTds || 50);
 
     const format = (val, decimals = 1) => {

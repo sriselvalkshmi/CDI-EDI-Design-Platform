@@ -37,7 +37,7 @@ export function exportDesignReportToExcel(designResult = {}) {
     const feed = designResult.input?.feedWater || {};
 
     const summaryData = [
-        { Parameter: "Design Technology", Value: eng.technology || "MCDI", Unit: "-" },
+        { Parameter: "Design Technology", Value: eng.technology || "CDI", Unit: "-" },
         { Parameter: "Feed TDS", Value: feed.tds || 500, Unit: "mg/L" },
         { Parameter: "Target TDS", Value: feed.targetTds || 50, Unit: "mg/L" },
         { Parameter: "Product Outlet TDS", Value: Number(eng.outletTDS || 50).toFixed(1), Unit: "mg/L" },

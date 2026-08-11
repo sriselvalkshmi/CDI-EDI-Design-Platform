@@ -222,7 +222,7 @@ export function AppProvider({ children }) {
             const economics = calculateEconomics(eng, activeFeedWater);
 
             // 10. Dynamic Layout Generator (P&ID)
-            const pid = layoutGenerator(eng, eng, activeFeedWater, sim, activeTech);
+            const pid = layoutGenerator({ engineering: eng, input: { feedWater: activeFeedWater } });
 
             // 11. Consolidated Equipment Schedule
             const equipment = [

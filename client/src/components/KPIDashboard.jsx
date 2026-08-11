@@ -19,8 +19,12 @@ export default function KPIDashboard({ onSelectKpi }) {
 
     const outletTDS = format(engineering.outletTDS, 1);
     const removalEff = format(engineering.removalEfficiency, 2);
-    const sec = format(engineering.sec, 4);
-    const power = format(engineering.power, 1);
+    const secElec = Number(engineering.secElectricalAdsorption ?? engineering.secElectrical ?? engineering.electricalSEC ?? 0);
+    const secHyd = Number(engineering.secHydraulic ?? 0);
+    const secTot = Number(engineering.secTotal ?? engineering.overallSEC ?? engineering.sec ?? (secElec + secHyd));
+
+    const sec = format(secTot, 4);
+    const power = format(engineering.powerW || engineering.power || engineering.totalPowerW, 1);
     const recovery = format(engineering.waterRecovery || engineering.recovery || 95.0, 1);
     const pressureDrop = format(engineering.pressureDrop, 0);
 
@@ -36,7 +40,7 @@ export default function KPIDashboard({ onSelectKpi }) {
                 { name: "η_rem (Removal Efficiency)", val: `${removalEff} %` }
             ],
             resultVal: `${outletTDS} ppm`,
-            notes: "Single-stage MCDI electro-adsorption mass balance calculation based on Faradaic charge transfer."
+            notes: "Single-stage electro-adsorption mass balance calculation based on Faradaic charge transfer."
         },
         {
             key: "removal",
@@ -66,18 +70,17 @@ export default function KPIDashboard({ onSelectKpi }) {
         },
         {
             key: "sec",
-            label: "SEC",
+            label: "Net SEC (Model Estimate)",
             value: `${sec} kWh/m³`,
             color: "#D97706",
-            equation: "SEC = (V_stack × I) / (Q_product × 60)  [kWh/m³]",
+            equation: "SEC_total = SEC_electrical + SEC_hydraulic  [kWh/m³]",
             variablesList: [
-                { name: "V_cell (Cell Pair Voltage)", val: `${engineering.voltageCell || engineering.voltage || 1.2} V` },
-                { name: "V_stack (N_cells × V_cell)", val: `${(engineering.voltageStack || (engineering.cellPairs * (engineering.voltageCell || 1.2))).toFixed(1)} V` },
-                { name: "I (Operating Current)", val: `${engineering.current || 5.0} A` },
-                { name: "Q_product", val: `${(feedWater.flowRate * (recovery / 100)).toFixed(1)} L/min` }
+                { name: "SEC_electrical (Electrical SEC)", val: `${secElec.toFixed(4)} kWh/m³` },
+                { name: "SEC_hydraulic (Hydraulic Pumping SEC)", val: `${secHyd.toFixed(4)} kWh/m³` },
+                { name: "SEC_total (Total Net SEC)", val: `${secTot.toFixed(4)} kWh/m³` }
             ],
             resultVal: `${sec} kWh/m³`,
-            notes: "Specific energy consumption per unit volume of purified product water."
+            notes: "Total Net SEC is a model estimate derived from electrical stack power and hydraulic pumping duty."
         },
         {
             key: "power",

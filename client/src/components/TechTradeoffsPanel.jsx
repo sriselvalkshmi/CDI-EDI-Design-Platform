@@ -130,7 +130,7 @@ export default function TechTradeoffsPanel() {
                     <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A", marginBottom: "2px" }}>CDI</div>
                     <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "6px" }}>Membrane-free Carbon Electrodes</div>
                     <div style={{ fontSize: "11px", color: "#334155" }}>Charge Eff: <strong>80 - 82%</strong></div>
-                    <div style={{ fontSize: "11px", color: "#334155" }}>Feed Limits: <strong>&lt; 1,000 ppm</strong></div>
+                    <div style={{ fontSize: "11px", color: "#334155" }}>Recommended Window: <strong>100 – 1,000 mg/L</strong></div>
                     <div style={{ fontSize: "11px", color: "#059669", marginTop: "4px" }}>Advantage: Lowest CAPEX</div>
                     <div style={{ fontSize: "11px", color: "#DC2626" }}>Limitation: Co-ion expulsion penalty</div>
                 </div>
@@ -140,7 +140,7 @@ export default function TechTradeoffsPanel() {
                     <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A", marginBottom: "2px" }}>MCDI</div>
                     <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "6px" }}>AEM &amp; CEM Membrane Block</div>
                     <div style={{ fontSize: "11px", color: "#334155" }}>Charge Eff: <strong>92 - 95%</strong></div>
-                    <div style={{ fontSize: "11px", color: "#334155" }}>Feed Limits: <strong>500 – 3,000 ppm</strong></div>
+                    <div style={{ fontSize: "11px", color: "#334155" }}>Recommended Window: <strong>500 – 3,000 mg/L</strong> (Max Validated: 5,000 mg/L)</div>
                     <div style={{ fontSize: "11px", color: "#059669", marginTop: "4px" }}>Advantage: High energy efficiency</div>
                     <div style={{ fontSize: "11px", color: "#DC2626" }}>Limitation: Membrane capital cost</div>
                 </div>
@@ -150,7 +150,7 @@ export default function TechTradeoffsPanel() {
                     <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A", marginBottom: "2px" }}>FCDI</div>
                     <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "6px" }}>Circulating Carbon Slurry</div>
                     <div style={{ fontSize: "11px", color: "#334155" }}>Operation: <strong>Non-stop Continuous</strong></div>
-                    <div style={{ fontSize: "11px", color: "#334155" }}>Feed Limits: <strong>3,000 – 15,000 ppm</strong></div>
+                    <div style={{ fontSize: "11px", color: "#334155" }}>Recommended Window: <strong>3,000 – 15,000 mg/L</strong> (High Salinity / Brine Concentration Feasible)</div>
                     <div style={{ fontSize: "11px", color: "#059669", marginTop: "4px" }}>Advantage: No batch saturation</div>
                     <div style={{ fontSize: "11px", color: "#DC2626" }}>Limitation: Slurry pump power duty</div>
                 </div>

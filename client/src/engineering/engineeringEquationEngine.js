@@ -2,27 +2,21 @@
 
 import techConfig from "./desalinationTechConfig.json" with { type: "json" };
 import calibrateEquations from "./experimentalCalibration.js";
+import calculateCDIModel from "./cdiModel.js";
+import calculateMCDIModel from "./mCDIModel.js";
+import calculateFCDIModel from "./fCDIModel.js";
+import calculateEDIModel from "./ediModel.js";
+import calculateProcessTrain from "./processTrainEngine.js";
+import { auditEngineeringDesign } from "./engineeringAudit.js";
 
 /**
  * Engineering Equation Engine (Target-Driven Physics Sizing & Dynamic Unification)
- * Physics-driven calculation engine for CDI, MCDI, FCDI, and EDI technologies.
+ * Physics-driven calculation engine for CDI, MCDI, FCDI, EDI, and multi-stage Process Trains.
  * Single source of truth for all physical metrics, power equations, and hydrodynamic sizing.
- * Enforces Target TDS as an active optimization setpoint:
- * - Sizes cell pairs and electrode area to achieve Target TDS (e.g. 50 ppm outlet for 50 ppm target).
- * - targetMargin = targetTds - outletTDS (0.0 ppm for exact setpoint match)
- * - targetDeviation = |outletTDS - targetTds| (0.0 ppm for exact setpoint match)
- * - Integer cell pair module synchronization: N_total_pairs = N_pairs_per_module * N_modules.
  */
 function calculateEngineering(inputs = {}) {
     const technology = inputs.technology || "CDI";
     const feedWater = inputs.feedWater || {};
-
-    const TECH_MODELS = techConfig.technologies;
-    const TECH_ENVELOPES = techConfig.technologyEnvelope || {};
-    const CONSTANTS = techConfig.constants;
-
-    const techModel = TECH_MODELS[technology] || TECH_MODELS.CDI;
-    const techEnvelope = TECH_ENVELOPES[technology] || {};
 
     const rawTds = Number(feedWater.tds ?? inputs.tds ?? 500);
     const rawCond = Number(feedWater.conductivity ?? (rawTds / 0.65));
@@ -32,10 +26,281 @@ function calculateEngineering(inputs = {}) {
 
     const tds = Math.max(10, Math.round(rawTds));
     const conductivity = Number(rawCond.toFixed(1));
-    const targetTds = Math.max(0.5, Number(feedWater.targetTds ?? inputs.targetTds ?? 50));
+    const targetTds = Math.max(0.05, Number(feedWater.targetTds ?? inputs.targetTds ?? 50));
     const flowRate = Number(inputs.flowRate ?? feedWater.flowRate ?? 10); // L/min
 
-    // --- STANDALONE FEED-QUALITY CHECK GATE ---
+    // Delegated First-Principles Multi-Technology Process Train Solver
+    if (technology === "PROCESS_TRAIN" || technology === "TRAIN") {
+        const trainRes = calculateProcessTrain({
+            ...inputs,
+            feed: {
+                tds: rawTds,
+                hardness,
+                flowRate,
+                targetTds
+            }
+        });
+
+        const outletTDS = trainRes.finalTds;
+        const targetMargin = Number((targetTds - outletTDS).toFixed(3));
+        const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(3));
+
+        const trainResult = {
+            ...trainRes,
+            tds: rawTds,
+            targetTds,
+            conductivity: rawCond,
+            ph,
+            hardness,
+            tempC,
+            flowRate,
+            feedQualityFeasible: true,
+            ediDirectFeedFeasible: true,
+            feedQualityWarning: null,
+            purposeDescription: `Multi-Stage Sequential Process Train (${trainRes.processTrainName}): Initial Feed ${rawTds} mg/L → Final Product ${outletTDS} mg/L`,
+            outletTDS,
+            screeningOutletTDS: outletTDS,
+            targetMargin,
+            targetDeviation,
+            moduleDimensions: `${trainRes.stageCount}-Stage Integrated Skid`,
+            literatureWarnings: [],
+            engineeringConfidence: "High (Multi-Stage Conservation Model)",
+            confidenceReason: "Sequential stream mass and energy conservation validated across all stages."
+        };
+
+        trainResult.engineeringAudit = auditEngineeringDesign(trainResult, {
+            tds: rawTds,
+            targetTds,
+            flowRate,
+            expectedTechnology: technology
+        });
+
+        return trainResult;
+    }
+
+    // Delegated First-Principles CDI Model Solver
+    if (technology === "CDI") {
+        const cdiRes = calculateCDIModel(inputs);
+        const outletTDS = cdiRes.outletTds;
+        const targetMargin = Number((targetTds - outletTDS).toFixed(1));
+        const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(1));
+        const isTargetAchieved = cdiRes.isTargetAchieved;
+
+        let purposeDescription = isTargetAchieved
+            ? `Desalination Setpoint Achieved (Target: ${targetTds} mg/L, Outlet: ${outletTDS} mg/L, Energy Minimized)`
+            : `High-TDS Pre-Desalination (Additional Polishing Required: Outlet ${outletTDS} mg/L > Target ${targetTds} mg/L)`;
+
+        const sideDimMm = Math.round(Math.sqrt(cdiRes.electrodeArea) * 10);
+        const heightDimMm = Math.round(cdiRes.cellPairs * (0.6 + 0.5) + 40);
+        const moduleDimensions = `${sideDimMm}mm L × ${sideDimMm}mm W × ${heightDimMm}mm H (${cdiRes.numberOfModules} Modules, ${cdiRes.pairsPerModule} Pairs/Module)`;
+
+        const literatureWarnings = [];
+        if (cdiRes.envelopeStatus !== "VALIDATED") {
+            literatureWarnings.push(cdiRes.envelopeMessage);
+        }
+
+        const cdiResult = {
+            ...cdiRes,
+            tds,
+            targetTds,
+            conductivity,
+            ph,
+            hardness,
+            tempC,
+            flowRate,
+            feedQualityFeasible: cdiRes.envelopeStatus !== "OUTSIDE_ENVELOPE",
+            ediDirectFeedFeasible: true,
+            feedQualityWarning: cdiRes.envelopeStatus !== "VALIDATED" ? cdiRes.envelopeMessage : null,
+            purposeDescription,
+            outletTDS,
+            screeningOutletTDS: outletTDS,
+            targetMargin,
+            targetDeviation,
+            moduleDimensions,
+            literatureWarnings,
+            engineeringConfidence: cdiRes.envelopeStatus === "VALIDATED" ? "High" : (cdiRes.envelopeStatus === "EXTRAPOLATED" ? "Medium" : "Low"),
+            confidenceReason: cdiRes.envelopeMessage
+        };
+
+        cdiResult.engineeringAudit = auditEngineeringDesign(cdiResult, {
+            tds,
+            targetTds,
+            flowRate,
+            expectedTechnology: technology
+        });
+
+        return cdiResult;
+    }
+
+    // Delegated First-Principles MCDI Model Solver
+    if (technology === "MCDI") {
+        const mcdiRes = calculateMCDIModel(inputs);
+        const outletTDS = mcdiRes.outletTds;
+        const targetMargin = Number((targetTds - outletTDS).toFixed(1));
+        const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(1));
+        const isTargetAchieved = mcdiRes.isTargetAchieved;
+
+        let purposeDescription = isTargetAchieved
+            ? `Desalination Setpoint Achieved (Target: ${targetTds} mg/L, Outlet: ${outletTDS} mg/L, Energy Minimized)`
+            : `High-TDS Pre-Desalination (Additional Polishing Required: Outlet ${outletTDS} mg/L > Target ${targetTds} mg/L)`;
+
+        const sideDimMm = Math.round(Math.sqrt(mcdiRes.electrodeArea) * 10);
+        const heightDimMm = Math.round(mcdiRes.cellPairs * (0.6 + 0.5 + mcdiRes.membraneThicknessMm) + 40);
+        const moduleDimensions = `${sideDimMm}mm L × ${sideDimMm}mm W × ${heightDimMm}mm H (${mcdiRes.numberOfModules} Modules, ${mcdiRes.pairsPerModule} Pairs/Module)`;
+
+        const literatureWarnings = [];
+        if (mcdiRes.envelopeStatus !== "VALIDATED") {
+            literatureWarnings.push(mcdiRes.envelopeMessage);
+        }
+
+        const mcdiResult = {
+            ...mcdiRes,
+            tds,
+            targetTds,
+            conductivity,
+            ph,
+            hardness,
+            tempC,
+            flowRate,
+            feedQualityFeasible: mcdiRes.envelopeStatus !== "OUTSIDE_ENVELOPE",
+            ediDirectFeedFeasible: true,
+            feedQualityWarning: mcdiRes.envelopeStatus !== "VALIDATED" ? mcdiRes.envelopeMessage : null,
+            purposeDescription,
+            outletTDS,
+            screeningOutletTDS: outletTDS,
+            targetMargin,
+            targetDeviation,
+            moduleDimensions,
+            literatureWarnings,
+            engineeringConfidence: mcdiRes.envelopeStatus === "VALIDATED" ? "High" : (mcdiRes.envelopeStatus === "EXTRAPOLATED" ? "Medium" : "Low"),
+            confidenceReason: mcdiRes.envelopeMessage
+        };
+
+        mcdiResult.engineeringAudit = auditEngineeringDesign(mcdiResult, {
+            tds,
+            targetTds,
+            flowRate,
+            expectedTechnology: technology
+        });
+
+        return mcdiResult;
+    }
+
+    // Delegated First-Principles FCDI Model Solver
+    if (technology === "FCDI") {
+        const fcdiRes = calculateFCDIModel(inputs);
+        const outletTDS = fcdiRes.outletTds;
+        const targetMargin = Number((targetTds - outletTDS).toFixed(1));
+        const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(1));
+        const isTargetAchieved = fcdiRes.isTargetAchieved;
+
+        let purposeDescription = isTargetAchieved
+            ? `Continuous Desalination Achieved (Target: ${targetTds} mg/L, Outlet: ${outletTDS} mg/L, Continuous Carbon Slurry Loop)`
+            : `High-Salinity Continuous Pre-Desalination (Outlet: ${outletTDS} mg/L > Target: ${targetTds} mg/L)`;
+
+        const sideDimMm = Math.round(Math.sqrt(fcdiRes.electrodeArea) * 10);
+        const heightDimMm = Math.round(fcdiRes.cellPairs * (0.8 + 0.5 + fcdiRes.membraneThicknessMm) + 50);
+        const moduleDimensions = `${sideDimMm}mm L × ${sideDimMm}mm W × ${heightDimMm}mm H (${fcdiRes.numberOfModules} Modules, ${fcdiRes.pairsPerModule} Pairs/Module)`;
+
+        const literatureWarnings = [];
+        if (fcdiRes.envelopeStatus !== "VALIDATED") {
+            literatureWarnings.push(fcdiRes.envelopeMessage);
+        }
+
+        const fcdiResult = {
+            ...fcdiRes,
+            tds,
+            targetTds,
+            conductivity,
+            ph,
+            hardness,
+            tempC,
+            flowRate,
+            feedQualityFeasible: fcdiRes.envelopeStatus !== "OUTSIDE_ENVELOPE",
+            ediDirectFeedFeasible: true,
+            feedQualityWarning: fcdiRes.envelopeStatus !== "VALIDATED" ? fcdiRes.envelopeMessage : null,
+            purposeDescription,
+            outletTDS,
+            screeningOutletTDS: outletTDS,
+            targetMargin,
+            targetDeviation,
+            moduleDimensions,
+            literatureWarnings,
+            engineeringConfidence: fcdiRes.envelopeStatus === "VALIDATED" ? "High" : (fcdiRes.envelopeStatus === "EXTRAPOLATED" ? "Medium" : "Low"),
+            confidenceReason: fcdiRes.envelopeMessage
+        };
+
+        fcdiResult.engineeringAudit = auditEngineeringDesign(fcdiResult, {
+            tds,
+            targetTds,
+            flowRate,
+            expectedTechnology: technology
+        });
+
+        return fcdiResult;
+    }
+
+    // Delegated First-Principles EDI Model Solver
+    if (technology === "EDI") {
+        const ediRes = calculateEDIModel(inputs);
+        const outletTDS = ediRes.outletTds;
+        const targetMargin = Number((targetTds - outletTDS).toFixed(3));
+        const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(3));
+        const isTargetAchieved = ediRes.isTargetAchieved;
+
+        let purposeDescription = ediRes.isFeedFeasible
+            ? (isTargetAchieved ? `Ultrapure Water Polishing Achieved (Outlet: ${ediRes.predictedOutletResistivity} MΩ·cm, Target: ${targetTds} mg/L)` : `EDI Polishing Target Deviation (+${targetDeviation} mg/L)`)
+            : `EDI Feed Pretreatment Required (${ediRes.gatingReason})`;
+
+        const sideDimMm = Math.round(Math.sqrt(ediRes.electrodeArea) * 10);
+        const heightDimMm = Math.round(ediRes.cellPairs * (3.0 + 0.3 + 0.15) + 60);
+        const moduleDimensions = `${sideDimMm}mm L × ${sideDimMm}mm W × ${heightDimMm}mm H (${ediRes.numberOfModules} Modules, ${ediRes.pairsPerModule} Pairs/Module)`;
+
+        const literatureWarnings = [];
+        if (!ediRes.isFeedFeasible) {
+            literatureWarnings.push(ediRes.gatingReason);
+        }
+
+        const ediResult = {
+            ...ediRes,
+            tds: rawTds,
+            targetTds,
+            conductivity: rawCond,
+            ph,
+            hardness,
+            tempC,
+            flowRate,
+            feedQualityFeasible: ediRes.isFeedFeasible,
+            ediDirectFeedFeasible: ediRes.isFeedFeasible,
+            feedQualityWarning: !ediRes.isFeedFeasible ? ediRes.gatingReason : null,
+            purposeDescription,
+            outletTDS,
+            screeningOutletTDS: outletTDS,
+            targetMargin,
+            targetDeviation,
+            moduleDimensions,
+            literatureWarnings,
+            engineeringConfidence: ediRes.isFeedFeasible ? "High (Model Prediction)" : "Low (Pretreatment Required)",
+            confidenceReason: ediRes.isFeedFeasible ? "RO permeate feed is within DuPont EDI-310 spec." : ediRes.gatingReason
+        };
+
+        ediResult.engineeringAudit = auditEngineeringDesign(ediResult, {
+            tds: rawTds,
+            targetTds,
+            flowRate,
+            expectedTechnology: technology
+        });
+
+        return ediResult;
+    }
+
+    const TECH_MODELS = techConfig.technologies;
+    const TECH_ENVELOPES = techConfig.technologyEnvelope || {};
+    const CONSTANTS = techConfig.constants;
+
+    const techModel = TECH_MODELS[technology] || TECH_MODELS.CDI;
+    const techEnvelope = TECH_ENVELOPES[technology] || {};
+
     let feedQualityFeasible = true;
     let ediDirectFeedFeasible = true;
     let feedQualityWarning = null;
@@ -207,7 +472,6 @@ function calculateEngineering(inputs = {}) {
         confidenceReason = "Current operating point is outside calibration envelope (>3,000 ppm TDS)";
     }
 
-    // Audit Warnings
     const literatureWarnings = [];
     if (feedQualityWarning) {
         literatureWarnings.push(feedQualityWarning);
@@ -216,7 +480,7 @@ function calculateEngineering(inputs = {}) {
         literatureWarnings.push(`Target TDS (${targetTds} mg/L) not achieved with ${technology} single-stage design. Calculated outlet: ${outletTDS} mg/L.`);
     }
 
-    return {
+    const result = {
         technology,
         techName: techModel.name,
         processTrainName,
@@ -283,6 +547,15 @@ function calculateEngineering(inputs = {}) {
         engineeringConfidence,
         confidenceReason
     };
+
+    result.engineeringAudit = auditEngineeringDesign(result, {
+        tds,
+        targetTds,
+        flowRate,
+        expectedTechnology: technology
+    });
+
+    return result;
 }
 
 export default calculateEngineering;

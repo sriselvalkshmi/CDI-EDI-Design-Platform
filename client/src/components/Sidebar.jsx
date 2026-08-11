@@ -275,6 +275,9 @@ export default function Sidebar() {
                         ? "Limit Reached"
                         : "Apply AI Optimization"}
                 </button>
+                <div style={{ fontSize: "10px", color: "#64748B", textAlign: "center", marginTop: "4px" }}>
+                    Optimization result — MODEL PREDICTION
+                </div>
             </div>
         </div>
     );
