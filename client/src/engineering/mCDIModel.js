@@ -246,7 +246,7 @@ export function calculateMCDIModel(inputs = {}) {
 
     const removalEfficiency = Number((((feedTds - outletTds) / feedTds) * 100).toFixed(1));
     const isTargetAchieved = outletTds <= targetTds + 0.5;
-    const modelPredictionLabel = isTargetAchieved ? "TARGET ACHIEVED — MODEL PREDICTION" : "TARGET NOT ACHIEVED";
+    const modelPredictionLabel = isTargetAchieved ? "TARGET ACHIEVED — MODEL PREDICTION" : "TARGET NOT ACHIEVED — MODEL OPERATING LIMIT";
 
     return {
         technology: "MCDI",

@@ -25,7 +25,7 @@ export default function OptimizationPanel() {
     const optEng = designResult.optimizedEngineering || {};
     const prevEng = optEng.previousEngineering || {};
     const feedWater = designResult.input?.feedWater || {};
-    const activeTech = eng.technology || technology || "MCDI";
+    const activeTech = designResult?.selectedTechnology || eng.technology || "MCDI";
 
     function handleInputChange(field, val) {
         setOptimizationStatus("idle");

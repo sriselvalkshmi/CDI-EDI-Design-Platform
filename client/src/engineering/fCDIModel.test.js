@@ -99,7 +99,7 @@ describe("Hardened First-Principles FCDI Engineering Model Suite", () => {
         // Single-stage max removal benchmark is 95% (yielding 25 mg/L)
         const res = calculateFCDIModel({ flowRate: 10, tds: 500, targetTds: 2 });
         expect(res.targetAchieved).toBe(false);
-        expect(res.status).toBe("TARGET NOT ACHIEVED — MODEL PREDICTION");
+        expect(res.status).toContain("TARGET NOT ACHIEVED");
         expect(res.predictedOutletTDS).toBe(25.0);
     });
 

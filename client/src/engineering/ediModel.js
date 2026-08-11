@@ -274,7 +274,7 @@ export function calculateEDIModel(inputs = {}) {
     if (!isFeedFeasible) {
         statusLabel = "FEED PRETREATMENT REQUIRED";
     } else if (!isTargetAchieved) {
-        statusLabel = "TARGET NOT ACHIEVED — MODEL PREDICTION";
+        statusLabel = "TARGET NOT ACHIEVED — MODEL OPERATING LIMIT";
     }
 
     const removalEfficiency = Number((((feedTds - outletTds) / feedTds) * 100).toFixed(2));

@@ -298,7 +298,7 @@ export function calculateFCDIModel(inputs = {}) {
 
     const statusLabel = isTargetAchieved
         ? "TARGET ACHIEVED — MODEL PREDICTION"
-        : "TARGET NOT ACHIEVED — MODEL PREDICTION";
+        : "TARGET NOT ACHIEVED — MODEL OPERATING LIMIT";
 
     // 11. Explicit Model Pedigree Structure
     const modelPedigree = {

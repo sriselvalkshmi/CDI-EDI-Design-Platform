@@ -43,10 +43,6 @@ function aiRecommendation(feedWater = {}) {
             feedQualityFeasible = tds <= 30 && hardness <= 0.5 && conductivity <= 50 && ph >= 5.0 && ph <= 9.0;
         }
 
-        // 3 SEPARATE BOOLEAN CONCEPTS:
-        // 1. feasible: Envelope OK and feed compatible for direct processing
-        // 2. targetAchievable: Outlet TDS meets target TDS
-        // 3. validated: Operating inside validated literature envelope
         const isFeasible = feedQualityFeasible && envelopeOK;
         const isValidated = envelopeOK;
 
@@ -54,27 +50,15 @@ function aiRecommendation(feedWater = {}) {
         const recovery = Number((eng.waterRecovery || 95).toFixed(1));
         const power = Number((eng.power || 0).toFixed(1));
 
-        // Authoritative removal efficiency calculation directly from feed and outlet TDS
         const removalEfficiency = tds > 0
             ? Number((((tds - outletTDS) / tds) * 100).toFixed(2))
             : 90.0;
 
-        // Weighted Multi-Objective Score (0 - 100)
         let score = 0;
-
-        // 1. Hard Feasibility Gate Penalty (Primary Gate: 30 pts)
         score += isFeasible ? 30 : 0;
-
-        // 2. Target Achievement Gate (30 pts)
         score += targetAchievable ? 30 : Math.max(0, 10 - (outletTDS - targetTds) * 0.2);
-
-        // 3. Direct Feed Quality Gate (20 pts)
         score += feedQualityFeasible ? 20 : 5;
-
-        // 4. Energy Efficiency (SEC) (10 pts max)
         score += Math.max(0, Math.min(10, 10 * (1 - (sec - 0.1) / 1.9)));
-
-        // 5. Water Recovery (10 pts max)
         score += Math.max(0, Math.min(10, (recovery / 100) * 10));
 
         const totalScore = Math.min(100, Math.max(10, Math.round(score)));
@@ -100,7 +84,6 @@ function aiRecommendation(feedWater = {}) {
     });
 
     // HARD FEASIBILITY GATING SELECTION:
-    // Only feasible single-stage candidates compete for selection.
     const feasibleTargetAchievers = evaluations.filter(e => e.isFeasible && e.targetAchievable);
     feasibleTargetAchievers.sort((a, b) => b.score - a.score);
 
@@ -129,7 +112,7 @@ function aiRecommendation(feedWater = {}) {
         if (bestEval.isFeasible) {
             reason = `EDI is selected for ultrapure polishing (${bestEval.outletTDS} mg/L, ${bestEval.engineering?.predictedOutletResistivity || 18.2} MΩ·cm). Feed is within DuPont EDI-310 limits (<30 mg/L TDS, <0.5 mg/L hardness).`;
         } else {
-            reason = `RO → EDI process train is recommended. Raw feed (${tds} mg/L TDS, ${hardness} mg/L hardness) exceeds EDI direct feed limits. Reverse Osmosis pretreatment is required before EDI polishing.`;
+            reason = `RO → EDI process train is recommended. Single-stage direct-feed technologies (CDI, MCDI, FCDI) cannot reach ${targetTds} mg/L target setpoint. Reverse Osmosis pretreatment is required before EDI polishing to achieve ${bestEval.outletTDS} mg/L product quality.`;
         }
     } else if (selectedTechnology === "CDI" && bestEval.targetAchievable) {
         reason = `Membrane-free CDI is selected for low-salinity stream (${tds} ppm). Direct electrosorption minimizes capital cost and achieves ${bestEval.outletTDS} ppm outlet TDS.`;

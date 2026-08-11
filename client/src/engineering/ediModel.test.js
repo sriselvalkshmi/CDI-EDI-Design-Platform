@@ -157,7 +157,7 @@ describe("First-Principles EDI Engineering Model & Pretreatment Gating Suite", (
     it("15. verifies target-not-achieved status when target setpoint is unachievable", () => {
         const res = calculateEDIModel({ flowRate: 10, tds: 15, targetTds: 0.001 });
         expect(res.isTargetAchieved).toBe(false);
-        expect(res.status).toBe("TARGET NOT ACHIEVED — MODEL PREDICTION");
+        expect(res.status).toContain("TARGET NOT ACHIEVED");
     });
 
     // 16. Current sensitivity

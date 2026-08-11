@@ -32,7 +32,7 @@ export default function CAD3DStackViewer({ technology: propTech }) {
     const eng = designResult?.engineering || {};
     const feedWater = designResult?.input?.feedWater || {};
 
-    const activeTech = propTech || eng.technology || (contextTech !== "AUTO" ? contextTech : null) || "CDI";
+    const activeTech = designResult?.selectedTechnology || eng.technology || propTech || (contextTech !== "AUTO" ? contextTech : null) || "MCDI";
     const tech = activeTech;
 
     const technologyLabel = activeTech === "PROCESS_TRAIN" ? "PROCESS TRAIN" : activeTech;

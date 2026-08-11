@@ -38,7 +38,7 @@ export default function PIDDiagram() {
     const layout = designResult.pid || {};
     const simulation = designResult.simulation || {};
 
-    const activeTech = engineering.technology || (selectedTech === "AUTO" ? "CDI" : selectedTech);
+    const activeTech = designResult?.selectedTechnology || engineering.technology || (selectedTech !== "AUTO" ? selectedTech : "MCDI");
     const status = validation.status || "VALID";
 
     const statusBadgeColor = status === "VALID" ? "#16A34A" : (status === "OPTIMIZATION REQUIRED" ? "#D97706" : "#DC2626");

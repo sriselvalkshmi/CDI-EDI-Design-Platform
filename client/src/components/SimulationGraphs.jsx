@@ -101,7 +101,7 @@ export default function SimulationGraphs() {
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                 <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0F172A" }}>
-                    Dynamic Process Simulation ({engineering.processTrainName || engineering.technology || technology || "CDI"})
+                    Dynamic Process Simulation ({engineering.processTrainName || designResult?.selectedTechnology || engineering.technology || "MCDI"})
                 </h3>
 
                 {/* Simulation Live Status Badge */}
