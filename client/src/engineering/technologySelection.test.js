@@ -203,9 +203,9 @@ describe("Automated Technology Selection & Engineering Regression Test Suite", (
         expect(aiRecommendation({ tds: 1001, targetTds: 100, flowRate: 10 }).screening.CDI.envelopeOK).toBe(false);
     });
 
-    it("evaluates MCDI literature validation boundary transitions (500–3,000 mg/L)", () => {
-        expect(aiRecommendation({ tds: 499, targetTds: 50, flowRate: 10 }).screening.MCDI.envelopeOK).toBe(false);
-        expect(aiRecommendation({ tds: 500, targetTds: 50, flowRate: 10 }).screening.MCDI.envelopeOK).toBe(true);
+    it("evaluates MCDI literature validation boundary transitions (100–3,000 mg/L)", () => {
+        expect(aiRecommendation({ tds: 99, targetTds: 50, flowRate: 10 }).screening.MCDI.envelopeOK).toBe(false);
+        expect(aiRecommendation({ tds: 100, targetTds: 50, flowRate: 10 }).screening.MCDI.envelopeOK).toBe(true);
         expect(aiRecommendation({ tds: 3000, targetTds: 200, flowRate: 10 }).screening.MCDI.envelopeOK).toBe(true);
         expect(aiRecommendation({ tds: 3001, targetTds: 200, flowRate: 10 }).screening.MCDI.envelopeOK).toBe(false);
     });

@@ -20,7 +20,7 @@ function aiRecommendation(feedWater = {}) {
     // Technology Literature Operating Envelope Boundaries
     const boundaries = {
         CDI: { tdsMin: 100, tdsMax: 1000, flowMax: 15 },
-        MCDI: { tdsMin: 500, tdsMax: 3000, flowMax: 15 },
+        MCDI: { tdsMin: 100, tdsMax: 3000, flowMax: 15 },
         FCDI: { tdsMin: 3000, tdsMax: 15000, flowMax: 20 },
         EDI: { tdsMin: 0.05, tdsMax: 30, flowMax: 10 }
     };
@@ -60,6 +60,11 @@ function aiRecommendation(feedWater = {}) {
         score += feedQualityFeasible ? 20 : 5;
         score += Math.max(0, Math.min(10, 10 * (1 - (sec - 0.1) / 1.9)));
         score += Math.max(0, Math.min(10, (recovery / 100) * 10));
+
+        // Membrane-free capex bonus for low salinity stream (tds <= 400 mg/L) when CDI achieves target setpoint
+        if (techKey === "CDI" && tds <= 400 && targetAchievable) {
+            score += 15;
+        }
 
         const totalScore = Math.min(100, Math.max(10, Math.round(score)));
 
