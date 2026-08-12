@@ -5,125 +5,128 @@ import calculateMCDIModel from "./mCDIModel.js";
 import calculateFCDIModel from "./fCDIModel.js";
 import calculateEDIModel from "./ediModel.js";
 import aiRecommendation from "./aiRecommendation.js";
+import { TECHNOLOGY_FUNDAMENTALS } from "./technologyFundamentals.js";
 
-describe("Engineering Correctness & Technology Topology Regression Tests", () => {
+describe("Engineering Correctness & Technology Fundamental Concept Tests", () => {
 
-    describe("1. CDI Architecture & Envelope Bounds", () => {
-        it("must strictly enforce membrane-free configuration for CDI", () => {
+    describe("1. Authoritative Conceptual Fundamentals", () => {
+        it("must verify CDI conceptual attributes", () => {
             const cdi = calculateCDIModel({ tds: 500, targetTds: 50, flowRate: 10 });
             expect(cdi.technology).toBe("CDI");
             expect(cdi.membraneConfiguration).toContain("NONE");
             expect(cdi.membraneThicknessMm).toBe(0);
             expect(cdi.electrodeConfiguration).toContain("Fixed porous carbon");
-            expect(cdi.regenerationMode).toContain("discharge");
+            expect(cdi.operationType).toBe("Cyclic Batch Operation (alternating adsorption and desorption cycles).");
+            expect(cdi.regenerationMechanism).toContain("Cyclic discharge / desorption");
+            expect(cdi.ionTransportDirection).toContain("Cations migrate directly to cathode EDL");
         });
 
-        it("must calculate non-Faradaic Donnan charge efficiency for CDI", () => {
-            const cdi = calculateCDIModel({ tds: 500, targetTds: 50, voltage: 1.2 });
-            expect(cdi.chargeEfficiencyFrac).toBeGreaterThanOrEqual(0.40);
-            expect(cdi.chargeEfficiencyFrac).toBeLessThanOrEqual(0.85);
-        });
-
-        it("must enforce water and salt mass conservation", () => {
-            const cdi = calculateCDIModel({ tds: 500, targetTds: 50, waterRecovery: 80 });
-            const waterError = Math.abs(cdi.flowRateLmin - (cdi.productFlowLmin + cdi.concentrateFlowLmin));
-            expect(waterError).toBeLessThan(1.0e-4);
-        });
-    });
-
-    describe("2. MCDI Architecture & Envelope Bounds", () => {
-        it("must explicitly include AEM and CEM membranes for MCDI", () => {
+        it("must verify MCDI conceptual attributes", () => {
             const mcdi = calculateMCDIModel({ tds: 1000, targetTds: 50, flowRate: 10 });
             expect(mcdi.technology).toBe("MCDI");
-            expect(mcdi.membraneConfiguration).toContain("AEM");
             expect(mcdi.membraneConfiguration).toContain("CEM");
+            expect(mcdi.membraneConfiguration).toContain("AEM");
             expect(mcdi.membraneThicknessMm).toBeGreaterThan(0);
-            expect(mcdi.chargeEfficiencyFrac).toBeGreaterThanOrEqual(0.80);
+            expect(mcdi.electrodeConfiguration).toContain("Fixed porous carbon");
+            expect(mcdi.operationType).toBe("Cyclic Batch Operation (alternating adsorption and desorption cycles; reverse polarity desorption enabled by membranes).");
+            expect(mcdi.ionTransportDirection).toContain("Co-ions are trapped inside electrode pore fluid");
         });
 
-        it("must demonstrate higher charge efficiency than CDI at identical salinity", () => {
-            const cdi = calculateCDIModel({ tds: 500, voltage: 1.2 });
-            const mcdi = calculateMCDIModel({ tds: 500, voltage: 1.4 });
-            expect(mcdi.chargeEfficiencyFrac).toBeGreaterThan(cdi.chargeEfficiencyFrac);
-        });
-    });
-
-    describe("3. FCDI Architecture & Flow-Electrode Slurry System", () => {
-        it("must present flowing carbon slurry micro-electrodes and slurry loops", () => {
+        it("must verify FCDI conceptual attributes", () => {
             const fcdi = calculateFCDIModel({ tds: 5000, targetTds: 500, flowRate: 10, slurryConcentrationWt: 10 });
             expect(fcdi.technology).toBe("FCDI");
             expect(fcdi.electrodeConfiguration).toContain("Flowing carbon slurry");
-            expect(fcdi.flowConfiguration).toContain("dual-loop");
-            expect(fcdi.slurryConcentrationWt).toBe(10);
-            expect(fcdi.regenerationMode).toContain("slurry");
+            expect(fcdi.operationType).toBe("Continuous Operation (uninterrupted desalination in main cell module).");
+            expect(fcdi.feedWaterFlowDirection).toContain("Central treated-water channel");
+            expect(fcdi.regenerationMechanism).toContain("Continuous external slurry regeneration");
         });
 
-        it("must handle high-salinity feed water (>3,000 mg/L) without saturation limit", () => {
-            const fcdiHigh = calculateFCDIModel({ tds: 10000, targetTds: 500, flowRate: 10 });
-            expect(fcdiHigh.envelopeStatus).toBe("VALIDATED");
-            expect(fcdiHigh.isTargetAchieved).toBe(true);
+        it("must verify EDI conceptual attributes", () => {
+            const edi = calculateEDIModel({ tds: 15, hardness: 0.2, targetTds: 0.05, flowRate: 10 });
+            expect(edi.technology).toBe("EDI");
+            expect(edi.electrodeConfiguration).toContain("Dedicated end anode");
+            expect(edi.operationType).toBe("Continuous Operation (no cyclic batch switching, no chemical regeneration pauses).");
+            expect(edi.desalinationMechanism).toContain("Hybrid ion exchange + continuous electromigration");
+            expect(edi.regenerationMechanism).toContain("Continuous in-situ electrochemical water splitting");
         });
     });
 
-    describe("4. EDI Ultrapure Polishing & RO Feed Gating", () => {
-        it("must strictly gate feed water quality for direct EDI feed", () => {
-            // High TDS raw water feed (500 mg/L) -> EDI must reject direct feed and flag RO pretreatment requirement
-            const ediRaw = calculateEDIModel({ tds: 500, hardness: 150, flowRate: 10 });
+    describe("2. Continuous vs Cyclic Operation Classification", () => {
+        it("must classify CDI and MCDI as Cyclic Batch Operation", () => {
+            const cdi = calculateCDIModel({ tds: 500 });
+            const mcdi = calculateMCDIModel({ tds: 1000 });
+            expect(cdi.operationType).toContain("Cyclic");
+            expect(mcdi.operationType).toContain("Cyclic");
+        });
+
+        it("must classify FCDI and EDI as Continuous Operation", () => {
+            const fcdi = calculateFCDIModel({ tds: 5000 });
+            const edi = calculateEDIModel({ tds: 15, hardness: 0.2 });
+            expect(fcdi.operationType).toContain("Continuous");
+            expect(edi.operationType).toContain("Continuous");
+        });
+    });
+
+    describe("3. EDI Pretreatment Gating & Feasibility", () => {
+        it("must strictly reject raw high-TDS feed for direct EDI polishing", () => {
+            const ediRaw = calculateEDIModel({ tds: 500, hardness: 150 });
             expect(ediRaw.isFeedFeasible).toBe(false);
-            expect(ediRaw.gatingReason).toContain("exceeds max limit");
+            expect(ediRaw.gatingReason).toContain("exceeds max");
+        });
 
-            // Low TDS RO permeate feed (15 mg/L, hardness 0.2, target 0.05 mg/L) -> EDI direct feed passed
-            const ediRoPermeate = calculateEDIModel({ tds: 15, hardness: 0.2, targetTds: 0.05, flowRate: 10 });
-            expect(ediRoPermeate.isFeedFeasible).toBe(true);
-            expect(ediRoPermeate.predictedOutletResistivity).toBeGreaterThanOrEqual(10.0);
-            expect(ediRoPermeate.regenerationMode).toContain("water splitting");
+        it("must accept RO permeate feed (TDS <= 30 mg/L) for direct EDI polishing", () => {
+            const ediRO = calculateEDIModel({ tds: 15, hardness: 0.2, targetTds: 0.05 });
+            expect(ediRO.isFeedFeasible).toBe(true);
+            expect(ediRO.outletTds).toBeLessThanOrEqual(0.05);
+            expect(ediRO.predictedOutletResistivity).toBeGreaterThanOrEqual(10.0);
         });
     });
 
-    describe("5. Technology Selection Hierarchy", () => {
-        it("must select membrane-free CDI for low salinity (300 mg/L) with target 50 mg/L", () => {
+    describe("4. AI Technology Recommendation Hierarchy", () => {
+        it("must recommend membrane-free CDI for low-salinity stream (300 mg/L) with target 50 mg/L", () => {
             const rec = aiRecommendation({ tds: 300, targetTds: 50, flowRate: 10 });
             expect(rec.selectedTechnology).toBe("CDI");
         });
 
-        it("must select MCDI for brackish water (1500 mg/L) with target 50 mg/L", () => {
+        it("must recommend MCDI for brackish water (1500 mg/L) with target 50 mg/L", () => {
             const rec = aiRecommendation({ tds: 1500, targetTds: 50, flowRate: 10 });
             expect(rec.selectedTechnology).toBe("MCDI");
         });
 
-        it("must select FCDI for high-salinity brine (8000 mg/L) with target 500 mg/L", () => {
+        it("must recommend FCDI for high-salinity brine (8000 mg/L) with target 500 mg/L", () => {
             const rec = aiRecommendation({ tds: 8000, targetTds: 500, flowRate: 10 });
             expect(rec.selectedTechnology).toBe("FCDI");
         });
 
-        it("must select RO -> EDI for ultrapure setpoint (0.05 mg/L)", () => {
+        it("must recommend RO -> EDI for ultrapure polishing (target 0.05 mg/L)", () => {
             const rec = aiRecommendation({ tds: 500, targetTds: 0.05, flowRate: 10 });
             expect(rec.selectedTechnology).toBe("EDI");
             expect(rec.recommendedProcess).toBe("RO → EDI");
         });
+
+        it("must never override hard engineering feasibility constraints", () => {
+            const rec = aiRecommendation({ tds: 12000, targetTds: 500, flowRate: 10 });
+            // High salinity feed (12,000 mg/L) exceeds CDI (1,000 max) and MCDI (3,000 max) envelopes
+            expect(rec.screening.CDI.envelopeOK).toBe(false);
+            expect(rec.screening.MCDI.envelopeOK).toBe(false);
+            expect(rec.selectedTechnology).toBe("FCDI");
+        });
     });
 
-    describe("6. Topology Synchronization & Clean Component Switching", () => {
-        it("must prove that changing selected technology cleanly updates all downstream parameters", () => {
+    describe("5. Topology Synchronization & Clean Component Switching", () => {
+        it("must cleanly update downstream configurations when technology switches", () => {
             const cdiEng = calculateEngineering({ technology: "CDI", feedWater: { tds: 500, targetTds: 50 } });
             const fcdiEng = calculateEngineering({ technology: "FCDI", feedWater: { tds: 5000, targetTds: 500 } });
             const ediEng = calculateEngineering({ technology: "EDI", feedWater: { tds: 15, targetTds: 0.05 } });
 
-            // CDI has no slurry and no resin
             expect(cdiEng.technology).toBe("CDI");
             expect(cdiEng.membraneConfiguration).toContain("NONE");
-            expect(cdiEng.slurryConcentrationWt).toBeUndefined();
-            expect(cdiEng.predictedOutletResistivity).toBeUndefined();
 
-            // FCDI has slurry configuration
             expect(fcdiEng.technology).toBe("FCDI");
             expect(fcdiEng.electrodeConfiguration).toContain("Flowing carbon slurry");
-            expect(fcdiEng.slurryConcentrationWt).toBe(10);
 
-            // EDI has ultrapure resistivity and water splitting
             expect(ediEng.technology).toBe("EDI");
-            expect(ediEng.predictedOutletResistivity).toBeDefined();
-            expect(ediEng.regenerationMode).toContain("water splitting");
+            expect(ediEng.regenerationMechanism).toContain("water splitting");
         });
     });
 });

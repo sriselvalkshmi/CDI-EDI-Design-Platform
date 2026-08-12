@@ -334,18 +334,31 @@ export function calculateCDIModel(inputs = {}) {
 
         // Technology Fundamental Configuration (Single Source of Truth)
         fundamentals: TECHNOLOGY_FUNDAMENTALS.CDI,
-        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.CDI.flowConfiguration,
+        operatingPrinciple: TECHNOLOGY_FUNDAMENTALS.CDI.operatingPrinciple,
         electrodeConfiguration: TECHNOLOGY_FUNDAMENTALS.CDI.electrodeConfiguration,
         membraneConfiguration: TECHNOLOGY_FUNDAMENTALS.CDI.membraneConfiguration,
         membraneThicknessMm: 0,
-        ionTransport: TECHNOLOGY_FUNDAMENTALS.CDI.ionTransport,
-        polarity: "Cyclic DC voltage (0.8–1.5 V charging / adsorption; 0 V or short-circuit discharge / desorption)",
-        productStream: "Desalinated product water produced during adsorption cycle",
-        concentrateStream: "Concentrated brine waste produced during electrical discharge/desorption cycle",
-        pretreatment: TECHNOLOGY_FUNDAMENTALS.CDI.pretreatment,
-        regenerationMode: TECHNOLOGY_FUNDAMENTALS.CDI.regenerationMode,
+        feedWaterFlowDirection: TECHNOLOGY_FUNDAMENTALS.CDI.feedWaterFlowDirection,
+        productWaterFlowPath: TECHNOLOGY_FUNDAMENTALS.CDI.productWaterFlowPath,
+        concentrateRejectFlowPath: TECHNOLOGY_FUNDAMENTALS.CDI.concentrateRejectFlowPath,
+        electricalPolarity: TECHNOLOGY_FUNDAMENTALS.CDI.electricalPolarity,
+        ionTransportDirection: TECHNOLOGY_FUNDAMENTALS.CDI.ionTransportDirection,
+        desalinationMechanism: TECHNOLOGY_FUNDAMENTALS.CDI.desalinationMechanism,
+        regenerationMechanism: TECHNOLOGY_FUNDAMENTALS.CDI.regenerationMechanism,
+        operationType: TECHNOLOGY_FUNDAMENTALS.CDI.operationType,
+        pretreatmentRequirements: TECHNOLOGY_FUNDAMENTALS.CDI.pretreatmentRequirements,
+        operatingEnvelope: TECHNOLOGY_FUNDAMENTALS.CDI.operatingEnvelope,
         advantages: TECHNOLOGY_FUNDAMENTALS.CDI.advantages,
         limitations: TECHNOLOGY_FUNDAMENTALS.CDI.limitations,
+
+        // Legacy compatibility aliases
+        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.CDI.feedWaterFlowDirection,
+        ionTransport: TECHNOLOGY_FUNDAMENTALS.CDI.ionTransportDirection,
+        polarity: TECHNOLOGY_FUNDAMENTALS.CDI.electricalPolarity,
+        productStream: TECHNOLOGY_FUNDAMENTALS.CDI.productWaterFlowPath,
+        concentrateStream: TECHNOLOGY_FUNDAMENTALS.CDI.concentrateRejectFlowPath,
+        pretreatment: TECHNOLOGY_FUNDAMENTALS.CDI.pretreatmentRequirements,
+        regenerationMode: TECHNOLOGY_FUNDAMENTALS.CDI.regenerationMechanism,
 
         // Configurable Envelope Metadata
         envelopeStatus,

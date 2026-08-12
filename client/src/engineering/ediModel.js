@@ -454,18 +454,31 @@ export function calculateEDIModel(inputs = {}) {
 
         // Technology Fundamental Configuration (Single Source of Truth)
         fundamentals: TECHNOLOGY_FUNDAMENTALS.EDI,
-        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.EDI.flowConfiguration,
+        operatingPrinciple: TECHNOLOGY_FUNDAMENTALS.EDI.operatingPrinciple,
         electrodeConfiguration: TECHNOLOGY_FUNDAMENTALS.EDI.electrodeConfiguration,
         membraneConfiguration: TECHNOLOGY_FUNDAMENTALS.EDI.membraneConfiguration,
         membraneThicknessMm: 0.20,
-        ionTransport: TECHNOLOGY_FUNDAMENTALS.EDI.ionTransport,
-        polarity: "Continuous DC high voltage (1.0–6.0 V per cell pair; constant polarization electric field)",
-        productStream: "Continuous ultrapure product water (< 0.05 mg/L TDS; > 16.0–18.2 MΩ·cm resistivity)",
-        concentrateStream: "Continuous concentrate reject stream carrying migrated ions (recirculated or wasted)",
-        pretreatment: TECHNOLOGY_FUNDAMENTALS.EDI.pretreatment,
-        regenerationMode: TECHNOLOGY_FUNDAMENTALS.EDI.regenerationMode,
+        feedWaterFlowDirection: TECHNOLOGY_FUNDAMENTALS.EDI.feedWaterFlowDirection,
+        productWaterFlowPath: TECHNOLOGY_FUNDAMENTALS.EDI.productWaterFlowPath,
+        concentrateRejectFlowPath: TECHNOLOGY_FUNDAMENTALS.EDI.concentrateRejectFlowPath,
+        electricalPolarity: TECHNOLOGY_FUNDAMENTALS.EDI.electricalPolarity,
+        ionTransportDirection: TECHNOLOGY_FUNDAMENTALS.EDI.ionTransportDirection,
+        desalinationMechanism: TECHNOLOGY_FUNDAMENTALS.EDI.desalinationMechanism,
+        regenerationMechanism: TECHNOLOGY_FUNDAMENTALS.EDI.regenerationMechanism,
+        operationType: TECHNOLOGY_FUNDAMENTALS.EDI.operationType,
+        pretreatmentRequirements: TECHNOLOGY_FUNDAMENTALS.EDI.pretreatmentRequirements,
+        operatingEnvelope: TECHNOLOGY_FUNDAMENTALS.EDI.operatingEnvelope,
         advantages: TECHNOLOGY_FUNDAMENTALS.EDI.advantages,
         limitations: TECHNOLOGY_FUNDAMENTALS.EDI.limitations,
+
+        // Legacy compatibility aliases
+        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.EDI.feedWaterFlowDirection,
+        ionTransport: TECHNOLOGY_FUNDAMENTALS.EDI.ionTransportDirection,
+        polarity: TECHNOLOGY_FUNDAMENTALS.EDI.electricalPolarity,
+        productStream: TECHNOLOGY_FUNDAMENTALS.EDI.productWaterFlowPath,
+        concentrateStream: TECHNOLOGY_FUNDAMENTALS.EDI.concentrateRejectFlowPath,
+        pretreatment: TECHNOLOGY_FUNDAMENTALS.EDI.pretreatmentRequirements,
+        regenerationMode: TECHNOLOGY_FUNDAMENTALS.EDI.regenerationMechanism,
 
         // Metadata & Structured Pedigree Object
         modelPredictionLabel: statusLabel,

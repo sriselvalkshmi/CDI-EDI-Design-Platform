@@ -450,18 +450,31 @@ export function calculateFCDIModel(inputs = {}) {
 
         // Technology Fundamental Configuration (Single Source of Truth)
         fundamentals: TECHNOLOGY_FUNDAMENTALS.FCDI,
-        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.FCDI.flowConfiguration,
+        operatingPrinciple: TECHNOLOGY_FUNDAMENTALS.FCDI.operatingPrinciple,
         electrodeConfiguration: TECHNOLOGY_FUNDAMENTALS.FCDI.electrodeConfiguration,
         membraneConfiguration: TECHNOLOGY_FUNDAMENTALS.FCDI.membraneConfiguration,
         membraneThicknessMm: 0.18,
-        ionTransport: TECHNOLOGY_FUNDAMENTALS.FCDI.ionTransport,
-        polarity: "Continuous DC voltage (1.0–1.8 V across flowing slurry micro-electrode channels)",
-        productStream: "Continuous desalinated product water stream",
-        concentrateStream: "Continuous concentrated brine stream / regenerated slurry stream from un-charging reservoir",
-        pretreatment: TECHNOLOGY_FUNDAMENTALS.FCDI.pretreatment,
-        regenerationMode: TECHNOLOGY_FUNDAMENTALS.FCDI.regenerationMode,
+        feedWaterFlowDirection: TECHNOLOGY_FUNDAMENTALS.FCDI.feedWaterFlowDirection,
+        productWaterFlowPath: TECHNOLOGY_FUNDAMENTALS.FCDI.productWaterFlowPath,
+        concentrateRejectFlowPath: TECHNOLOGY_FUNDAMENTALS.FCDI.concentrateRejectFlowPath,
+        electricalPolarity: TECHNOLOGY_FUNDAMENTALS.FCDI.electricalPolarity,
+        ionTransportDirection: TECHNOLOGY_FUNDAMENTALS.FCDI.ionTransportDirection,
+        desalinationMechanism: TECHNOLOGY_FUNDAMENTALS.FCDI.desalinationMechanism,
+        regenerationMechanism: TECHNOLOGY_FUNDAMENTALS.FCDI.regenerationMechanism,
+        operationType: TECHNOLOGY_FUNDAMENTALS.FCDI.operationType,
+        pretreatmentRequirements: TECHNOLOGY_FUNDAMENTALS.FCDI.pretreatmentRequirements,
+        operatingEnvelope: TECHNOLOGY_FUNDAMENTALS.FCDI.operatingEnvelope,
         advantages: TECHNOLOGY_FUNDAMENTALS.FCDI.advantages,
         limitations: TECHNOLOGY_FUNDAMENTALS.FCDI.limitations,
+
+        // Legacy compatibility aliases
+        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.FCDI.feedWaterFlowDirection,
+        ionTransport: TECHNOLOGY_FUNDAMENTALS.FCDI.ionTransportDirection,
+        polarity: TECHNOLOGY_FUNDAMENTALS.FCDI.electricalPolarity,
+        productStream: TECHNOLOGY_FUNDAMENTALS.FCDI.productWaterFlowPath,
+        concentrateStream: TECHNOLOGY_FUNDAMENTALS.FCDI.concentrateRejectFlowPath,
+        pretreatment: TECHNOLOGY_FUNDAMENTALS.FCDI.pretreatmentRequirements,
+        regenerationMode: TECHNOLOGY_FUNDAMENTALS.FCDI.regenerationMechanism,
 
         // Metadata & Structured Pedigree Object
         modelPredictionLabel: statusLabel,
