@@ -1,5 +1,7 @@
 "use strict";
 
+import { TECHNOLOGY_FUNDAMENTALS } from "./technologyFundamentals.js";
+
 /**
  * First-Principles Flow-Electrode Capacitive Deionization (FCDI) Engineering Model
  * Implements literature-backed continuous slurry electrosorption kinetics, AEM & CEM co-ion exclusion,
@@ -447,16 +449,19 @@ export function calculateFCDIModel(inputs = {}) {
         secEstimateLabel: `TOTAL NET SEC: ${secTotal} kWh/m³ [MODEL ESTIMATE]`,
 
         // Technology Fundamental Configuration (Single Source of Truth)
-        flowConfiguration: "Continuous dual-loop flow: feed water in central channel, carbon slurry circulating in anode/cathode channels",
-        electrodeConfiguration: "Flowing carbon slurry micro-electrodes (5–20 wt% activated carbon suspension) with graphite current collectors",
-        membraneConfiguration: "AEM at Anode slurry channel; CEM at Cathode slurry channel separating slurry from water channel",
+        fundamentals: TECHNOLOGY_FUNDAMENTALS.FCDI,
+        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.FCDI.flowConfiguration,
+        electrodeConfiguration: TECHNOLOGY_FUNDAMENTALS.FCDI.electrodeConfiguration,
+        membraneConfiguration: TECHNOLOGY_FUNDAMENTALS.FCDI.membraneConfiguration,
         membraneThicknessMm: 0.18,
-        ionTransport: "Continuous electromigration across AEM/CEM into mobile carbon slurry micro-particles",
+        ionTransport: TECHNOLOGY_FUNDAMENTALS.FCDI.ionTransport,
         polarity: "Continuous DC voltage (1.0–1.8 V across flowing slurry micro-electrode channels)",
         productStream: "Continuous desalinated product water stream",
         concentrateStream: "Continuous concentrated brine stream / regenerated slurry stream from un-charging reservoir",
-        pretreatment: "Multi-media filter, viscosity conditioning, 10 µm pre-filter for slurry protection",
-        regenerationMode: "Continuous external slurry un-charging in slurry reservoir tank or secondary un-charging cell",
+        pretreatment: TECHNOLOGY_FUNDAMENTALS.FCDI.pretreatment,
+        regenerationMode: TECHNOLOGY_FUNDAMENTALS.FCDI.regenerationMode,
+        advantages: TECHNOLOGY_FUNDAMENTALS.FCDI.advantages,
+        limitations: TECHNOLOGY_FUNDAMENTALS.FCDI.limitations,
 
         // Metadata & Structured Pedigree Object
         modelPredictionLabel: statusLabel,

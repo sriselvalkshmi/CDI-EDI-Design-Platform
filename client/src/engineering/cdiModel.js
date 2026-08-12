@@ -1,5 +1,7 @@
 "use strict";
 
+import { TECHNOLOGY_FUNDAMENTALS } from "./technologyFundamentals.js";
+
 /**
  * First-Principles Capacitive Deionization (CDI) Engineering Model
  * Implements literature-backed electrosorption kinetics, species mass balances,
@@ -331,16 +333,19 @@ export function calculateCDIModel(inputs = {}) {
         cycleTimeMin,
 
         // Technology Fundamental Configuration (Single Source of Truth)
-        flowConfiguration: "Cyclic batch or continuous single-pass through planar porous electrode gap",
-        electrodeConfiguration: "Fixed porous carbon electrodes (activated carbon cloth/film) on metallic current collectors",
-        membraneConfiguration: "NONE (Membrane-free flow spacer channel)",
+        fundamentals: TECHNOLOGY_FUNDAMENTALS.CDI,
+        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.CDI.flowConfiguration,
+        electrodeConfiguration: TECHNOLOGY_FUNDAMENTALS.CDI.electrodeConfiguration,
+        membraneConfiguration: TECHNOLOGY_FUNDAMENTALS.CDI.membraneConfiguration,
         membraneThicknessMm: 0,
-        ionTransport: "Non-Faradaic electrostatic adsorption into Electrical Double Layers (EDLs)",
+        ionTransport: TECHNOLOGY_FUNDAMENTALS.CDI.ionTransport,
         polarity: "Cyclic DC voltage (0.8–1.5 V charging / adsorption; 0 V or short-circuit discharge / desorption)",
         productStream: "Desalinated product water produced during adsorption cycle",
         concentrateStream: "Concentrated brine waste produced during electrical discharge/desorption cycle",
-        pretreatment: "5 µm cartridge filter, anti-scalant if hardness exceeds 200 mg/L as CaCO3",
-        regenerationMode: "Intermittent electrical short-circuiting or reverse voltage discharge",
+        pretreatment: TECHNOLOGY_FUNDAMENTALS.CDI.pretreatment,
+        regenerationMode: TECHNOLOGY_FUNDAMENTALS.CDI.regenerationMode,
+        advantages: TECHNOLOGY_FUNDAMENTALS.CDI.advantages,
+        limitations: TECHNOLOGY_FUNDAMENTALS.CDI.limitations,
 
         // Configurable Envelope Metadata
         envelopeStatus,

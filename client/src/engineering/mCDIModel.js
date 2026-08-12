@@ -1,5 +1,7 @@
 "use strict";
 
+import { TECHNOLOGY_FUNDAMENTALS } from "./technologyFundamentals.js";
+
 /**
  * First-Principles Membrane Capacitive Deionization (MCDI) Engineering Model
  * Implements literature-backed electrosorption kinetics, AEM & CEM co-ion exclusion,
@@ -329,15 +331,19 @@ export function calculateMCDIModel(inputs = {}) {
         sac: Number(actualSacMgG.toFixed(1)),
 
         // Technology Fundamental Configuration (Single Source of Truth)
-        flowConfiguration: "Cyclic batch or continuous single-pass through membrane-bounded flow channel",
-        electrodeConfiguration: "Fixed porous carbon electrodes with attached AEM and CEM sheets",
-        membraneConfiguration: "AEM (Anion Exchange Membrane) at Anode; CEM (Cation Exchange Membrane) at Cathode",
-        ionTransport: "Electromigration through ion-selective membranes into porous carbon EDLs with co-ion blocking",
+        fundamentals: TECHNOLOGY_FUNDAMENTALS.MCDI,
+        flowConfiguration: TECHNOLOGY_FUNDAMENTALS.MCDI.flowConfiguration,
+        electrodeConfiguration: TECHNOLOGY_FUNDAMENTALS.MCDI.electrodeConfiguration,
+        membraneConfiguration: TECHNOLOGY_FUNDAMENTALS.MCDI.membraneConfiguration,
+        membraneThicknessMm,
+        ionTransport: TECHNOLOGY_FUNDAMENTALS.MCDI.ionTransport,
         polarity: "Cyclic DC voltage (1.0–1.6 V charging / adsorption; 0 V or reverse -0.2 to -0.6 V discharge)",
         productStream: "High-purity desalinated product water produced during adsorption cycle",
         concentrateStream: "Concentrated brine waste produced during electrical discharge/desorption cycle",
-        pretreatment: "5 µm cartridge filter, turbidity < 1 NTU, anti-scalant for hard feed water",
-        regenerationMode: "Intermittent electrical discharge / reverse polarity discharge with membrane co-ion blocking",
+        pretreatment: TECHNOLOGY_FUNDAMENTALS.MCDI.pretreatment,
+        regenerationMode: TECHNOLOGY_FUNDAMENTALS.MCDI.regenerationMode,
+        advantages: TECHNOLOGY_FUNDAMENTALS.MCDI.advantages,
+        limitations: TECHNOLOGY_FUNDAMENTALS.MCDI.limitations,
 
         // Configurable Envelope Metadata & Model Prediction Status
         modelPredictionLabel,
