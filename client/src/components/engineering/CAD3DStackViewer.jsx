@@ -332,90 +332,137 @@ export default function CAD3DStackViewer({ technology: propTech }) {
 
         for (let i = 0; i < visualPairs; i++) {
             const pairIdx = Math.round((i + 1) * (totalCellPairs / visualPairs));
-            const moduleIdx = Math.ceil(pairIdx / pairsPerModule);
             const isMidPair = i === Math.floor(visualPairs / 2);
 
             if (tech === "CDI") {
+                // CDI: Membrane-Free Porous Carbon Electrosorption Stack
                 if (layerVisibility.electrodes) {
-                    const el1 = new THREE.Mesh(layerGeo, carbonMat);
-                    el1.position.y = currentY;
-                    el1.userData = { name: `CDI Carbon Electrode (Pair #${pairIdx})`, type: "Electrode Layer", technology: "CDI" };
-                    stackGroup.add(el1);
-                    if (isMidPair || isExp) add3DLabel(`Electrode #${pairIdx}`, plateW / 2 + 0.25, currentY, 0, "#475569");
+                    const anodeEl = new THREE.Mesh(layerGeo, carbonMat);
+                    anodeEl.position.y = currentY;
+                    anodeEl.userData = { name: `CDI Porous Carbon Anode (Pair #${pairIdx})`, type: "Porous Carbon Electrode", technology: "CDI" };
+                    stackGroup.add(anodeEl);
+                    if (isMidPair || isExp) add3DLabel(`Porous Carbon Anode #${pairIdx}`, plateW / 2 + 0.25, currentY, 0, "#475569");
                 }
                 currentY += layerThick + expGap;
 
                 if (layerVisibility.spacers) {
                     const sp = new THREE.Mesh(layerGeo, spacerMat);
                     sp.position.y = currentY;
-                    sp.userData = { name: `Flow Channel Mesh Spacer (Pair #${pairIdx})`, type: "Spacer", technology: "CDI" };
+                    sp.userData = { name: `Feed Channel Flow Spacer (Pair #${pairIdx})`, type: "Feed Water Spacer", technology: "CDI" };
                     stackGroup.add(sp);
-                    if (isMidPair || isExp) add3DLabel("Spacer", -plateW / 2 - 0.25, currentY, plateD / 2, "#10B981");
+                    if (isMidPair || isExp) add3DLabel("Feed Channel Spacer", -plateW / 2 - 0.25, currentY, plateD / 2, "#10B981");
                 }
                 currentY += layerThick + expGap;
+
+                if (layerVisibility.electrodes) {
+                    const cathodeEl = new THREE.Mesh(layerGeo, carbonMat);
+                    cathodeEl.position.y = currentY;
+                    cathodeEl.userData = { name: `CDI Porous Carbon Cathode (Pair #${pairIdx})`, type: "Porous Carbon Electrode", technology: "CDI" };
+                    stackGroup.add(cathodeEl);
+                    if (isMidPair || isExp) add3DLabel(`Porous Carbon Cathode #${pairIdx}`, plateW / 2 + 0.25, currentY, 0, "#475569");
+                }
+                currentY += layerThick + expGap;
+
             } else if (tech === "MCDI") {
+                // MCDI: Fixed Porous Carbon Electrodes + AEM (Anode side) & CEM (Cathode side)
+                if (layerVisibility.electrodes) {
+                    const anodeEl = new THREE.Mesh(layerGeo, carbonMat);
+                    anodeEl.position.y = currentY;
+                    anodeEl.userData = { name: `MCDI Carbon Anode (Pair #${pairIdx})`, type: "Fixed Porous Carbon Electrode", technology: "MCDI" };
+                    stackGroup.add(anodeEl);
+                }
+                currentY += layerThick + expGap;
+
                 if (layerVisibility.aem) {
                     const aem = new THREE.Mesh(layerGeo, aemMat);
                     aem.position.y = currentY;
-                    aem.userData = { name: `AEM Membrane (Pair #${pairIdx})`, type: "AEM Membrane", technology: "MCDI" };
+                    aem.userData = { name: `Anion Exchange Membrane (AEM, Pair #${pairIdx})`, type: "AEM Membrane", technology: "MCDI" };
                     stackGroup.add(aem);
-                    if (isMidPair || isExp) add3DLabel("AEM Membrane", plateW / 2 + 0.25, currentY, -plateD / 2, "#0284C7");
+                    if (isMidPair || isExp) add3DLabel("AEM Membrane (Anode)", plateW / 2 + 0.25, currentY, -plateD / 2, "#0284C7");
                 }
                 currentY += layerThick + expGap;
 
                 if (layerVisibility.spacers) {
                     const sp = new THREE.Mesh(layerGeo, spacerMat);
                     sp.position.y = currentY;
-                    sp.userData = { name: `Flow Spacer (Pair #${pairIdx})`, type: "Spacer", technology: "MCDI" };
+                    sp.userData = { name: `Feed Channel Spacer (Pair #${pairIdx})`, type: "Flow Spacer", technology: "MCDI" };
                     stackGroup.add(sp);
-                    if (isMidPair || isExp) add3DLabel("Flow Spacer", -plateW / 2 - 0.25, currentY, 0, "#10B981");
+                    if (isMidPair || isExp) add3DLabel("Feed Water Channel", -plateW / 2 - 0.25, currentY, 0, "#10B981");
                 }
                 currentY += layerThick + expGap;
 
                 if (layerVisibility.cem) {
                     const cem = new THREE.Mesh(layerGeo, cemMat);
                     cem.position.y = currentY;
-                    cem.userData = { name: `CEM Membrane (Pair #${pairIdx})`, type: "CEM Membrane", technology: "MCDI" };
+                    cem.userData = { name: `Cation Exchange Membrane (CEM, Pair #${pairIdx})`, type: "CEM Membrane", technology: "MCDI" };
                     stackGroup.add(cem);
-                    if (isMidPair || isExp) add3DLabel("CEM Membrane", plateW / 2 + 0.25, currentY, plateD / 2, "#D97706");
+                    if (isMidPair || isExp) add3DLabel("CEM Membrane (Cathode)", plateW / 2 + 0.25, currentY, plateD / 2, "#D97706");
                 }
                 currentY += layerThick + expGap;
 
                 if (layerVisibility.electrodes) {
-                    const el = new THREE.Mesh(layerGeo, carbonMat);
-                    el.position.y = currentY;
-                    el.userData = { name: `Carbon Electrode (Pair #${pairIdx})`, type: "Electrode", technology: "MCDI" };
-                    stackGroup.add(el);
+                    const cathodeEl = new THREE.Mesh(layerGeo, carbonMat);
+                    cathodeEl.position.y = currentY;
+                    cathodeEl.userData = { name: `MCDI Carbon Cathode (Pair #${pairIdx})`, type: "Fixed Porous Carbon Electrode", technology: "MCDI" };
+                    stackGroup.add(cathodeEl);
                 }
                 currentY += layerThick + expGap;
+
             } else if (tech === "FCDI") {
+                // FCDI: Flowing Carbon Slurry Electrode Channels + AEM/CEM Membranes + Feed Water Channel
                 if (layerVisibility.slurry) {
-                    const sl1 = new THREE.Mesh(layerGeo, slurryMat);
-                    sl1.position.y = currentY;
-                    sl1.userData = { name: `Slurry Channel (Pair #${pairIdx})`, type: "Slurry Chamber", technology: "FCDI" };
-                    stackGroup.add(sl1);
-                    if (isMidPair || isExp) add3DLabel("Slurry Channel", plateW / 2 + 0.25, currentY, 0, "#475569");
+                    const anodeSlurry = new THREE.Mesh(layerGeo, slurryMat);
+                    anodeSlurry.position.y = currentY;
+                    anodeSlurry.userData = { name: `Anode Carbon Slurry Channel (Pair #${pairIdx})`, type: "Flowing Slurry Chamber", slurryConcentration: "10 wt% Carbon", technology: "FCDI" };
+                    stackGroup.add(anodeSlurry);
+                    if (isMidPair || isExp) add3DLabel("Anode Slurry Loop", plateW / 2 + 0.25, currentY, -plateD / 2, "#475569");
                 }
                 currentY += layerThick + expGap;
 
                 if (layerVisibility.aem) {
                     const aem = new THREE.Mesh(layerGeo, aemMat);
                     aem.position.y = currentY;
+                    aem.userData = { name: `Anion Exchange Membrane (AEM, Pair #${pairIdx})`, type: "AEM Membrane", technology: "FCDI" };
                     stackGroup.add(aem);
+                    if (isMidPair || isExp) add3DLabel("AEM Membrane", -plateW / 2 - 0.25, currentY, -plateD / 2, "#0284C7");
                 }
                 currentY += layerThick + expGap;
 
                 if (layerVisibility.spacers) {
-                    const sp = new THREE.Mesh(layerGeo, spacerMat);
-                    sp.position.y = currentY;
-                    stackGroup.add(sp);
+                    const waterChamber = new THREE.Mesh(layerGeo, spacerMat);
+                    waterChamber.position.y = currentY;
+                    waterChamber.userData = { name: `Central Feed-Water Desalination Channel (Pair #${pairIdx})`, type: "Desalination Water Channel", technology: "FCDI" };
+                    stackGroup.add(waterChamber);
+                    if (isMidPair || isExp) add3DLabel("Water Flow Channel", plateW / 2 + 0.25, currentY, 0, "#10B981");
                 }
                 currentY += layerThick + expGap;
+
+                if (layerVisibility.cem) {
+                    const cem = new THREE.Mesh(layerGeo, cemMat);
+                    cem.position.y = currentY;
+                    cem.userData = { name: `Cation Exchange Membrane (CEM, Pair #${pairIdx})`, type: "CEM Membrane", technology: "FCDI" };
+                    stackGroup.add(cem);
+                    if (isMidPair || isExp) add3DLabel("CEM Membrane", -plateW / 2 - 0.25, currentY, plateD / 2, "#D97706");
+                }
+                currentY += layerThick + expGap;
+
+                if (layerVisibility.slurry) {
+                    const cathodeSlurry = new THREE.Mesh(layerGeo, slurryMat);
+                    cathodeSlurry.position.y = currentY;
+                    cathodeSlurry.userData = { name: `Cathode Carbon Slurry Channel (Pair #${pairIdx})`, type: "Flowing Slurry Chamber", slurryConcentration: "10 wt% Carbon", technology: "FCDI" };
+                    stackGroup.add(cathodeSlurry);
+                    if (isMidPair || isExp) add3DLabel("Cathode Slurry Loop", plateW / 2 + 0.25, currentY, plateD / 2, "#475569");
+                }
+                currentY += layerThick + expGap;
+
             } else if (tech === "EDI") {
+                // EDI: Alternating Membranes + Mixed-Bed Ion-Exchange Resin Diluate Channels + Concentrate Channels
                 if (layerVisibility.aem) {
                     const aem = new THREE.Mesh(layerGeo, aemMat);
                     aem.position.y = currentY;
+                    aem.userData = { name: `Anion Exchange Membrane (AEM, Pair #${pairIdx})`, type: "AEM Membrane", technology: "EDI" };
                     stackGroup.add(aem);
+                    if (isMidPair || isExp) add3DLabel("AEM Membrane", -plateW / 2 - 0.25, currentY, -plateD / 2, "#0284C7");
                 }
                 currentY += layerThick + expGap;
 
@@ -434,19 +481,31 @@ export default function CAD3DStackViewer({ technology: propTech }) {
                     }
 
                     diluteChamberGroup.position.y = currentY;
-                    diluteChamberGroup.userData = { name: `EDI Mixed-Bed Resin Cell (Pair #${pairIdx})`, type: "Resin Cell", technology: "EDI" };
+                    diluteChamberGroup.userData = { name: `Mixed-Bed Ion-Exchange Resin Diluate Cell (Pair #${pairIdx})`, type: "Resin Diluate Channel", technology: "EDI" };
                     stackGroup.add(diluteChamberGroup);
 
-                    if (isMidPair || isExp) add3DLabel("Mixed-Bed Resin", plateW / 2 + 0.25, currentY, 0, "#D97706");
+                    if (isMidPair || isExp) add3DLabel("Mixed-Bed Resin (Diluate)", plateW / 2 + 0.25, currentY, 0, "#D97706");
                 }
                 currentY += layerThick + expGap;
 
                 if (layerVisibility.cem) {
                     const cem = new THREE.Mesh(layerGeo, cemMat);
                     cem.position.y = currentY;
+                    cem.userData = { name: `Cation Exchange Membrane (CEM, Pair #${pairIdx})`, type: "CEM Membrane", technology: "EDI" };
                     stackGroup.add(cem);
+                    if (isMidPair || isExp) add3DLabel("CEM Membrane", -plateW / 2 - 0.25, currentY, plateD / 2, "#D97706");
                 }
                 currentY += layerThick + expGap;
+
+                if (layerVisibility.spacers) {
+                    const concentrateChamber = new THREE.Mesh(layerGeo, spacerMat);
+                    concentrateChamber.position.y = currentY;
+                    concentrateChamber.userData = { name: `Concentrate Brine Reject Channel (Pair #${pairIdx})`, type: "Concentrate Channel", technology: "EDI" };
+                    stackGroup.add(concentrateChamber);
+                    if (isMidPair || isExp) add3DLabel("Concentrate Channel", plateW / 2 + 0.25, currentY, plateD / 2 + 0.2, "#0284C7");
+                }
+                currentY += layerThick + expGap;
+
             } else {
                 if (layerVisibility.aem) {
                     const aem = new THREE.Mesh(layerGeo, aemMat);
@@ -863,8 +922,23 @@ export default function CAD3DStackViewer({ technology: propTech }) {
                     ))}
                 </div>
 
-                {/* CAMERA CONTROLS */}
+                {/* CAMERA & LABEL CONTROLS */}
                 <div style={{ display: "flex", gap: "5px" }}>
+                    <button
+                        onClick={() => setLayerVisibility(prev => ({ ...prev, labels: !prev.labels }))}
+                        style={{
+                            background: layerVisibility.labels ? "#0284C7" : "#FFFFFF",
+                            color: layerVisibility.labels ? "#FFFFFF" : "#475569",
+                            border: layerVisibility.labels ? "1px solid #0284C7" : "1px solid #CBD5E1",
+                            borderRadius: "4px",
+                            padding: "4px 10px",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            cursor: "pointer"
+                        }}
+                    >
+                        Labels: {layerVisibility.labels ? "ON" : "OFF"}
+                    </button>
                     <button
                         onClick={handleResetCamera}
                         style={{ background: "#FFFFFF", color: "#475569", border: "1px solid #CBD5E1", borderRadius: "4px", padding: "4px 10px", fontSize: "11px", fontWeight: "600", cursor: "pointer" }}

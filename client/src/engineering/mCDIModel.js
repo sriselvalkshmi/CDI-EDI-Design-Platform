@@ -328,6 +328,17 @@ export function calculateMCDIModel(inputs = {}) {
         electrodeMassKg,
         sac: Number(actualSacMgG.toFixed(1)),
 
+        // Technology Fundamental Configuration (Single Source of Truth)
+        flowConfiguration: "Cyclic batch or continuous single-pass through membrane-bounded flow channel",
+        electrodeConfiguration: "Fixed porous carbon electrodes with attached AEM and CEM sheets",
+        membraneConfiguration: "AEM (Anion Exchange Membrane) at Anode; CEM (Cation Exchange Membrane) at Cathode",
+        ionTransport: "Electromigration through ion-selective membranes into porous carbon EDLs with co-ion blocking",
+        polarity: "Cyclic DC voltage (1.0–1.6 V charging / adsorption; 0 V or reverse -0.2 to -0.6 V discharge)",
+        productStream: "High-purity desalinated product water produced during adsorption cycle",
+        concentrateStream: "Concentrated brine waste produced during electrical discharge/desorption cycle",
+        pretreatment: "5 µm cartridge filter, turbidity < 1 NTU, anti-scalant for hard feed water",
+        regenerationMode: "Intermittent electrical discharge / reverse polarity discharge with membrane co-ion blocking",
+
         // Configurable Envelope Metadata & Model Prediction Status
         modelPredictionLabel,
         envelopeStatus,

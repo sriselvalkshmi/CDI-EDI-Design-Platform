@@ -330,6 +330,18 @@ export function calculateCDIModel(inputs = {}) {
         sac: actualSacMgG,
         cycleTimeMin,
 
+        // Technology Fundamental Configuration (Single Source of Truth)
+        flowConfiguration: "Cyclic batch or continuous single-pass through planar porous electrode gap",
+        electrodeConfiguration: "Fixed porous carbon electrodes (activated carbon cloth/film) on metallic current collectors",
+        membraneConfiguration: "NONE (Membrane-free flow spacer channel)",
+        membraneThicknessMm: 0,
+        ionTransport: "Non-Faradaic electrostatic adsorption into Electrical Double Layers (EDLs)",
+        polarity: "Cyclic DC voltage (0.8–1.5 V charging / adsorption; 0 V or short-circuit discharge / desorption)",
+        productStream: "Desalinated product water produced during adsorption cycle",
+        concentrateStream: "Concentrated brine waste produced during electrical discharge/desorption cycle",
+        pretreatment: "5 µm cartridge filter, anti-scalant if hardness exceeds 200 mg/L as CaCO3",
+        regenerationMode: "Intermittent electrical short-circuiting or reverse voltage discharge",
+
         // Configurable Envelope Metadata
         envelopeStatus,
         envelopeMessage,

@@ -450,6 +450,18 @@ export function calculateEDIModel(inputs = {}) {
         // Hydraulics & Mass
         waterRecovery: waterRecoveryPct,
 
+        // Technology Fundamental Configuration (Single Source of Truth)
+        flowConfiguration: "Continuous dual stream: Feed split into Diluate (Product) channels and Concentrate (Reject) channels",
+        electrodeConfiguration: "Solid dimensionally stable anode (Ti/Pt or IrO2) and cathode (Stainless Steel) terminal plates",
+        membraneConfiguration: "Alternating AEM and CEM sheets forming Diluate and Concentrate compartments filled with mixed-bed resin",
+        membraneThicknessMm: 0.20,
+        ionTransport: "Electric field electromigration via conductive mixed-bed resin beads and ion-exchange membranes",
+        polarity: "Continuous DC high voltage (1.0–6.0 V per cell pair; constant polarization electric field)",
+        productStream: "Continuous ultrapure product water (< 0.05 mg/L TDS; > 16.0–18.2 MΩ·cm resistivity)",
+        concentrateStream: "Continuous concentrate reject stream carrying migrated ions (recirculated or wasted)",
+        pretreatment: "MANDATORY RO Permeate feed (TDS < 30 mg/L, Hardness < 0.5 mg/L as CaCO3, Silica < 0.5 mg/L)",
+        regenerationMode: "Continuous in-situ electrochemical water splitting (H2O -> H+ + OH-) — Chemical-free continuous operation",
+
         // Metadata & Structured Pedigree Object
         modelPredictionLabel: statusLabel,
         modelPedigree,

@@ -446,6 +446,18 @@ export function calculateFCDIModel(inputs = {}) {
         sec: secTotal,
         secEstimateLabel: `TOTAL NET SEC: ${secTotal} kWh/m³ [MODEL ESTIMATE]`,
 
+        // Technology Fundamental Configuration (Single Source of Truth)
+        flowConfiguration: "Continuous dual-loop flow: feed water in central channel, carbon slurry circulating in anode/cathode channels",
+        electrodeConfiguration: "Flowing carbon slurry micro-electrodes (5–20 wt% activated carbon suspension) with graphite current collectors",
+        membraneConfiguration: "AEM at Anode slurry channel; CEM at Cathode slurry channel separating slurry from water channel",
+        membraneThicknessMm: 0.18,
+        ionTransport: "Continuous electromigration across AEM/CEM into mobile carbon slurry micro-particles",
+        polarity: "Continuous DC voltage (1.0–1.8 V across flowing slurry micro-electrode channels)",
+        productStream: "Continuous desalinated product water stream",
+        concentrateStream: "Continuous concentrated brine stream / regenerated slurry stream from un-charging reservoir",
+        pretreatment: "Multi-media filter, viscosity conditioning, 10 µm pre-filter for slurry protection",
+        regenerationMode: "Continuous external slurry un-charging in slurry reservoir tank or secondary un-charging cell",
+
         // Metadata & Structured Pedigree Object
         modelPredictionLabel: statusLabel,
         modelPedigree,
