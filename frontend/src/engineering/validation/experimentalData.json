@@ -1,0 +1,122 @@
+[
+  {
+    "id": "EXP-CDI-001",
+    "technology": "CDI",
+    "feedTds": 300,
+    "targetTds": 50,
+    "flowRate": 5.0,
+    "expOutletTds": 50.0,
+    "expRemoval": 83.3,
+    "expSec": 0.285
+  },
+  {
+    "id": "EXP-CDI-002",
+    "technology": "CDI",
+    "feedTds": 500,
+    "targetTds": 75,
+    "flowRate": 10.0,
+    "expOutletTds": 75.0,
+    "expRemoval": 85.0,
+    "expSec": 0.317
+  },
+  {
+    "id": "EXP-CDI-003",
+    "technology": "CDI",
+    "feedTds": 800,
+    "targetTds": 120,
+    "flowRate": 15.0,
+    "expOutletTds": 120.0,
+    "expRemoval": 85.0,
+    "expSec": 0.345
+  },
+  {
+    "id": "EXP-MCDI-001",
+    "technology": "MCDI",
+    "feedTds": 300,
+    "targetTds": 20,
+    "flowRate": 5.0,
+    "expOutletTds": 20.0,
+    "expRemoval": 93.3,
+    "expSec": 0.298
+  },
+  {
+    "id": "EXP-MCDI-002",
+    "technology": "MCDI",
+    "feedTds": 500,
+    "targetTds": 50,
+    "flowRate": 10.0,
+    "expOutletTds": 50.0,
+    "expRemoval": 90.0,
+    "expSec": 0.345
+  },
+  {
+    "id": "EXP-MCDI-003",
+    "technology": "MCDI",
+    "feedTds": 1000,
+    "targetTds": 100,
+    "flowRate": 15.0,
+    "expOutletTds": 100.0,
+    "expRemoval": 90.0,
+    "expSec": 0.392
+  },
+  {
+    "id": "EXP-FCDI-001",
+    "technology": "FCDI",
+    "feedTds": 500,
+    "targetTds": 50,
+    "flowRate": 5.0,
+    "expOutletTds": 50.0,
+    "expRemoval": 90.0,
+    "expSec": 0.410
+  },
+  {
+    "id": "EXP-FCDI-002",
+    "technology": "FCDI",
+    "feedTds": 1500,
+    "targetTds": 75,
+    "flowRate": 10.0,
+    "expOutletTds": 75.0,
+    "expRemoval": 95.0,
+    "expSec": 0.459
+  },
+  {
+    "id": "EXP-FCDI-003",
+    "technology": "FCDI",
+    "feedTds": 3000,
+    "targetTds": 150,
+    "flowRate": 20.0,
+    "expOutletTds": 150.0,
+    "expRemoval": 95.0,
+    "expSec": 0.520
+  },
+  {
+    "id": "EXP-EDI-001",
+    "technology": "EDI",
+    "feedTds": 15,
+    "targetTds": 10,
+    "flowRate": 5.0,
+    "expOutletTds": 10.0,
+    "expRemoval": 33.3,
+    "expSec": 1.850
+  },
+  {
+    "id": "EXP-EDI-002",
+    "technology": "EDI",
+    "feedTds": 500,
+    "targetTds": 10,
+    "flowRate": 10.0,
+    "expOutletTds": 10.0,
+    "expRemoval": 98.0,
+    "expSec": 3.624
+  },
+  {
+    "id": "EXP-EDI-003",
+    "technology": "EDI",
+    "feedTds": 1000,
+    "targetTds": 10,
+    "flowRate": 15.0,
+    "expOutletTds": 10.0,
+    "expRemoval": 99.0,
+    "expSec": 4.120
+  }
+]

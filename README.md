@@ -1,56 +1,78 @@
 # CDI / EDI Engineering Design & Simulation Platform
 
-A enterprise-grade, serverless engineering web application for designing, simulating, and optimizing **Capacitive Deionization (CDI)**, **Membrane CDI (MCDI)**, **Flow CDI (FCDI)**, and **Electrodeionization (EDI)** water treatment systems.
+An enterprise-grade, modular engineering web platform for designing, simulating, and optimizing **Capacitive Deionization (CDI)**, **Membrane CDI (MCDI)**, **Flow CDI (FCDI)**, and **Electrodeionization (EDI)** water treatment systems.
 
 ---
 
 ## 🌟 Key Features
 
-- **Public Engineering Dashboard**: Zero-login access to thermodynamic calculations, AI technology recommendations, component sizing, 3D/2D layout generation, P&ID diagrams, dynamic simulations, and interactive performance charts.
-- **Client-Side Calculation Engine**: Thermodynamic & electrochemical models (EDL double layer model, Butler-Volmer kinetics, Navier-Stokes channel flow, salt adsorption capacity) run 100% in-browser.
-- **Protected Equation Editor**: Secure formula parsing and custom equation management with topological dependency sorting.
-- **Supabase Enterprise Authentication**: User sign up, email login, session management, and role-based access control (RBAC).
-- **Row Level Security (RLS) & Audit Logging**: Real-time auditing of user logins, activity streams, and parameter modifications in Supabase PostgreSQL tables.
-- **Serverless Architecture**: Deployed seamlessly using Netlify (Frontend SPA) and Supabase (Auth & Database).
-
----
-
-## 🚀 Technology Stack
-
-- **Frontend**: React 18, Vite 5, Recharts, Lucide Icons, jsPDF & autoTable.
-- **Backend & Database**: Supabase Auth, Supabase PostgreSQL, Row Level Security (RLS).
-- **Hosting & CI/CD**: Netlify (Client SPA hosting with automated builds).
+- **Authoritative Single Source of Truth**: 57 literature-backed equations, physical models, and mass balance derivations isolated in a shared engineering core.
+- **Interactive Engineering Dashboard**: Zero-login access to thermodynamic calculations, AI recommendations, component sizing, 3D CAD Stack Viewer, and P&ID diagrams.
+- **Protected Equation Editor**: Secure mathematical formula parsing, custom equation management, and PDF report generation.
+- **Comprehensive Automated Testing**: 25+ automated test suites with 300+ rigorous physics, mass balance, SEC accounting, and edge-case verification checks.
+- **Supabase Authentication & RLS**: User authentication, session management, and Row Level Security (RLS) policies.
+- **Serverless CI/CD**: Clean deployment via Netlify and Supabase.
 
 ---
 
 ## 📁 Repository Structure
 
-```
+```text
 CDI-EDI-Design-Platform/
-├── client/
-│   ├── public/
+├── frontend/                          # React + Vite UI Application Layer
 │   ├── src/
-│   │   ├── components/       # Dashboard, P&ID, Simulation, & Graph components
-│   │   ├── context/          # AppContext with client calculation engine & Supabase Auth
-│   │   ├── engineering/      # Client-side thermodynamic & electrochemical calculation engines
-│   │   ├── pages/            # Dashboard, EquationEditorPage, Login
-│   │   ├── services/         # supabaseClient.js, auditLogger.js
-│   │   ├── styles/           # CSS design system
-│   │   └── utils/            # reportGenerator
+│   │   ├── components/                # UI widgets, modals, charts, PID & 3D viewers
+│   │   │   ├── engineering/           # UI-facing CAD/BOM/Schematic renderers
+│   │   │   └── modals/                # Diagnostic and traceability dialogs
+│   │   ├── context/                   # AppContext, AuthContext
+│   │   ├── pages/                     # Dashboard, EquationEditorPage, etc.
+│   │   ├── services/                  # Supabase client, Excel exporter, Audit logger
+│   │   ├── styles/                    # App.css, pid.css
+│   │   ├── utils/                     # UI helpers & report generators
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── public/                        # Static assets & icons
 │   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-├── supabase/
-│   ├── migrations/           # 01_init_schema.sql (PostgreSQL DDL)
-│   ├── policies/             # rls_policies.sql (Row Level Security)
-│   └── seed.sql              # Default equations & Admin role seed
-├── docs/
-│   ├── Architecture.md       # Serverless architecture documentation
-│   ├── Deployment_Guide.md   # Deployment walkthrough
-│   ├── Netlify_Setup.md      # Netlify deployment guide
-│   └── Supabase_Setup.md     # Supabase DDL & RLS setup
-├── .env.example
-├── netlify.toml              # Netlify build & SPA routing configuration
+│   ├── vite.config.js                 # Configured with '@shared' and '@frontend' aliases
+│   └── package.json
+│
+├── backend/                           # Supabase Database & Backend Layer
+│   ├── migrations/                    # 01_init_schema.sql (PostgreSQL DDL)
+│   ├── policies/                      # rls_policies.sql (Row Level Security)
+│   ├── seed/                          # seed.sql (57 equations & initial dataset)
+│   └── README.md
+│
+├── shared/                            # Authoritative Single Source of Truth
+│   └── engineering/
+│       ├── equations/                 # defaultEquationsDatabase.js (57 Equations), equationCatalog.js
+│       ├── engine/                    # engineeringEquationEngine.js, formulaParser.js
+│       ├── models/                    # cdiModel.js, mCDIModel.js, fCDIModel.js, ediModel.js, processTrainEngine.js
+│       ├── chemistry/                 # waterChemistryEngine.js, waterChemistry.js
+│       ├── sizing/                    # componentSizing.js, electrodeModel.js, stackDesigner.js, designOptimizer.js
+│       ├── core/                      # singleSourceOfTruth.js, engineeringTruthTable.js, technologyFundamentals.js
+│       ├── validation/                # experimentalValidation.js, experimentalCalibration.js
+│       ├── templates/                 # CDI.json, MCDI.json, FCDI.json, EDI.json
+│       └── index.js                   # Unified barrel export
+│
+├── tests/                             # Automated Test Suites (25+ Suites, 300+ Checks)
+│   ├── unit/                          # Individual model & physics unit tests
+│   ├── engineering/                   # First-principles, mass balance, and SEC tests
+│   ├── integration/                   # Cross-panel consistency and end-to-end tests
+│   └── smoke/                         # Equation registry integrity & traceability audits
+│
+├── docs/                              # Structured Technical Documentation
+│   ├── engineering/                   # Technology model specs, physics derivations & changelogs
+│   ├── validation/                    # Literature and experimental validation reports
+│   ├── architecture/                  # Architecture.md, Netlify_Setup.md, Supabase_Setup.md
+│   └── deployment/                    # Deployment_Guide.md
+│
+├── scripts/                           # Tooling, CI/CD & Verification Scripts
+│   ├── test-all.js                    # Unified test runner
+│   ├── seed-db.js                     # Sync 57 equations to backend seed
+│   └── audit-check.js                 # System invariant and mass balance check
+│
+├── netlify.toml                       # Netlify publish directory (frontend/dist)
+├── package.json                       # Root workspace runner
 └── README.md
 ```
 
@@ -58,35 +80,31 @@ CDI-EDI-Design-Platform/
 
 ## 🛠️ Quick Local Setup
 
-1. **Clone the repository**:
+1. **Install Dependencies**:
    ```bash
-   git clone https://github.com/your-org/CDI-EDI-Design-Platform.git
-   cd CDI-EDI-Design-Platform
+   npm install
+   npm --prefix frontend install
    ```
 
-2. **Install Client Dependencies**:
-   ```bash
-   npm --prefix client install
-   ```
-
-3. **Configure Environment Variables**:
-   Copy `.env.example` to `client/.env` and insert your Supabase project credentials:
+2. **Configure Environment Variables**:
+   Copy `.env.example` to `frontend/.env` and insert your Supabase project credentials:
    ```env
    VITE_SUPABASE_URL=https://<your-supabase-project-id>.supabase.co
    VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
    ```
 
-4. **Start Development Server**:
+3. **Start Development Server**:
    ```bash
-   npm --prefix client run dev
+   npm run dev
    ```
    Open `http://localhost:5173` in your browser.
 
----
+4. **Run Automated Test Suite**:
+   ```bash
+   npm test
+   ```
 
-## 📖 Documentation
-
-- [Architecture Overview](docs/Architecture.md)
-- [Deployment Guide](docs/Deployment_Guide.md)
-- [Netlify Setup](docs/Netlify_Setup.md)
-- [Supabase Setup & RLS](docs/Supabase_Setup.md)
+5. **Build for Production**:
+   ```bash
+   npm run build
+   ```
