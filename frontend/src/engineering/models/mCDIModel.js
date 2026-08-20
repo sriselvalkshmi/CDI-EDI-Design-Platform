@@ -60,7 +60,9 @@ export function calculateMCDIChargeEfficiency(cellVoltage = 1.4, feedTds = 500, 
     // Baseline nominal efficiency for MCDI at 1.4V and 500 ppm is 0.92 (92%)
     const baseLambda = 0.92;
     const voltageFactor = 1.0 - 0.04 * ((cellVoltage - 1.4) / 1.4);
-    const concentrationFactor = feedTds >= 500 ? 1.0 : Math.max(0.85, feedTds / 500);
+    // Concentration factor for dilute feed (<500 mg/L), bounded by minimum physical threshold of 80% (0.80)
+    const minConcFactor = 0.80 / baseLambda; // 0.8696
+    const concentrationFactor = feedTds >= 500 ? 1.0 : Math.max(minConcFactor, feedTds / 500);
 
     const lambda = baseLambda * voltageFactor * concentrationFactor;
     return Math.max(0.80, Math.min(0.98, Number(lambda.toFixed(4))));
@@ -75,8 +77,8 @@ export function calculateMCDIChargeEfficiency(cellVoltage = 1.4, feedTds = 500, 
 export function calculateMCDIModel(inputs = {}) {
     const feedWater = inputs.feedWater || {};
 
-    const rawTds = Number(inputs.tds ?? feedWater.tds ?? 500);
-    const flowRateLmin = Number(inputs.flowRate ?? feedWater.flowRate ?? 10); // L/min
+    const rawTds = Number(inputs.tds ?? inputs.feedTds ?? feedWater.tds ?? 500);
+    const flowRateLmin = Number(inputs.flowRate ?? inputs.flowRateLmin ?? feedWater.flowRate ?? 10); // L/min
 
     // Invalid input checks
     if (flowRateLmin <= 0 || rawTds <= 0 || isNaN(rawTds) || isNaN(flowRateLmin)) {
@@ -84,7 +86,7 @@ export function calculateMCDIModel(inputs = {}) {
     }
 
     const feedTds = Math.max(10, Math.round(rawTds)); // mg/L === g/m³
-    const targetTds = Math.max(0.5, Number(inputs.targetTds ?? feedWater.targetTds ?? 50)); // mg/L
+    const targetTds = Math.max(0.5, Number(inputs.targetTds ?? inputs.targetTDS ?? feedWater.targetTds ?? 50)); // mg/L
 
     // 1. Explicit SI Unit Conversions & Molar Concentration
     const flowRateM3s = flowRateLmin / (1000 * 60); // m³/s

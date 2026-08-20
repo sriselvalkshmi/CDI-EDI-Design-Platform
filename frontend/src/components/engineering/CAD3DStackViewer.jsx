@@ -992,21 +992,24 @@ export default function CAD3DStackViewer({ technology: propTech }) {
 
                 {/* ABSOLUTE OVERLAY 1: LEFT-SIDE TELEMETRY CARD */}
                 <div className="cad-telemetry">
-                    <div style={{ color: "#0284C7", fontWeight: "700", marginBottom: "2px" }}>Calculated Telemetry [CALCULATED]</div>
-                    <div style={{ fontSize: "10px", color: "#64748B", marginBottom: "4px" }}>(Model-derived parameters — not physical sensor data)</div>
-                    <div style={{ color: "#475569" }}>Hydraulic Velocity: <strong style={{ color: "#0F172A" }}>{flowVelocity.toFixed(3)} m/s</strong> <span style={{ fontSize: "9px", color: "#0284C7" }}>[CALCULATED]</span></div>
-                    <div style={{ color: "#475569" }}>Pressure Drop: <strong style={{ color: "#0F172A" }}>{pressureDrop.toFixed(0)} Pa</strong> <span style={{ fontSize: "9px", color: "#D97706" }}>[ESTIMATE]</span></div>
-                    <div style={{ color: "#475569" }}>Stack Power: <strong style={{ color: "#0F172A" }}>{power.toFixed(1)} W</strong> <span style={{ fontSize: "9px", color: "#0284C7" }}>[CALCULATED]</span></div>
-                    <div style={{ color: "#475569" }}>System Voltage: <strong style={{ color: "#0F172A" }}>{systemVoltage.toFixed(1)} V DC</strong> <span style={{ fontSize: "9px", color: "#0284C7" }}>[CALCULATED]</span></div>
-                    <div style={{ color: "#475569" }}>Operating Current: <strong style={{ color: "#0F172A" }}>{operatingCurrent.toFixed(2)} A</strong> <span style={{ fontSize: "9px", color: "#0284C7" }}>[CALCULATED]</span></div>
+                    <div style={{ color: "#0284C7", fontWeight: "700", marginBottom: "4px", fontSize: "11.5px" }}>Calculated Stack Data</div>
+                    <div style={{ color: "#475569", display: "flex", flexDirection: "column", gap: "2px", fontSize: "10.5px" }}>
+                        <div>Hydraulic Velocity: <strong style={{ color: "#0F172A" }}>{flowVelocity.toFixed(3)} m/s</strong></div>
+                        <div>Pressure Drop: <strong style={{ color: "#0F172A" }}>{pressureDrop.toFixed(0)} Pa</strong></div>
+                        <div>Stack Power: <strong style={{ color: "#0F172A" }}>{power.toFixed(1)} W</strong></div>
+                        <div>System Voltage: <strong style={{ color: "#0F172A" }}>{systemVoltage.toFixed(1)} V DC</strong></div>
+                        <div>Operating Current: <strong style={{ color: "#0F172A" }}>{operatingCurrent.toFixed(2)} A</strong></div>
+                    </div>
+                    <div style={{ fontSize: "9px", color: "#64748B", marginTop: "4px", borderTop: "1px solid #E2E8F0", paddingTop: "3px" }}>
+                        Values calculated from the current design configuration.
+                    </div>
                 </div>
 
                 {/* ABSOLUTE OVERLAY 2: RIGHT-SIDE DIMENSIONS & LAYER VISIBILITY PANEL */}
                 <div className="cad-dimensions">
                     <div style={{ borderBottom: "1px solid #E2E8F0", paddingBottom: "4px", marginBottom: "6px" }}>
-                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#0284C7", marginBottom: "1px" }}>Parametric Geometry</div>
-                        <div style={{ fontSize: "9px", color: "#64748B", marginBottom: "3px" }}>[PARAMETRIC_GEOMETRY]</div>
-                        <div style={{ color: "#475569", display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#0284C7", marginBottom: "4px" }}>Stack Dimensions</div>
+                        <div style={{ color: "#475569", display: "flex", flexDirection: "column", gap: "2px", fontSize: "10px" }}>
                             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Width:</span><strong style={{ color: "#0F172A" }}>{sideDimMm} mm</strong></div>
                             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Length:</span><strong style={{ color: "#0F172A" }}>{sideDimMm} mm</strong></div>
                             <div style={{ display: "flex", justifyContent: "space-between" }}><span>Height:</span><strong style={{ color: "#0F172A" }}>{totalThicknessMm} mm</strong></div>
@@ -1085,8 +1088,8 @@ export default function CAD3DStackViewer({ technology: propTech }) {
             </div>
 
             {/* CAD DESIGN FOOTNOTE */}
-            <div style={{ marginTop: "6px", borderTop: "1px solid #E2E8F0", paddingTop: "5px", fontSize: "10.5px", color: "#64748B", textAlign: "center" }}>
-                <span>Design basis: Generated parametrically from stack sizing parameters. Pressure vessel and mechanical stress analysis not performed.</span>
+            <div style={{ marginTop: "6px", borderTop: "1px solid #E2E8F0", paddingTop: "5px", fontSize: "10px", color: "#64748B", textAlign: "center", lineHeight: "1.4" }}>
+                <span>Design basis: Generated parametrically from stack sizing parameters. Pressure vessel and mechanical stress analysis not performed. CAD geometry is a parametric design representation and is not a certified mechanical design.</span>
             </div>
         </div>
     );

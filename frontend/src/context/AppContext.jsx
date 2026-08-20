@@ -42,18 +42,19 @@ export function AppProvider({ children }) {
     const [loading, setLoading] = useState(false);
 
     //------------------------------------------
-    // FEED WATER (Default empty state - no hidden baseline)
+    // FEED WATER (Default 39 mg/L Design Basis)
     //------------------------------------------
 
     const [feedWater, setFeedWater] = useState({
-        tds: "",
-        conductivity: "",
-        hardness: "",
-        ph: "",
-        temperature: "",
-        flowRate: "",
-        pressure: "",
-        targetTds: ""
+        tds: 39,
+        conductivity: 60,
+        hardness: 10,
+        ph: 7,
+        temperature: 25,
+        flowRate: 20,
+        pressure: 2,
+        targetTds: 2,
+        targetRecovery: 95.0
     });
 
     //------------------------------------------
@@ -72,7 +73,13 @@ export function AppProvider({ children }) {
     const [optimizationMode, setOptimizationMode] = useState("AI");
     const [optimizationStatus, setOptimizationStatus] = useState("idle");
     const [optimizationError, setOptimizationError] = useState(null);
-    const [optimizationInputs, setOptimizationInputs] = useState({});
+    const [optimizationInputs, setOptimizationInputs] = useState({
+        voltage: 1.4,
+        current: 0.75,
+        cellPairs: 34,
+        electrodeArea: 350,
+        numberOfModules: 1
+    });
 
     const [lockedParameters, setLockedParameters] = useState({
         voltage: false,
@@ -330,6 +337,27 @@ export function AppProvider({ children }) {
             console.error("Recalculation error in AppContext:", error);
         }
     };
+
+    // Initial calculation on mount with default design basis
+    useEffect(() => {
+        recalculate({
+            voltage: 1.4,
+            current: 0.75,
+            cellPairs: 34,
+            electrodeArea: 350,
+            numberOfModules: 1
+        }, "AUTO", false, {
+            tds: 39,
+            conductivity: 60,
+            hardness: 10,
+            ph: 7,
+            temperature: 25,
+            flowRate: 20,
+            pressure: 2,
+            targetTds: 2,
+            targetRecovery: 95.0
+        });
+    }, []);
 
     // Recalculate when technology changes only if a design has already been generated
     useEffect(() => {

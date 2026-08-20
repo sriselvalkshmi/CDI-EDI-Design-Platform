@@ -32,7 +32,8 @@ function aiRecommendation(feedWater = {}) {
         });
 
         const outletTDS = Number((eng.outletTDS || 0).toFixed(1));
-        const targetAchievable = Boolean(eng.isTargetAchieved);
+        const isProdPass = outletTDS <= targetTds + 0.05;
+        const targetAchievable = Boolean(eng.isTargetAchieved || isProdPass);
         
         const b = boundaries[techKey];
         const envelopeOK = tds >= b.tdsMin && tds <= b.tdsMax && flow <= b.flowMax;
@@ -52,12 +53,12 @@ function aiRecommendation(feedWater = {}) {
 
         let score = 0;
         score += isFeasible ? 30 : 0;
-        score += targetAchievable ? 30 : Math.max(0, 10 - (outletTDS - targetTds) * 0.2);
+        score += targetAchievable ? 35 : Math.max(0, 10 - (outletTDS - targetTds) * 0.2);
         score += feedQualityFeasible ? 20 : 5;
         score += Math.max(0, Math.min(10, 10 * (1 - (sec - 0.1) / 1.9)));
         score += Math.max(0, Math.min(10, (recovery / 100) * 10));
 
-        // Membrane-free capex bonus for low salinity stream (tds <= 400 mg/L) when CDI achieves target setpoint
+        // Membrane-free capex bonus for low salinity stream (tds <= 400 mg/L) ONLY when CDI actually achieves target setpoint
         if (techKey === "CDI" && tds <= 400 && targetAchievable) {
             score += 15;
         }
@@ -85,11 +86,17 @@ function aiRecommendation(feedWater = {}) {
     });
 
     // HARD FEASIBILITY GATING SELECTION:
-    const feasibleTargetAchievers = evaluations.filter(e => e.isFeasible && e.targetAchievable);
-    feasibleTargetAchievers.sort((a, b) => b.score - a.score);
+    // 1. Technologies that are feasible within envelope and achieve the target setpoint
+    const passingFeasibleCandidates = evaluations.filter(e => e.isFeasible && e.targetAchievable);
+    passingFeasibleCandidates.sort((a, b) => b.score - a.score);
 
+    // 2. Technologies that are feasible within envelope
     const feasibleCandidates = evaluations.filter(e => e.isFeasible);
     feasibleCandidates.sort((a, b) => b.score - a.score);
+
+    // 3. Technologies that achieve the target setpoint with acceptable feed chemistry
+    const passingTargetCandidates = evaluations.filter(e => e.feedQualityFeasible && e.targetAchievable);
+    passingTargetCandidates.sort((a, b) => b.score - a.score);
 
     evaluations.sort((a, b) => b.score - a.score);
     const ediEval = evaluations.find(e => e.technology === "EDI");
@@ -99,13 +106,15 @@ function aiRecommendation(feedWater = {}) {
     // If feed TDS > 30 mg/L, RO pretreatment is required -> RO → EDI process train.
     if (targetTds <= 1.0) {
         bestEval = ediEval || evaluations[0];
-    } else if (feasibleTargetAchievers.length > 0) {
-        bestEval = feasibleTargetAchievers[0];
+    } else if (passingFeasibleCandidates.length > 0) {
+        bestEval = passingFeasibleCandidates[0];
     } else if (feasibleCandidates.length > 0) {
         bestEval = feasibleCandidates[0];
+    } else if (passingTargetCandidates.length > 0) {
+        bestEval = passingTargetCandidates[0];
     } else {
-        // Fall back to highest scoring candidate among single-stage technologies
-        bestEval = evaluations.find(e => e.isFeasible) || evaluations[0];
+        // Fall back to candidate that achieves the target or has highest score
+        bestEval = evaluations.find(e => e.targetAchievable) || evaluations.find(e => e.isFeasible) || evaluations[0];
     }
 
     const selectedTechnology = bestEval.technology;

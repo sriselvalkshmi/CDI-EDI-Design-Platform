@@ -63,7 +63,8 @@ export default function Navbar() {
     };
 
     return (
-        <header style={{
+        <>
+            <header style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -220,5 +221,6 @@ export default function Navbar() {
                     </div>
                 </div>
             </header>
+        </>
     );
 }

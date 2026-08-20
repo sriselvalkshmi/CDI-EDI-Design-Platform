@@ -73,11 +73,11 @@ export function calculateEDIChargeUtilization(cellVoltage = 3.5, feedTds = 15, c
 export function calculateEDIModel(inputs = {}) {
     const feedWater = inputs.feedWater || {};
 
-    const rawTds = Number(inputs.tds ?? feedWater.tds ?? 15.0);
-    const rawHardness = Number(inputs.hardness ?? feedWater.hardness ?? 0.2); // mg/L as CaCO3
-    const flowRateLmin = Number(inputs.flowRate ?? feedWater.flowRate ?? 10.0); // L/min
-    const targetTds = Number(inputs.targetTds ?? feedWater.targetTds ?? 0.05); // mg/L (Ultrapure polishing target)
-    const rawWaterRecInput = inputs.waterRecovery ?? inputs.recovery;
+    const rawTds = Number(inputs.tds ?? inputs.feedTds ?? feedWater.tds ?? 15.0);
+    const rawHardness = Number(inputs.hardness ?? inputs.feedHardness ?? feedWater.hardness ?? 0.2); // mg/L as CaCO3
+    const flowRateLmin = Number(inputs.flowRate ?? inputs.flowRateLmin ?? feedWater.flowRate ?? 10.0); // L/min
+    const targetTds = Number(inputs.targetTds ?? inputs.targetTDS ?? feedWater.targetTds ?? 0.05); // mg/L (Ultrapure polishing target)
+    const rawWaterRecInput = inputs.waterRecovery ?? inputs.recovery ?? inputs.targetRecovery;
     if (rawWaterRecInput !== undefined && rawWaterRecInput !== null && rawWaterRecInput !== "") {
         const valRec = Number(rawWaterRecInput);
         if (isNaN(valRec) || !isFinite(valRec) || valRec <= 0 || valRec >= 100) {
@@ -85,7 +85,7 @@ export function calculateEDIModel(inputs = {}) {
         }
     }
 
-    let waterRecoveryPct = Number(inputs.waterRecovery ?? inputs.recovery);
+    let waterRecoveryPct = Number(inputs.waterRecovery ?? inputs.recovery ?? inputs.targetRecovery ?? inputs.waterRecoveryPct);
     if (isNaN(waterRecoveryPct) || waterRecoveryPct <= 0 || waterRecoveryPct >= 100) {
         // EDI Water Recovery: 90% default on RO permeate (feedTds <= 30 mg/L).
         // Higher feed TDS requires increased concentrate reject bleed to prevent scaling.
@@ -129,13 +129,100 @@ export function calculateEDIModel(inputs = {}) {
     const feedTds = Math.max(0, rawTds);
     const feedHardness = Math.max(0, rawHardness);
 
-    // 2. Strict Feed-Water Gating (RO Permeate Pretreatment Gating)
+    // 2. Strict Multi-Gate Feed-Water Gating (DuPont EDI-310 / SnowPure / Axeon Specs)
     const maxFeedTds = DEFAULT_EDI_LIMITS.maxFeedTdsMgL; // 30 mg/L
-    const maxHardness = DEFAULT_EDI_LIMITS.maxHardnessMgLAsCaCO3; // 0.5 mg/L as CaCO3
+    // Coupled Hardness Limit: DuPont EDI-310 specifies <= 0.5 mg/L at <= 90% recovery, <= 0.1 mg/L at >= 95% recovery
+    const maxHardness = waterRecoveryPct >= 95 ? 0.10 : DEFAULT_EDI_LIMITS.maxHardnessMgLAsCaCO3; // 0.1 or 0.5 mg/L as CaCO3
+
+    // Feed Conductivity Equivalent (FCE) Check (Axeon / SnowPure: optimum < 9 µS/cm, max 45 µS/cm equivalent to 30 mg/L)
+    const hasExplicitCond = inputs.feedConductivity !== undefined || feedWater.conductivity !== undefined;
+    const feedConductivity = Number(inputs.feedConductivity ?? feedWater.conductivity ?? (feedTds / 0.65));
+    const maxFce = 45.0; // µS/cm
+    const isFceFeasible = !hasExplicitCond || feedConductivity <= maxFce;
 
     const isFeedTdsFeasible = feedTds <= maxFeedTds;
     const isHardnessFeasible = feedHardness <= maxHardness;
-    const isFeedFeasible = isFeedTdsFeasible && isHardnessFeasible;
+    const isFeedFeasible = isFeedTdsFeasible && isHardnessFeasible && isFceFeasible;
+
+    // Chemistry Consistency Check: TDS (mg/L) / Conductivity (µS/cm) standard ratio is ~0.55 - 0.70 for NaCl
+    let chemistryConsistency = { isConsistent: true, ratio: null, warning: null };
+    if (hasExplicitCond && feedConductivity > 0) {
+        const ratio = Number((feedTds / feedConductivity).toFixed(2));
+        chemistryConsistency.ratio = ratio;
+        if (ratio < 0.40 || ratio > 0.85) {
+            chemistryConsistency.isConsistent = false;
+            chemistryConsistency.warning = `TDS/conductivity relationship requires laboratory reconciliation. Reported TDS ${feedTds} mg/L and conductivity ${feedConductivity} µS/cm are unusually inconsistent for the selected electrolyte basis (ratio = ${ratio}). Verify measurements, temperature compensation and TDS conversion factor before final design.`;
+        }
+    }
+
+    // Detailed Multi-Parameter Screening Matrix
+    const screeningGates = {
+        hardness: {
+            parameter: "Hardness (as CaCO₃)",
+            feedValue: `${feedHardness} mg/L`,
+            limit: `≤ ${maxHardness} mg/L (@ ${waterRecoveryPct.toFixed(0)}% Rec)`,
+            status: isHardnessFeasible ? "PASS" : "FAIL",
+            exceedance: isHardnessFeasible ? "1.0×" : `${(feedHardness / maxHardness).toFixed(1)}×`,
+            standard: "DuPont EDI-310 (≤0.5 @ 90% rec, ≤0.1 @ 95% rec)"
+        },
+        tds: {
+            parameter: "Feed TDS",
+            feedValue: `${feedTds} mg/L`,
+            limit: "≤ 30.0 mg/L (Screening Envelope)",
+            status: isFeedTdsFeasible ? "PASS" : "FAIL",
+            exceedance: isFeedTdsFeasible ? "1.0×" : `${(feedTds / maxFeedTds).toFixed(1)}×`,
+            standard: "RO Permeate Screening Envelope"
+        },
+        conductivity: {
+            parameter: "Feed Conductivity / FCE",
+            feedValue: `${feedConductivity.toFixed(1)} µS/cm`,
+            limit: "≤ 33.0 µS/cm (Optimum < 9 µS/cm)",
+            status: isFceFeasible ? "PASS" : "FAIL",
+            standard: "Axeon / SnowPure FCE Standard"
+        },
+        silica: {
+            parameter: "Reactive Silica (SiO₂)",
+            feedValue: inputs.silica !== undefined ? `${inputs.silica} mg/L` : null,
+            limit: "< 0.5 mg/L",
+            status: inputs.silica !== undefined ? (Number(inputs.silica) < 0.5 ? "PASS" : "FAIL") : "NOT VERIFIED",
+            standard: "DuPont EDI-310 (Scaling & Leakage Risk)"
+        },
+        co2: {
+            parameter: "Free CO₂ / Alkalinity",
+            feedValue: inputs.co2 !== undefined ? `${inputs.co2} mg/L` : null,
+            limit: "< 5.0 mg/L (as CO₂)",
+            status: inputs.co2 !== undefined ? (Number(inputs.co2) < 5.0 ? "PASS" : "FAIL") : "NOT VERIFIED",
+            standard: "SnowPure / Axeon FCE Ionic Load"
+        },
+        toc: {
+            parameter: "Total Organic Carbon (TOC)",
+            feedValue: inputs.toc !== undefined ? `${inputs.toc} mg/L` : null,
+            limit: "< 0.5 mg/L",
+            status: inputs.toc !== undefined ? (Number(inputs.toc) < 0.5 ? "PASS" : "FAIL") : "NOT VERIFIED",
+            standard: "Resin Fouling Limit"
+        },
+        ironManganese: {
+            parameter: "Total Iron & Manganese (Fe/Mn)",
+            feedValue: inputs.fe !== undefined ? `${inputs.fe} mg/L` : null,
+            limit: "< 0.01 mg/L",
+            status: inputs.fe !== undefined ? (Number(inputs.fe) < 0.01 ? "PASS" : "FAIL") : "NOT VERIFIED",
+            standard: "Resin Poisoning Limit"
+        },
+        freeChlorine: {
+            parameter: "Free Chlorine / Oxidants",
+            feedValue: inputs.chlorine !== undefined ? `${inputs.chlorine} mg/L` : null,
+            limit: "< 0.05 mg/L (Non-detectable)",
+            status: inputs.chlorine !== undefined ? (Number(inputs.chlorine) < 0.05 ? "PASS" : "FAIL") : "NOT VERIFIED",
+            standard: "Membrane/Resin Oxidation Limit"
+        },
+        turbidity: {
+            parameter: "Turbidity",
+            feedValue: inputs.turbidity !== undefined ? `${inputs.turbidity} NTU` : null,
+            limit: "< 0.5 NTU (SDI < 1.0)",
+            status: inputs.turbidity !== undefined ? (Number(inputs.turbidity) < 0.5 ? "PASS" : "FAIL") : "NOT VERIFIED",
+            standard: "Particulate Spacer Clogging Limit"
+        }
+    };
 
     let feedGatingStatus = "PASSED";
     let recommendedPretreatment = null;
@@ -145,11 +232,13 @@ export function calculateEDIModel(inputs = {}) {
         feedGatingStatus = "FEED PRETREATMENT REQUIRED";
         recommendedPretreatment = "Reverse Osmosis (RO) Permeate pretreatment required before EDI.";
         if (!isFeedTdsFeasible && !isHardnessFeasible) {
-            gatingReason = `Feed TDS (${feedTds} mg/L) exceeds max limit (${maxFeedTds} mg/L) and hardness (${feedHardness} mg/L as CaCO3) exceeds scaling limit (${maxHardness} mg/L; DuPont EDI-310 Spec).`;
+            const hardnessRatio = (feedHardness / maxHardness).toFixed(0);
+            gatingReason = `Feed TDS (${feedTds} mg/L) exceeds max limit (${maxFeedTds} mg/L) and hardness (${feedHardness} mg/L as CaCO3) exceeds EDI scaling-control limit (${maxHardness} mg/L, ${hardnessRatio}× limit; DuPont EDI-310 Spec). Upstream RO/softening required.`;
         } else if (!isFeedTdsFeasible) {
-            gatingReason = `Feed TDS (${feedTds} mg/L) exceeds max EDI direct feed limit (${maxFeedTds} mg/L TDS; DuPont EDI-310 Spec).`;
+            gatingReason = `Feed TDS (${feedTds} mg/L) exceeds max EDI direct feed limit (${maxFeedTds} mg/L TDS; DuPont EDI-310 Spec). Upstream RO required.`;
         } else {
-            gatingReason = `Feed hardness (${feedHardness} mg/L as CaCO3) exceeds EDI scaling-control limit (${maxHardness} mg/L; DuPont EDI-310 Spec). High OH- generation causes Ca/Mg scaling in concentrate channels.`;
+            const hardnessRatio = (feedHardness / maxHardness).toFixed(0);
+            gatingReason = `Feed hardness (${feedHardness} mg/L as CaCO3) exceeds max limit (exceeds EDI scaling-control limit ≤${maxHardness} mg/L at ${waterRecoveryPct.toFixed(0)}% rec, ${hardnessRatio}× limit; DuPont EDI-310 Spec). Upstream RO/softening required.`;
         }
     }
 
@@ -408,18 +497,34 @@ export function calculateEDIModel(inputs = {}) {
         extrapolationWarning: !isFeedFeasible ? `Direct feed TDS (${feedTds} mg/L) exceeds EDI feed quality envelope.` : null
     };
 
+    const pretreatmentActionPlan = [
+        { parameter: "Feed TDS", currentFeed: `${feedTds} mg/L`, targetCondition: "≤ 30.0 mg/L (Screening Envelope)", action: "RO Permeate Pretreatment", status: isFeedTdsFeasible ? "PASS" : "PRETREATMENT REQUIRED" },
+        { parameter: "Hardness (as CaCO₃)", currentFeed: `${feedHardness} mg/L`, targetCondition: `≤ ${maxHardness} mg/L (@ ${waterRecoveryPct.toFixed(0)}% Rec)`, action: "RO + Softening / Ion Exchange", status: isHardnessFeasible ? "PASS" : "PRETREATMENT REQUIRED" },
+        { parameter: "Conductivity / FCE", currentFeed: `${feedConductivity.toFixed(1)} µS/cm`, targetCondition: "≤ 33.0 µS/cm", action: "Already within screening limit", status: isFceFeasible ? "PASS" : "PRETREATMENT REQUIRED" },
+        { parameter: "Reactive Silica (SiO₂)", currentFeed: inputs.silica !== undefined ? `${inputs.silica} mg/L` : "Unknown", targetCondition: "< 0.5 mg/L", action: "Laboratory Water Analysis Required", status: "DATA VERIFICATION REQUIRED" },
+        { parameter: "Free CO₂ / Alkalinity", currentFeed: inputs.co2 !== undefined ? `${inputs.co2} mg/L` : "Unknown", targetCondition: "< 5.0 mg/L", action: "Laboratory Water Analysis Required", status: "DATA VERIFICATION REQUIRED" },
+        { parameter: "TOC", currentFeed: inputs.toc !== undefined ? `${inputs.toc} mg/L` : "Unknown", targetCondition: "< 0.5 mg/L", action: "Laboratory Water Analysis Required", status: "DATA VERIFICATION REQUIRED" },
+        { parameter: "Total Fe & Mn", currentFeed: inputs.fe !== undefined ? `${inputs.fe} mg/L` : "Unknown", targetCondition: "< 0.01 mg/L", action: "Laboratory Water Analysis Required", status: "DATA VERIFICATION REQUIRED" },
+        { parameter: "Free Chlorine / Oxidants", currentFeed: inputs.chlorine !== undefined ? `${inputs.chlorine} mg/L` : "Unknown", targetCondition: "< 0.05 mg/L", action: "Laboratory Water Analysis Required", status: "DATA VERIFICATION REQUIRED" }
+    ];
+
     return {
         technology: "EDI",
         techName: DEFAULT_EDI_LIMITS.name,
         processTrainName: isFeedFeasible ? "EDI" : "RO → EDI",
-        status: (inputs.tds === undefined && feedWater.tds === undefined) ? "EDI feed qualification incomplete" : (isFeedFeasible ? statusLabel : "FEED PRETREATMENT REQUIRED"),
+        recommendedTrain: "Raw water → Pretreatment → RO / Softening → EDI Polishing → Ultrapure Product",
+        engineeringActionDirective: "Design upstream RO/softening to produce EDI-quality water, verify the RO permeate laboratory analysis, then size the EDI polishing stage. Final EDI recovery cannot be finalized until the RO permeate chemistry is available.",
+        pretreatmentActionPlan,
+        status: (inputs.tds === undefined && inputs.feedTds === undefined && feedWater.tds === undefined) ? "EDI feed qualification incomplete" : (isFeedFeasible ? statusLabel : "FEED PRETREATMENT REQUIRED"),
         isFeedFeasible,
         feedQualityFeasible: isFeedFeasible,
         ediDirectFeedFeasible: isFeedFeasible,
-        feedGating: (inputs.tds === undefined && feedWater.tds === undefined) ? "INCOMPLETE_DATA" : feedGatingStatus,
-        feedGatingStatus: (inputs.tds === undefined && feedWater.tds === undefined) ? "INCOMPLETE_DATA" : feedGatingStatus,
+        feedGating: (inputs.tds === undefined && inputs.feedTds === undefined && feedWater.tds === undefined) ? "INCOMPLETE_DATA" : feedGatingStatus,
+        feedGatingStatus: (inputs.tds === undefined && inputs.feedTds === undefined && feedWater.tds === undefined) ? "INCOMPLETE_DATA" : feedGatingStatus,
         recommendedPretreatment,
-        gatingReason: (inputs.tds === undefined && feedWater.tds === undefined) ? "Insufficient EDI feed quality information for qualification" : gatingReason,
+        gatingReason: (inputs.tds === undefined && inputs.feedTds === undefined && feedWater.tds === undefined) ? "Insufficient EDI feed quality information for qualification" : gatingReason,
+        screeningGates,
+        chemistryConsistency,
 
         // Mass Balance & 3-Way Diagnostic Audit Flags
         isWaterConserved,
@@ -556,6 +661,7 @@ export function calculateEDIModel(inputs = {}) {
 
         // Hydraulics & Mass
         waterRecovery: waterRecoveryPct,
+        waterRecoveryPct,
         productFlowLmin: Number(productFlowLmin.toFixed(2)),
 
         // Technology Fundamental Configuration (Single Source of Truth)

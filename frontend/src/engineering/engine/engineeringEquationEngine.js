@@ -6,7 +6,7 @@ import calculateCDIModel from "../models/cdiModel.js";
 import calculateMCDIModel from "../models/mCDIModel.js";
 import calculateFCDIModel from "../models/fCDIModel.js";
 import calculateEDIModel from "../models/ediModel.js";
-import calculateProcessTrain from "../models/processTrainEngine.js";
+import calculateProcessTrain, { synthesizeAutomatedProcessTrain, evaluateAllCandidateProcessTrains } from "../models/processTrainEngine.js";
 import { auditEngineeringDesign } from "../core/engineeringAudit.js";
 
 /**
@@ -742,6 +742,10 @@ function enrichWithAuditBasis(result, inputs = {}) {
         EDI: "DuPont EDI Technical Documentation: Continuous Electrodeionization Module Specification for High Purity Water Polishing"
     };
 
+    const tech = inputs.technology || result.technology || "MCDI";
+    const autoTrain = synthesizeAutomatedProcessTrain(feedWater, tech, inputs);
+    const candidateEvaluation = evaluateAllCandidateProcessTrains(feedWater, targetTds, Number(inputs.targetRecovery ?? 95.0));
+
     return {
         ...result,
         feedPressureBar,
@@ -749,6 +753,8 @@ function enrichWithAuditBasis(result, inputs = {}) {
         outletTDS,
         auditBasis,
         literatureSources,
+        autoTrain,
+        candidateEvaluation,
         modelStatus: "Physics-Based Model Prediction — Not Experimentally Validated",
         statusLabel: "Computational Model Prediction — Literature/Informed Parameters"
     };

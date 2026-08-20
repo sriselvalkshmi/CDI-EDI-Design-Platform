@@ -184,13 +184,19 @@ export default function Sidebar() {
 
                     {/* Conductivity */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <label style={{ fontSize: "11px", color: "#475569", fontWeight: "500" }}>Conductivity (µS/cm)</label>
+                        <label 
+                            style={{ fontSize: "11px", color: "#475569", fontWeight: "500", cursor: "help" }}
+                            title="Conductivity is an independent user-entered parameter (TDS ≈ 0.65 × σ). The screening model uses TDS for mass and Faraday charge transport balances."
+                        >
+                            Conductivity (µS/cm) ℹ️
+                        </label>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <input
                                 type="number"
                                 placeholder="—"
                                 value={feedWater.conductivity}
                                 disabled={isViewer}
+                                title="Independent diagnostic parameter (TDS ≈ 0.65 × Conductivity)"
                                 onChange={(e) => update("conductivity", e.target.value)}
                                 style={{ width: "70px", padding: "3px 5px", border: `1px solid ${condStatus === "INVALID" ? "#DC2626" : "#CBD5E1"}`, borderRadius: "3px", fontSize: "11px", fontWeight: "600", textAlign: "right", fontFamily: "monospace" }}
                             />
@@ -305,17 +311,24 @@ export default function Sidebar() {
                         />
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "#64748B", background: "#F8FAFC", padding: "4px 6px", borderRadius: "3px" }}>
-                        <span>Predicted Product:</span>
+                    <div 
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "#64748B", background: "#F8FAFC", padding: "4px 6px", borderRadius: "3px", cursor: "help" }}
+                        title="Calculated Product TDS: Faradaic-design calculation — requires experimental validation"
+                    >
+                        <span>Product TDS:</span>
                         <strong style={{ color: isDesignReady ? (outletTds <= Number(feedWater.targetTds) ? "#15803D" : "#DC2626") : "#64748B", fontFamily: "monospace" }}>
                             {isDesignReady ? `${outletTds} mg/L` : "—"}
                         </strong>
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "#64748B", background: "#F8FAFC", padding: "4px 6px", borderRadius: "3px" }}>
-                        <span>Target Recovery:</span>
-                        <span style={{ color: "#0F172A", fontWeight: "600", fontFamily: "monospace" }}>
-                            {isDesignReady ? `≥ 95.0% (${recovery} Act)` : "—"}
+                        <span>Target Recovery (≥ 95%):</span>
+                        <span style={{
+                            color: isDesignReady ? (Number(eng.waterRecovery ?? eng.waterRecoveryPct ?? 0) >= 94.95 ? "#15803D" : "#DC2626") : "#0F172A",
+                            fontWeight: "700",
+                            fontFamily: "monospace"
+                        }}>
+                            {isDesignReady ? `${recovery} ${Number(eng.waterRecovery ?? eng.waterRecoveryPct ?? 0) >= 94.95 ? "✓ PASS" : "⚠ FAIL"}` : "—"}
                         </span>
                     </div>
                 </div>
