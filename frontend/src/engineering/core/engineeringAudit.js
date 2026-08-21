@@ -175,7 +175,7 @@ export function auditEngineeringDesign(eng = {}, feedInputs = {}) {
         errors,
         warnings,
         auditDetails,
-        statusLabel: overallValid ? "✓ ENGINEERING CALCULATION VERIFIED" : "⚠ CALCULATION MISMATCH / AUDIT WARNING"
+        statusLabel: overallValid ? "ENGINEERING CALCULATION VERIFIED" : "CALCULATION MISMATCH / AUDIT WARNING"
     };
 }
 

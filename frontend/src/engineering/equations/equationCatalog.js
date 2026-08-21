@@ -1064,9 +1064,9 @@ export const EQUATIONS_CATALOG = [
         expression: "t_cycle = t_ads + t_des + t_rinse",
         variables: [
             { symbol: "t_cycle", name: "Total Cycle Duration", unit: "min" },
-            { symbol: "t_ads", name: "Adsorption Half-Cycle (0–5 min)", unit: "min" },
-            { symbol: "t_des", name: "Desorption Flush (5–6 min)", unit: "min" },
-            { symbol: "t_rinse", name: "Pre-conditioning Rinse (6–7 min)", unit: "min" }
+            { symbol: "t_ads", name: "Adsorption Phase (0–10 min)", unit: "min" },
+            { symbol: "t_des", name: "Desorption Flush (10–11 min)", unit: "min" },
+            { symbol: "t_rinse", name: "Pre-conditioning Rinse (11–12 min)", unit: "min" }
         ],
         classification: "OPERATING PARAMETER",
         status: "Active",

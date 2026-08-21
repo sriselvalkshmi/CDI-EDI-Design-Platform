@@ -61,7 +61,7 @@ export default function FCDISchematic({
         cellVoltage: `${vCell} V`,
         stackVoltage: `${vStack} V`,
         current: `${iCurrent} A`,
-        power: `${pPower} W (P = V_stack × I)`,
+        power: `${pPower} W`,
         removalEfficiency: `${(engineering.removalEfficiency || 90.0).toFixed(1)} %`,
         dimensions: `${stackWidth}px L × ${stackHeight}px H`
     };

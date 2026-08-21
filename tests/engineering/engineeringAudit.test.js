@@ -60,7 +60,7 @@ describe("First-Principles Equation & Mass-Balance Audit Test Suite (Task 26)", 
         const eng = calculateEngineering({ technology: "FCDI", feedWater: { tds: 5000, targetTds: 500, flowRate: 12 } });
         expect(eng.engineeringAudit).toBeDefined();
         expect(eng.engineeringAudit.overallValid).toBe(true);
-        expect(eng.engineeringAudit.statusLabel).toBe("✓ ENGINEERING CALCULATION VERIFIED");
+        expect(eng.engineeringAudit.statusLabel).toBe("ENGINEERING CALCULATION VERIFIED");
         expect(eng.engineeringAudit.auditDetails).toBeDefined();
         expect(eng.engineeringAudit.auditDetails.massBalance.provenance).toBe("FIRST PRINCIPLES (Mass Conservation Law)");
         expect(eng.engineeringAudit.auditDetails.sec.provenance).toBe("EXPERIMENTALLY CALIBRATED");

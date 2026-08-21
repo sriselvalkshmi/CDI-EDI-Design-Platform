@@ -188,7 +188,7 @@ export default function Sidebar() {
                             style={{ fontSize: "11px", color: "#475569", fontWeight: "500", cursor: "help" }}
                             title="Conductivity is an independent user-entered parameter (TDS ≈ 0.65 × σ). The screening model uses TDS for mass and Faraday charge transport balances."
                         >
-                            Conductivity (µS/cm) ℹ️
+                            Conductivity (µS/cm)
                         </label>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                             <input
@@ -328,7 +328,7 @@ export default function Sidebar() {
                             fontWeight: "700",
                             fontFamily: "monospace"
                         }}>
-                            {isDesignReady ? `${recovery} ${Number(eng.waterRecovery ?? eng.waterRecoveryPct ?? 0) >= 94.95 ? "✓ PASS" : "⚠ FAIL"}` : "—"}
+                            {isDesignReady ? `${recovery} ${Number(eng.waterRecovery ?? eng.waterRecoveryPct ?? 0) >= 94.95 ? "PASS" : "FAIL"}` : "—"}
                         </span>
                     </div>
                 </div>

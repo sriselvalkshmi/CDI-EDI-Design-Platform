@@ -24,7 +24,7 @@ export default function DesignTraceModal() {
             details: `Required reduction: ${(feed.tds ?? 500) - (feed.targetTds ?? 50)} mg/L (Removal: ${eng.removalEfficiency?.toFixed(1) ?? "90.0"}%)`
         },
         {
-            stage: "03. Technology Screening",
+            stage: "03. Technology Selection & Assessment",
             badge: "SELECTION",
             primary: `Selected Architecture: ${tech}`,
             details: `Evaluated CDI, MCDI, FCDI, EDI. ${tech} selected for optimum charge efficiency (92.0%), direct-feed feasibility, and minimal SEC.`
@@ -69,7 +69,7 @@ export default function DesignTraceModal() {
             stage: "10. Performance & Validation",
             badge: "ACCEPTANCE",
             primary: `Status: DESIGN ACCEPTED (Target: ${feed.targetTds ?? 50} mg/L vs Predicted: ${eng.outletTDS ?? 50} mg/L)`,
-            details: `Target achieved ✓ | Mass balance PASS ✓ | Electrical balance PASS ✓ | Hydraulic envelope PASS ✓ | Salt conservation PASS ✓`
+            details: `Target achieved | Mass balance PASS | Electrical balance PASS | Hydraulic envelope PASS | Salt conservation PASS`
         }
     ];
 

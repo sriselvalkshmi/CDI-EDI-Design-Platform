@@ -66,7 +66,7 @@ export default function EDISchematic({
         cellVoltage: `${vCell} V`,
         stackVoltage: `${vStack} V`,
         current: `${iCurrent} A`,
-        power: `${pPower} W (P = V_stack × I)`,
+        power: `${pPower} W`,
         chargeEfficiency: "98.0 %",
         chemicalRegeneration: "0% Hazardous Acid/Caustic Required (Eco-friendly)",
         dimensions: `${stackWidth}px L × ${stackHeight}px H`

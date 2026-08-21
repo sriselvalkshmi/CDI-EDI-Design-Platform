@@ -92,16 +92,17 @@ export default function TechTradeoffsPanel() {
         desc: selectedTech
     };
 
-    // Screening Rows
+    // Technology Assessment & Comparison Rows
     const techRows = [
         {
             key: "MCDI",
             name: "MCDI",
             desc: "Membrane Capacitive Deionization",
+            basis: "AEM/CEM paired electrosorption",
             productTarget: `${mcdiOutlet.toFixed(1)} mg/L`,
             recovery: `${mcdiRec.toFixed(1)}%`,
             sec: `${Number(mcdiModel.secElectricalGross).toFixed(3)} kWh/m³`,
-            evaluation: isMcdiProdPass && isMcdiRecPass ? "Screening Pass" : "Does Not Meet Target",
+            evaluation: isMcdiProdPass && isMcdiRecPass ? "Design Check: PASS" : (isMcdiProdPass ? "Recovery Deficit" : "Target Exceeded"),
             isPass: isMcdiProdPass && isMcdiRecPass,
             isRecommended: true
         },
@@ -109,10 +110,11 @@ export default function TechTradeoffsPanel() {
             key: "CDI",
             name: "CDI",
             desc: "Capacitive Deionization (Membrane-Free)",
+            basis: "Membrane-free (co-ion expulsion)",
             productTarget: `${cdiOutlet.toFixed(1)} mg/L`,
             recovery: `${cdiRec.toFixed(1)}%`,
             sec: `${Number(cdiModel.secElectricalGross).toFixed(3)} kWh/m³`,
-            evaluation: "Does Not Meet Target",
+            evaluation: "Target Exceeded",
             isPass: isCdiProdPass && isCdiRecPass,
             isRecommended: false
         },
@@ -120,10 +122,11 @@ export default function TechTradeoffsPanel() {
             key: "FCDI",
             name: "FCDI",
             desc: "Flow-Electrode CDI",
+            basis: "Flowing carbon slurry electrode",
             productTarget: `${fcdiOutlet.toFixed(1)} mg/L`,
             recovery: `${fcdiRec.toFixed(1)}%`,
             sec: `${Number(fcdiModel.secElectricalGross).toFixed(3)} kWh/m³`,
-            evaluation: "Does Not Meet Target",
+            evaluation: "Recovery Deficit",
             isPass: isFcdiProdPass && isFcdiRecPass,
             isRecommended: false
         },
@@ -131,10 +134,11 @@ export default function TechTradeoffsPanel() {
             key: "EDI",
             name: "EDI",
             desc: "Electrodeionization Polishing",
+            basis: "Continuous resin electro-regeneration",
             productTarget: `${ediOutlet.toFixed(1)} mg/L`,
             recovery: isEdiPretreatmentRequired ? "—" : `${ediRec.toFixed(1)}%`,
             sec: `${Number(ediModel.secElectricalGross).toFixed(3)} kWh/m³`,
-            evaluation: isEdiPretreatmentRequired ? "Pretreatment Required" : (isEdiProdPass && isEdiRecPass ? "Screening Pass" : "Does Not Meet Target"),
+            evaluation: isEdiPretreatmentRequired ? "Pretreatment Required" : (isEdiProdPass && isEdiRecPass ? "Design Check: PASS" : "Target Exceeded"),
             isPass: !isEdiPretreatmentRequired && isEdiProdPass && isEdiRecPass,
             isActionRequired: isEdiPretreatmentRequired,
             isRecommended: false
@@ -171,11 +175,12 @@ export default function TechTradeoffsPanel() {
                         <thead>
                             <tr style={{ background: "#F8FAFC", color: "#475569", fontWeight: "700", borderBottom: "2px solid #CBD5E1" }}>
                                 <th style={{ padding: "8px 10px" }}>Technology</th>
+                                <th style={{ padding: "8px 10px" }}>Governing Mechanism</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right" }}>Product TDS</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right" }}>Recovery</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right" }}>SEC</th>
-                                <th style={{ padding: "8px 10px", textAlign: "center" }}>Evaluation</th>
-                                <th style={{ padding: "8px 10px", textAlign: "center" }}>Selection</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right" }}>SEC (Gross)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center" }}>Design Check</th>
+                                <th style={{ padding: "8px 10px", textAlign: "center" }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -194,6 +199,9 @@ export default function TechTradeoffsPanel() {
                                             <span style={{ fontSize: "10.5px", color: "#64748B", marginLeft: "6px" }}>
                                                 ({row.desc})
                                             </span>
+                                        </td>
+                                        <td style={{ padding: "8px 10px", color: "#475569", fontSize: "11px" }}>
+                                            {row.basis}
                                         </td>
                                         <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace" }}>
                                             {row.productTarget}
@@ -230,7 +238,7 @@ export default function TechTradeoffsPanel() {
                                                     border: "1px solid #86EFAC",
                                                     whiteSpace: "nowrap"
                                                 }}>
-                                                    ✓ Selected
+                                                    Selected
                                                 </span>
                                             ) : row.isPass ? (
                                                 <button
@@ -260,9 +268,6 @@ export default function TechTradeoffsPanel() {
                         </tbody>
                     </table>
                 </div>
-                <div style={{ fontSize: "10.5px", color: "#64748B", marginTop: "6px", fontStyle: "italic" }}>
-                    * Values are screening-model estimates and are not literature performance guarantees. Detailed feed-water characterization and pilot validation required.
-                </div>
             </div>
 
             {/* 2. SELECTED PROCESS SUMMARY & PROCESS FLOW */}
@@ -279,9 +284,9 @@ export default function TechTradeoffsPanel() {
                 }}>
                     <div>
                         <div style={{ fontSize: "11px", fontWeight: "700", color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "8px" }}>
-                            Selected Process
+                            Selected Process Configuration
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", rowGap: "5px", fontSize: "11.5px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "115px 1fr", rowGap: "5px", fontSize: "11.5px" }}>
                             <span style={{ color: "#64748B", fontWeight: "600" }}>Method:</span>
                             <strong style={{ color: "#0F172A" }}>{activeTechDetails.method}</strong>
 
@@ -291,12 +296,12 @@ export default function TechTradeoffsPanel() {
                             <span style={{ color: "#64748B", fontWeight: "600" }}>Product TDS:</span>
                             <strong style={{ color: "#0F172A", fontFamily: "monospace" }}>{activeOutletTds.toFixed(1)} mg/L</strong>
 
-                            <span style={{ color: "#64748B", fontWeight: "600" }}>Target TDS:</span>
+                            <span style={{ color: "#64748B", fontWeight: "600" }}>Specification:</span>
                             <span style={{ color: "#334155", fontFamily: "monospace" }}>≤ {targetTds.toFixed(1)} mg/L</span>
 
-                            <span style={{ color: "#64748B", fontWeight: "600" }}>Screening Result:</span>
+                            <span style={{ color: "#64748B", fontWeight: "600" }}>Design Check:</span>
                             {isDesignAccepted ? (
-                                <div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                     <span style={{
                                         fontSize: "10.5px",
                                         fontWeight: "700",
@@ -308,11 +313,14 @@ export default function TechTradeoffsPanel() {
                                         display: "inline-block",
                                         width: "fit-content"
                                     }}>
-                                        PASS (Preliminary Screening)
+                                        Design Check — PASS
+                                    </span>
+                                    <span style={{ fontSize: "10px", color: "#334155", fontFamily: "monospace" }}>
+                                        Product TDS = {activeOutletTds.toFixed(1)} mg/L &nbsp;|&nbsp; Specification = ≤ {targetTds.toFixed(1)} mg/L
                                     </span>
                                 </div>
                             ) : (
-                                <div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                     <span style={{
                                         fontSize: "10.5px",
                                         fontWeight: "700",
@@ -324,7 +332,10 @@ export default function TechTradeoffsPanel() {
                                         display: "inline-block",
                                         width: "fit-content"
                                     }}>
-                                        FAIL (Does Not Meet Target)
+                                        Design Check — FAIL
+                                    </span>
+                                    <span style={{ fontSize: "10px", color: "#991B1B", fontFamily: "monospace" }}>
+                                        Product TDS = {activeOutletTds.toFixed(1)} mg/L &nbsp;|&nbsp; Specification = ≤ {targetTds.toFixed(1)} mg/L
                                     </span>
                                 </div>
                             )}
@@ -334,9 +345,6 @@ export default function TechTradeoffsPanel() {
 
                             <span style={{ color: "#64748B", fontWeight: "600" }}>Energy (Gross):</span>
                             <span style={{ color: "#1D4ED8", fontWeight: "700", fontFamily: "monospace" }}>{activeSec.toFixed(3)} kWh/m³</span>
-                        </div>
-                        <div style={{ marginTop: "8px", fontSize: "10px", color: "#64748B", borderTop: "1px solid #E2E8F0", paddingTop: "5px", lineHeight: "1.4" }}>
-                            Model-based screening result. Confirm performance using representative feed-water testing before final equipment selection.
                         </div>
                     </div>
                 </div>

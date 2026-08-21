@@ -863,7 +863,6 @@ export default function CAD3DStackViewer({ technology: propTech }) {
             {/* EDI PRETREATMENT WARNING BANNER */}
             {isEdiWarning && (
                 <div style={{ background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: "6px", padding: "6px 10px", marginBottom: "8px", fontSize: "11px", color: "#991B1B", display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span>⚠️</span>
                     <div>
                         <strong>EDI Feed Quality Envelope Alert:</strong> Feed TDS ({feedTDS} ppm) exceeds direct EDI limit (&lt; 30 ppm TDS). Reverse Osmosis (RO) pretreatment required.
                     </div>
@@ -1072,7 +1071,7 @@ export default function CAD3DStackViewer({ technology: propTech }) {
                     <div style={{ position: "absolute", bottom: "12px", left: "12px", zIndex: 25, background: "rgba(255, 255, 255, 0.96)", border: "1px solid #0284C7", padding: "8px 12px", borderRadius: "6px", fontSize: "11px", maxWidth: "320px", boxShadow: "0 4px 14px rgba(15,23,42,0.15)" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                             <strong style={{ color: "#0284C7", fontSize: "11.5px" }}>{selectedComponent.name}</strong>
-                            <button onClick={() => setSelectedComponent(null)} style={{ background: "transparent", border: "none", color: "#64748B", cursor: "pointer", fontSize: "12px" }}>✕</button>
+                            <button onClick={() => setSelectedComponent(null)} style={{ background: "transparent", border: "none", color: "#64748B", cursor: "pointer", fontSize: "11px", fontWeight: "600" }}>Close</button>
                         </div>
                         {Object.entries(selectedComponent).map(([k, v]) => {
                             if (k === "name") return null;
@@ -1085,11 +1084,6 @@ export default function CAD3DStackViewer({ technology: propTech }) {
                         })}
                     </div>
                 )}
-            </div>
-
-            {/* CAD DESIGN FOOTNOTE */}
-            <div style={{ marginTop: "6px", borderTop: "1px solid #E2E8F0", paddingTop: "5px", fontSize: "10px", color: "#64748B", textAlign: "center", lineHeight: "1.4" }}>
-                <span>Design basis: Generated parametrically from stack sizing parameters. Pressure vessel and mechanical stress analysis not performed. CAD geometry is a parametric design representation and is not a certified mechanical design.</span>
             </div>
         </div>
     );

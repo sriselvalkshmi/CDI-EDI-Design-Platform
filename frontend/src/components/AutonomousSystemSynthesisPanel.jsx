@@ -60,7 +60,7 @@ export default function AutonomousSystemSynthesisPanel() {
                             color: isOverallPass ? "#15803D" : "#92400E",
                             border: `1px solid ${isOverallPass ? "#86EFAC" : "#FDE68A"}`
                         }}>
-                            {isOverallPass ? "✓ SYSTEM CONSTRAINTS SATISFIED" : "⚠️ CONDITIONAL FEASIBILITY / ADVISORY"}
+                            {isOverallPass ? "SYSTEM CONSTRAINTS SATISFIED" : "CONDITIONAL FEASIBILITY / ADVISORY"}
                         </span>
                     </div>
                     <div style={{ fontSize: "11px", color: "#475569", marginTop: "3px" }}>

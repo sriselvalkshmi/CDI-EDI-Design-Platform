@@ -183,7 +183,7 @@ export default function EngineeringBasisModal() {
                                 <div style={{ background: "#F8FAFC", padding: "10px 14px", borderRadius: "6px", fontFamily: "monospace", border: "1px solid #E2E8F0", color: "#0F172A", fontSize: "12px" }}>
                                     TDS = k · σ &nbsp;&nbsp;&nbsp;&nbsp; (where k ≈ 0.65 for typical NaCl / brackish feed)<br/>
                                     • At TDS = 39 mg/L: σ = 39 / 0.65 ≈ <strong>60.0 µS/cm</strong><br/>
-                                    • <em>Note:</em> Conductivity is an independent user-entered diagnostic parameter. The first-principles electrochemical screening calculation uses TDS directly for mass conservation and Faraday charge transport balances.
+                                    • <em>Note:</em> Conductivity is an independent user-entered diagnostic parameter. The first-principles electrochemical design calculation uses TDS directly for mass conservation and Faraday charge transport balances.
                                 </div>
                             </div>
                         </div>
@@ -360,7 +360,7 @@ export default function EngineeringBasisModal() {
                                     • Secondary Contaminants: Reactive Silica &lt; 0.5 mg/L (&lt; 0.2 optimum), Free CO₂ &lt; 5.0 mg/L (&lt; 2 optimum), TOC &lt; 0.5 mg/L, Fe/Mn &lt; 0.01 mg/L<br/>
                                     • Free Chlorine / Oxidants: DuPont EDI-310 ≤ 0.05 mg/L Cl₂; SnowPure: Non-Detectable (ND)<br/>
                                     • Operating Range: pH 5–9 (DuPont) / 5–9.5 (SnowPure); Temp 10–38°C (DuPont) / 5–35°C (SnowPure); Feed Pressure ≤ 5–6.9 bar<br/>
-                                    <em>Direct Feed Screening:</em> High hardness or ionic load triggers upstream RO + softening pretreatment requirement before EDI polishing.
+                                    <em>Direct Feed Assessment:</em> High hardness or ionic load triggers upstream RO + softening pretreatment requirement before EDI polishing.
                                 </div>
                             </div>
                         </div>

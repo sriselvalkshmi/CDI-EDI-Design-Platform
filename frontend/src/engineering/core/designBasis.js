@@ -142,7 +142,7 @@ export function extractDesignBasisSummary(engineering = {}) {
     } else if (tech === "EDI") {
         cards.push({
             parameter: "EDI Pretreatment Gate",
-            value: engineering.isFeedFeasible !== false ? "PASSED (RO Permeate Feed)" : "❌ PRETREATMENT REQUIRED (RO → EDI)",
+            value: engineering.isFeedFeasible !== false ? "PASSED (RO Permeate Feed)" : "PRETREATMENT REQUIRED (RO → EDI)",
             unit: "Status",
             provenance: "LITERATURE_SUPPORTED",
             basis: "DuPont EDI-310 Vendor Limit: TDS ≤ 30 mg/L, Hardness ≤ 0.5 mg/L as CaCO3"
