@@ -5,7 +5,7 @@ import Sidebar from "../components/Sidebar";
 import EngineeringCalculatorPanel from "../components/EngineeringCalculatorPanel";
 import TechTradeoffsPanel from "../components/TechTradeoffsPanel";
 import PIDDiagram from "../components/PIDDiagram";
-import SimulationGraphs from "../components/SimulationGraphsRenderer";
+import SimulationGraphs from "../components/SimulationGraphs";
 
 import EquipmentInspectionModal from "../components/engineering/EquipmentInspectionModal";
 import DesignTraceModal from "../components/modals/DesignTraceModal";
