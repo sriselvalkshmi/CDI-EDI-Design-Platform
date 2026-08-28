@@ -197,8 +197,11 @@ export default function PIDDiagram() {
                                 const isProduct = eq.id === "PROD_TANK" || eq.id === "TK102" || eq.id === "TK103";
                                 const isIntermediate = eq.id === "INT_TANK";
                                 const tankTDS = isProduct 
-                                    ? (overall.outletTDS || engineering.outletTDS)
+                                    ? (overall.outletTDS || engineering.outletTDS || 500)
                                     : (isIntermediate ? (stage1Data?.outletTDS || 1913) : feedWater.tds);
+                                const tankFlow = isProduct
+                                    ? (engineering.productFlow !== undefined ? Number(engineering.productFlow).toFixed(2) : (Number(currentFlowRate) * 0.9).toFixed(2))
+                                    : Number(currentFlowRate).toFixed(2);
                                 
                                 return (
                                     <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
@@ -228,7 +231,7 @@ export default function PIDDiagram() {
                                         />
                                         <text x={eq.x + 8} y={eq.y + 24} fontWeight="700" fontSize="11" fill="#1F2937">{eq.name}</text>
                                         <text x={eq.x + 8} y={eq.y + 46} fontSize="10.5" fill="#4B5563">TDS: {tankTDS} mg/L</text>
-                                        <text x={eq.x + 8} y={eq.y + 64} fontSize="10.5" fill="#4B5563">Flow: {currentFlowRate} L/min</text>
+                                        <text x={eq.x + 8} y={eq.y + 64} fontSize="10.5" fill="#4B5563">Flow: {tankFlow} L/min</text>
                                     </g>
                                 );
                             }
@@ -307,17 +310,25 @@ export default function PIDDiagram() {
 
                             if (eq.type === "reactor") {
                                 const s1Eng = stage1Data?.engineering || stage1Data || {};
+                                const actVoltage = Number(s1Eng.voltageStack || s1Eng.voltage || engineering.voltageStack || engineering.voltage || 47.6);
+                                const actCurrent = Number(s1Eng.current || engineering.current || 0.40);
+                                const actModules = Number(s1Eng.numberOfModules || engineering.numberOfModules || engineering.modules || 1);
+                                const actCurrentDensity = Number(s1Eng.currentDensity || engineering.currentDensity || 14.5);
+                                const displayVolt = `${actVoltage.toFixed(1)} V DC`;
+                                const displayCurr = actModules > 1 ? `${(actCurrent * actModules).toFixed(2)} A (Bank) · ${actCurrent.toFixed(2)} A/mod` : `${actCurrent.toFixed(2)} A`;
+                                const displayDensity = `${actCurrentDensity.toFixed(1)} A/m²`;
+
                                 return (
                                     <g key={eq.id} style={{ cursor: "pointer" }} onClick={() => {
                                         setSelectedEquipment && setSelectedEquipment({
                                             tag: "R-101",
                                             name: eq.name || (activeTech + " Desalination Reactor Stack"),
                                             type: activeTech + " Module Stack",
-                                            voltage: (s1Eng.voltage || engineering.voltage || 142.8) + " V",
-                                            current: (s1Eng.current || engineering.current || 1.45) + " A",
-                                            currentDensity: (s1Eng.currentDensity || engineering.currentDensity || 14.5) + " A/m²",
-                                            chargeEfficiency: (engineering.chargeEfficiency || 92.0) + "%",
-                                            material: "PVDF Housing / Porous Carbon Electrodes",
+                                            voltage: `${actVoltage.toFixed(1)} V DC`,
+                                            current: displayCurr,
+                                            currentDensity: displayDensity,
+                                            chargeEfficiency: (engineering.chargeEfficiency || 88.0) + "%",
+                                            material: "PVDF Housing / Porous Carbon Flow-Electrodes",
                                             designStandard: "IEC 61140 / ISO 10628",
                                             operatingPressure: "1.0 bar",
                                             dimensions: `${eq.width || 170} × ${eq.height || 130} mm`
@@ -334,10 +345,10 @@ export default function PIDDiagram() {
                                             rx="6"
                                         />
                                         <text x={eq.x + 10} y={eq.y + 24} fontWeight="700" fontSize="11.5" fill="#2563EB">{eq.name || (activeTech + " Reactor")}</text>
-                                        <text x={eq.x + 10} y={eq.y + 46} fontSize="10.5" fill="#1F2937">Voltage: {s1Eng.voltage || engineering.voltageStack || engineering.voltage || 142.8} V</text>
-                                        <text x={eq.x + 10} y={eq.y + 64} fontSize="10.5" fill="#1F2937">Current: {s1Eng.current || engineering.current || 1.45} A</text>
-                                        <text x={eq.x + 10} y={eq.y + 82} fontSize="10.5" fill="#1F2937">Outlet: {stage1Data?.outletTDS || s1Eng.outletTDS || engineering.outletTDS || 50} ppm</text>
-                                        <text x={eq.x + 10} y={eq.y + 100} fontSize="10.5" fill="#6B7280">Cell Pairs: {s1Eng.cellPairs || engineering.cellPairs || 102}</text>
+                                        <text x={eq.x + 10} y={eq.y + 46} fontSize="10.5" fill="#1F2937">Voltage: {displayVolt}</text>
+                                        <text x={eq.x + 10} y={eq.y + 64} fontSize="10.5" fill="#1F2937">Current: {displayCurr}</text>
+                                        <text x={eq.x + 10} y={eq.y + 82} fontSize="10.5" fill="#1F2937">Outlet: {stage1Data?.outletTDS || s1Eng.outletTDS || engineering.outletTDS || 500} ppm</text>
+                                        <text x={eq.x + 10} y={eq.y + 100} fontSize="10.5" fill="#6B7280">Cell Pairs: {s1Eng.cellPairs || engineering.cellPairs || 510} ({engineering.numberOfModules || 15} mods)</text>
                                     </g>
                                 );
                             }

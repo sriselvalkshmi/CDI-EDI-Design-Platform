@@ -62,30 +62,30 @@ export default function CAD3DStackViewer({ technology: propTech }) {
     
     // Engineering metrics with fallbacks
     const cellVoltage = Number(eng.voltageCell || 1.40);
-    const moduleVoltage = Number(eng.voltageModule || 47.6);
-    const systemVoltage = Number(eng.voltageStack || 142.8);
-    const numberOfModules = Number(eng.numberOfModules || 3);
-    const pairsPerModule = Number(eng.pairsPerModule || 34);
-    const totalCellPairs = Number(eng.cellPairs || 102);
+    const numberOfModules = Number(eng.numberOfModules || 1);
+    const pairsPerModule = Number(eng.pairsPerModule || (eng.cellPairs ? Math.round(eng.cellPairs / numberOfModules) : 34));
+    const totalCellPairs = Number(eng.cellPairs || 34);
+    const moduleVoltage = Number(eng.voltageModule || (pairsPerModule * cellVoltage));
+    const systemVoltage = Number(eng.voltageBank || (numberOfModules > 1 && eng.voltageBank ? eng.voltageBank : (eng.voltageStack || moduleVoltage)));
 
-    const electrodeArea = Number(eng.electrodeArea || 360); // cm²
+    const electrodeArea = Number(eng.electrodeArea || 350); // cm²
     const electrodeThickness = Number(eng.electrodeThickness || 0.60); // mm
     const membraneThickness = Number(eng.membraneThickness || 0.15); // mm
     const spacerThickness = Number(eng.spacerThickness || 0.50); // mm
     
     const flowRate = Number(eng.flowRate || feedWater.flowRate || 10.0); // L/min
-    const flowVelocity = Number(eng.flowVelocity || 0.033); // m/s
+    const flowVelocity = Number(eng.flowVelocity !== undefined ? eng.flowVelocity : 0.052); // m/s
     const residenceTime = Number(eng.residenceTime || 0.045); // min
-    const pressureDrop = Number(eng.pressureDrop || 270.1); // Pa
+    const pressureDrop = Number(eng.pressureDrop || 406); // Pa
 
-    const feedTDS = Number(feedWater.tds || 500);
-    const targetTDS = Number(feedWater.targetTds || 50);
-    const outletTDS = Number(eng.outletTDS || 50);
+    const feedTDS = Number(feedWater.tds || 50);
+    const targetTDS = Number(feedWater.targetTds || 10);
+    const outletTDS = Number(eng.outletTDS || 10);
     const waterRecovery = Number(eng.waterRecovery || 95.0);
 
-    const operatingCurrent = Number(eng.current || 1.45); // A
-    const power = Number(eng.power || 207.1); // W
-    const currentDensity = Number(eng.currentDensity || 14.5); // A/m²
+    const operatingCurrent = Number(eng.bankCurrent || (numberOfModules > 1 && eng.moduleCurrent ? eng.moduleCurrent * numberOfModules : eng.current) || 0.40); // A
+    const power = Number(eng.power || eng.stackElectricalPowerW || (systemVoltage * operatingCurrent) || 19.0); // W
+    const currentDensity = Number(eng.currentDensity || 11.4); // A/m²
 
     // Pretreatment EDI Envelope check
     const ediDirectFeedFeasible = eng.ediDirectFeedFeasible !== false;
@@ -833,30 +833,6 @@ export default function CAD3DStackViewer({ technology: propTech }) {
                     <div style={{ fontSize: "10.5px", color: "#64748B", marginTop: "3px", fontFamily: "monospace" }}>
                         Envelope: <strong style={{ color: "#0F172A" }}>{sideDimMm}×{sideDimMm}×{totalThicknessMm} mm</strong> | Pairs: <strong style={{ color: "#0F172A" }}>{totalCellPairs}</strong> | Modules: <strong style={{ color: "#0F172A" }}>{numberOfModules}</strong> | Area: <strong style={{ color: "#0F172A" }}>{electrodeArea} cm²</strong> | Membrane: <strong style={{ color: "#0F172A" }}>0.15 mm</strong> | Spacer: <strong style={{ color: "#0F172A" }}>0.50 mm</strong> | Electrode: <strong style={{ color: "#0F172A" }}>0.60 mm</strong> | Pitch: <strong style={{ color: "#0F172A" }}>2.00 mm</strong>
                     </div>
-                </div>
-
-                {/* TECHNOLOGY SELECTION BUTTONS */}
-                <div style={{ display: "flex", gap: "4px", background: "#F1F5F9", padding: "3px", borderRadius: "6px", border: "1px solid #CBD5E1" }}>
-                    {["CDI", "MCDI", "FCDI", "EDI"].map((t) => (
-                        <button
-                            key={t}
-                            onClick={() => {
-                                if (setTechnology) setTechnology(t);
-                            }}
-                            style={{
-                                background: tech === t ? "#2563EB" : "transparent",
-                                color: tech === t ? "#FFFFFF" : "#64748B",
-                                border: "none",
-                                padding: "4px 10px",
-                                borderRadius: "4px",
-                                fontSize: "11px",
-                                fontWeight: "700",
-                                cursor: "pointer"
-                            }}
-                        >
-                            {t}
-                        </button>
-                    ))}
                 </div>
             </div>
 

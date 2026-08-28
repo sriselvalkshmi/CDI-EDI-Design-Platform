@@ -38,22 +38,22 @@ export function AppProvider({ children }) {
     //------------------------------------------
 
     const [technology, setTechnology] = useState("AUTO");
-    const [selectedDesign, setSelectedDesign] = useState("CDI");
+    const [selectedDesign, setSelectedDesign] = useState("AUTO");
     const [loading, setLoading] = useState(false);
 
     //------------------------------------------
-    // FEED WATER (Default 39 mg/L Design Basis)
+    // FEED WATER (Default empty/0 Design Basis)
     //------------------------------------------
 
     const [feedWater, setFeedWater] = useState({
-        tds: 39,
-        conductivity: 60,
-        hardness: 10,
-        ph: 7,
-        temperature: 25,
-        flowRate: 20,
-        pressure: 2,
-        targetTds: 2,
+        tds: "",
+        conductivity: "",
+        hardness: "",
+        ph: "",
+        temperature: "",
+        flowRate: "",
+        pressure: "",
+        targetTds: "",
         targetRecovery: 95.0
     });
 
@@ -75,10 +75,10 @@ export function AppProvider({ children }) {
     const [optimizationError, setOptimizationError] = useState(null);
     const [optimizationInputs, setOptimizationInputs] = useState({
         voltage: 1.4,
-        current: 0.75,
-        cellPairs: 34,
+        current: 2.76,
+        cellPairs: 510,
         electrodeArea: 350,
-        numberOfModules: 1
+        numberOfModules: 15
     });
 
     const [lockedParameters, setLockedParameters] = useState({
@@ -185,8 +185,13 @@ export function AppProvider({ children }) {
             // 2. AI Recommendation
             const ai = aiRecommendation(sanitizedFeed);
             const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "MCDI") : currentTech;
+            const prevTech = designResult?.selectedTechnology;
 
             let calcInputs = { ...currentInputs };
+            if (prevTech && prevTech !== activeTech) {
+                // Reset stack geometry when switching technology so the new technology sizes itself from first principles
+                calcInputs = {};
+            }
 
             // 3. Engineering Equation Engine
             let eng = engineeringEquationEngine({
@@ -338,25 +343,10 @@ export function AppProvider({ children }) {
         }
     };
 
-    // Initial calculation on mount with default design basis
+    // Clean initial state on mount: start in clean blank state with AUTO screening selected
     useEffect(() => {
-        recalculate({
-            voltage: 1.4,
-            current: 0.75,
-            cellPairs: 34,
-            electrodeArea: 350,
-            numberOfModules: 1
-        }, "AUTO", false, {
-            tds: 39,
-            conductivity: 60,
-            hardness: 10,
-            ph: 7,
-            temperature: 25,
-            flowRate: 20,
-            pressure: 2,
-            targetTds: 2,
-            targetRecovery: 95.0
-        });
+        setDesignResult(null);
+        setDesignGenerated(false);
     }, []);
 
     // Recalculate when technology changes only if a design has already been generated

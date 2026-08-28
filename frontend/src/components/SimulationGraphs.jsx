@@ -134,7 +134,7 @@ function ChartCard({
                     
                     {/* Zero Polarity Reference Baseline for Voltage & Current */}
                     {showZeroLine && (
-                        <ReferenceLine y={0} stroke="#475569" strokeWidth={1.5} strokeDasharray="3 3" />
+                        <ReferenceLine y={0} stroke="#334155" strokeWidth={1.5} strokeDasharray="4 2" label={{ value: "0.0 Ref", fill: "#475569", fontSize: 8.5, position: "insideBottomRight" }} />
                     )}
 
                     {/* Vertical Phase Boundaries: 10m, 11m (only in cyclic full cycle view) */}
@@ -208,24 +208,23 @@ export default function SimulationGraphs() {
     const tRinseMin = 1.0;
 
     // Phase-integrated volume & salt accounting:
-    const adsFeedVol = Number((flowRate * tAdsMin).toFixed(2));
-    const adsProdVol = Number(((flowRate * (recoveryPct / 100)) * tAdsMin).toFixed(2));
-    const adsRetentateVol = Number((adsFeedVol - adsProdVol).toFixed(2));
-    
-    const desFlushVol = Number((adsRetentateVol).toFixed(2));
-    const extFeedVol = isEDI ? Number((flowRate * 12.0).toFixed(2)) : Number((adsFeedVol + desFlushVol).toFixed(2));
-    const adsVol = isEDI ? Number(((flowRate * (recoveryPct / 100)) * 12.0).toFixed(2)) : adsProdVol;
-    const desVol = isEDI ? Number((extFeedVol - adsVol).toFixed(2)) : Number((adsRetentateVol + desFlushVol).toFixed(2));
-    const rinseVol = Number((10.0).toFixed(1));
+    const isContinuous = isFCDI || isEDI;
+    const timeBasisMin = 10.0; // 10 min operational period
 
-    const cycleRecPct = extFeedVol > 0 ? ((adsVol / extFeedVol) * 100).toFixed(2) : recoveryPct.toFixed(2);
-    const saltInVal = (extFeedVol * feedTds).toFixed(2);
-    const saltProdVal = (adsVol * calcOutlet).toFixed(2);
-    const saltConcVal = (Number(saltInVal) - Number(saltProdVal)).toFixed(2);
-    const concTdsDynamic = desVol > 0 ? ((Number(saltInVal) - Number(saltProdVal)) / desVol) : concTds;
+    const extFeedVol = Number((flowRate * timeBasisMin).toFixed(2));
+    const adsVol = Number(((flowRate * (recoveryPct / 100)) * timeBasisMin).toFixed(2));
+    const desVol = Number((extFeedVol - adsVol).toFixed(2));
+    const rinseVol = isContinuous ? 0.0 : Number((10.0).toFixed(1));
+
+    const cycleRecPct = extFeedVol > 0 ? ((adsVol / extFeedVol) * 100).toFixed(1) : recoveryPct.toFixed(1);
+    const saltInVal = (extFeedVol * feedTds).toFixed(1);
+    const saltProdVal = (adsVol * calcOutlet).toFixed(1);
+    const saltConcVal = (Number(saltInVal) - Number(saltProdVal)).toFixed(1);
+    const concTdsDynamic = desVol > 0 ? (Number(saltConcVal) / desVol) : concTds;
     
-    // Half-sine peak for cyclic desorption (MCDI / CDI):
-    const concPeakDynamic = Number((feedTds + (Math.PI / 2) * (concTdsDynamic - feedTds)).toFixed(1));
+    // Half-sine peak for cyclic desorption (MCDI / CDI / FCDI):
+    const fcdiPeakTds = Number((concTdsDynamic * 1.508).toFixed(1));
+    const concPeakDynamic = isFCDI ? fcdiPeakTds : Number((feedTds + (Math.PI / 2) * (concTdsDynamic - feedTds)).toFixed(1));
 
     // Hydraulic residence time constant:
     const nPairs = Number(engineering.cellPairs || 34);
@@ -254,7 +253,41 @@ export default function SimulationGraphs() {
         let streamType = "Product Outlet Stream";
         let note = null;
 
-        if (isEDI) {
+        if (isFCDI) {
+            // FCDI: 12-MINUTE OPERATING CYCLE (ADSORPTION 0-10M -> REVERSE DESORPTION 10-11M -> RINSE 11-12M)
+            if (t > 10 && t <= 11) {
+                phase = "Desorption (10–11m) [Reverse Polarity Mode]";
+                streamType = "High-Salinity Concentrate Stream (Brine Peak)";
+                const progress = (t - 10);
+                tds = feedTds + (fcdiPeakTds - feedTds) * Math.sin(progress * Math.PI);
+                curr = -Number((steadyCurrent * 0.8).toFixed(2)); // Reverse polarity discharge current (-1.66 A)
+                volt = -Number((voltageStack * 0.5).toFixed(1)); // Reverse polarity voltage setpoint (-47.6 V)
+                eff = 90.0; // Desorption ion release efficiency (Λ_des = 90%)
+                note = `FCDI Desorption: Ion release under Reverse Polarity Mode (Peak: ~${fcdiPeakTds.toFixed(1)} mg/L, Avg: ${concTdsDynamic.toFixed(1)} mg/L, I = -${(steadyCurrent * 0.8).toFixed(2)} A, V = -${(voltageStack * 0.5).toFixed(1)} V, Λ = 90%)`;
+            } else if (t > 11 && t <= 12) {
+                phase = "Rinse (11–12m)";
+                streamType = "Internal Flush Stream";
+                const progress = (t - 11);
+                tds = (feedTds * 0.5) * (1 - progress * 0.8);
+                curr = 0.0;
+                volt = 0.0;
+                eff = 0.0; // Unpowered rinse flush
+                note = "Rinse Phase: Zero current flush (I = 0 A, V = 0 V, Λ = 0.0%)";
+            } else {
+                phase = "Adsorption (0–10m)";
+                streamType = "Desalinated Product Water";
+                const excessTds = (feedTds - calcOutlet) * Math.exp(-t / tauMin);
+                tds = calcOutlet + (t < 0.8 ? excessTds : 0);
+                curr = steadyCurrent;
+                volt = voltageStack;
+                eff = activeChargeEff;
+                if (t < tStabilization) {
+                    note = `Hydraulic startup transient (τ = ${tauMin.toFixed(2)} min, ${feedTds} -> ${calcOutlet.toFixed(1)} mg/L)`;
+                } else {
+                    note = `Steady Adsorption Desalination: Product ~${calcOutlet.toFixed(1)} mg/L, I = +${steadyCurrent.toFixed(2)} A, V = +${voltageStack.toFixed(1)} V, Λ = ${activeChargeEff}%`;
+                }
+            }
+        } else if (isEDI) {
             // EDI: CONTINUOUS STEADY-STATE OPERATION (NO CYCLIC DESORPTION / NO POLARITY REVERSAL)
             // Water splitting continuously auto-regenerates resin in-situ
             phase = "Continuous EDI Electromigration & Water-Splitting";
@@ -266,28 +299,27 @@ export default function SimulationGraphs() {
             eff = activeChargeEff;
             note = t < tStabilization 
                 ? `EDI Startup Stabilization (Resin bed equilibration, τ = ${tauMin.toFixed(2)} min)`
-                : "Continuous In-Situ Electrochemical Water Splitting Resin Regeneration (H+ / OH-)";
+                : `Continuous EDI Polishing: ${calcOutlet.toFixed(2)} mg/L product, ${steadyCurrent.toFixed(2)} A DC, ${voltageStack.toFixed(1)} V DC`;
         } else if (isCDI) {
             // CDI: MEMBRANE-FREE CAPACITIVE DEIONIZATION (SHORT-CIRCUIT DISCHARGE ZVD)
             if (t > 10 && t <= 11) {
                 phase = "Desorption (10–11m) [Short-Circuit ZVD]";
-                streamType = "Concentrate Flush Stream";
+                streamType = "Concentrate Reject Stream";
                 const progress = (t - 10);
                 tds = feedTds + (concPeakDynamic - feedTds) * Math.sin(progress * Math.PI);
-                curr = -steadyCurrent * Math.exp(-progress / 0.25); // Capacitive discharge current decaying to 0
-                volt = 0.0; // Short-circuit zero voltage discharge
-                // Capacitive ion release efficiency:
-                eff = Number(((activeChargeEff * 0.95) * Math.exp(-progress / 0.4)).toFixed(1));
-                note = `CDI Desorption: Capacitive discharge ion release (Λ_des = ${eff.toFixed(1)}%, ZVD 0 V)`;
+                curr = 0.0; // Short circuit discharge (0 A)
+                volt = 0.0; // Zero Voltage Desorption (0 V)
+                eff = Number((activeChargeEff * (1 - 0.40 * Math.sin(progress * Math.PI))).toFixed(1));
+                note = `CDI Desorption: Co-ion back-diffusion during Short-Circuit (V = 0.0 V, I = 0 A, Peak TDS: ~${concPeakDynamic.toFixed(1)} mg/L)`;
             } else if (t > 11 && t <= 12) {
                 phase = "Rinse (11–12m)";
-                streamType = "Rinse Flush Stream";
+                streamType = "Rinse / Flush Stream";
                 const progress = (t - 11);
                 tds = (feedTds * 0.5) * (1 - progress * 0.7);
                 curr = 0.0;
                 volt = 0.0;
                 eff = 0.0; // Unpowered flush
-                note = "Rinse Phase: Zero Current Flush Recycle (I = 0 A, Λ = 0.0%)";
+                note = "Rinse Phase: Hydrodynamic flush (I = 0 A, V = 0 V, Λ = 0.0%)";
             } else {
                 phase = "Adsorption (0–10m)";
                 streamType = "Product Outlet Stream";
@@ -303,15 +335,15 @@ export default function SimulationGraphs() {
         } else {
             // MCDI: MEMBRANE CAPACITIVE DEIONIZATION (REVERSED POLARITY DESORPTION RPD)
             if (t > 10 && t <= 11) {
-                phase = "Desorption (10–11m) [Reversed Polarity RPD]";
+                phase = "Desorption (10–11m) [Reverse Polarity Mode]";
                 streamType = "Desorption / Concentrate Stream (Brine Peak)";
                 const progress = (t - 10);
                 tds = feedTds + (concPeakDynamic - feedTds) * Math.sin(progress * Math.PI); 
-                curr = -steadyCurrent * 0.8; // Reverse-polarity discharge current (-0.60 A)
-                volt = -voltageStack * 0.5; // Reverse polarity voltage (-23.8 V)
+                curr = -Number((steadyCurrent * 0.8).toFixed(2)); // Reverse-polarity discharge current (-0.60 A)
+                volt = -Number((voltageStack * 0.5).toFixed(1)); // Reverse polarity voltage (-23.8 V)
                 // Desorption release efficiency under Reversed Polarity (RPD):
                 eff = Number((88.0 + 4.0 * Math.sin(progress * Math.PI)).toFixed(1));
-                note = `MCDI Desorption: Ion release Coulombic efficiency (Λ_des = ${eff.toFixed(1)}% under Reversed Polarity RPD | AEM/CEM block co-ions, expelling counter-ions)`;
+                note = `MCDI Desorption: Ion release under Reverse Polarity Mode (Λ_des = ${eff.toFixed(1)}% | I = -${(steadyCurrent * 0.8).toFixed(2)} A, V = -${(voltageStack * 0.5).toFixed(1)} V)`;
             } else if (t > 11 && t <= 12) {
                 phase = "Rinse (11–12m)";
                 streamType = "Rinse / Flush Stream";
@@ -354,16 +386,19 @@ export default function SimulationGraphs() {
 
     const activeData = viewMode === "CYCLE" ? cycleData : adsorptionOnlyData;
 
-    // Y-Axis symmetrical domains for Voltage & Current:
-    const maxVoltAbs = Math.max(10, Math.ceil(Math.abs(voltageStack) * 1.2));
-    const voltDomain = isEDI 
-        ? [0, maxVoltAbs] 
-        : (isCDI ? [0, maxVoltAbs] : [-Math.ceil(Math.abs(voltageStack) * 0.7), maxVoltAbs]);
+    // Y-Axis polarity-aware domains for Voltage & Current:
+    const tdsPeakMax = Math.ceil(Math.max(concPeakDynamic * 1.15, calcOutlet * 2, feedTds * 1.2));
+    const tdsDomain = [0, tdsPeakMax];
+
+    const maxVoltAbs = Math.ceil(Math.max(voltageStack * 1.25, 10));
+    const minVoltAbs = isCDI || isEDI ? 0 : -Math.ceil(Math.max(voltageStack * 0.65, 10));
+    const voltDomain = [minVoltAbs, maxVoltAbs];
     
-    const maxCurrAbs = Math.max(0.5, Number((Math.abs(steadyCurrent) * 1.3).toFixed(2)));
-    const currDomain = isEDI 
-        ? [0, maxCurrAbs] 
-        : [-maxCurrAbs, maxCurrAbs];
+    const maxCurrAbs = Number((Math.max(steadyCurrent * 1.35, 0.5)).toFixed(2));
+    const minCurrAbs = isCDI || isEDI ? 0 : -Number((Math.max(steadyCurrent * 0.95, 0.4)).toFixed(2));
+    const currDomain = [minCurrAbs, maxCurrAbs];
+
+    const effDomain = [0, 100];
 
     return (
         <div className="panel simulation-panel simulation-section" style={{
@@ -421,8 +456,8 @@ export default function SimulationGraphs() {
                         {isEDI 
                             ? "Continuous Electromigration & In-Situ Electrochemical Water Splitting Resin Regeneration (Non-Cyclic)"
                             : (isCDI 
-                                ? "Full 12-minute cycle: Adsorption (0–10m) → Short-Circuit ZVD (10–11m) → Rinse (11–12m)"
-                                : "Full 12-minute cycle: Adsorption (0–10m) → Reversed Polarity Desorption (10–11m) → Rinse (11–12m)")}
+                                ? "12-Min Dynamic Cycle — operational / regeneration cycle: Adsorption (0–10m) → Short-Circuit ZVD (10–11m) → Rinse (11–12m)"
+                                : "12-Min Dynamic Cycle — operational / regeneration cycle: Adsorption (0–10m) → Reversed Polarity Desorption (10–11m) → Rinse (11–12m)")}
                     </p>
                 </div>
 
@@ -513,12 +548,13 @@ export default function SimulationGraphs() {
                     color="#2563EB"
                     gradientId="gradTds"
                     targetValue={targetTDS}
+                    yDomain={tdsDomain}
                     calloutPills={isEDI ? [
                         { text: `Product: ${calcOutlet.toFixed(2)} mg/L`, bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" },
                         { text: "Continuous Operation", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
                         { text: `Product: ~${calcOutlet.toFixed(1)} mg/L`, bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" },
-                        { text: `Peak: ~${concPeakDynamic.toFixed(1)} mg/L (Model Desorption Profile)`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" }
+                        { text: isFCDI ? `Desorption Peak: ~${fcdiPeakTds.toFixed(1)} mg/L` : `Peak: ~${concPeakDynamic.toFixed(1)} mg/L`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" }
                     ] : [
                         { text: `Steady State: ~${calcOutlet.toFixed(1)} mg/L`, bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" }
                     ])}
@@ -534,20 +570,23 @@ export default function SimulationGraphs() {
                         : (viewMode === "ADSORPTION"
                             ? `Calculated Operating Current: +${steadyCurrent.toFixed(2)} A (Faradaic Charging)`
                             : (isCDI 
-                                ? `Faradaic Current: Adsorption +${steadyCurrent.toFixed(2)} A | ZVD Discharge Current: 0 to -0.5 A`
-                                : `Faradaic Current: Adsorption +${steadyCurrent.toFixed(2)} A | Desorption Control Setpoint: -${(steadyCurrent * 0.8).toFixed(2)} A`))}
+                                ? `Faradaic Current: Adsorption +${steadyCurrent.toFixed(2)} A | ZVD Discharge Current: 0.00 A`
+                                : (isFCDI 
+                                    ? `Adsorption: +${steadyCurrent.toFixed(2)} A | Desorption: -${(steadyCurrent * 0.8).toFixed(2)} A (RPD Mode) | Rinse: 0 A`
+                                    : `Faradaic Current: Adsorption +${steadyCurrent.toFixed(2)} A | Desorption: -${(steadyCurrent * 0.8).toFixed(2)} A (RPD Mode)`)))}
                     data={activeData}
                     dataKey="current"
                     unit="A"
                     color="#16A34A"
                     gradientId="gradCurr"
                     yDomain={currDomain}
-                    showZeroLine={!isEDI}
+                    showZeroLine={!isEDI && !isCDI}
                     calloutPills={isEDI ? [
                         { text: `+${steadyCurrent.toFixed(2)} A DC`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
-                        { text: `Adsorption: +${steadyCurrent.toFixed(2)} A (Faradaic)`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
-                        { text: isCDI ? "Desorption: ZVD (0 A)" : `Desorption: -${(steadyCurrent * 0.8).toFixed(2)} A (Reverse Setpoint)`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" }
+                        { text: `Ads: +${steadyCurrent.toFixed(2)} A`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+                        { text: isCDI ? "Desorption: ZVD (0 A)" : `Desorption: -${(steadyCurrent * 0.8).toFixed(2)} A (RPD)`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" },
+                        { text: "Rinse: 0 A", bg: "#F1F5F9", color: "#64748B", border: "#CBD5E1" }
                     ] : [
                         { text: `Faradaic Current: +${steadyCurrent.toFixed(2)} A`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ])}
@@ -564,19 +603,22 @@ export default function SimulationGraphs() {
                             ? `Design Operating Voltage: +${voltageStack.toFixed(1)} V (${(voltageStack / (engineering.cellPairs || 34)).toFixed(2)} V/cell)`
                             : (isCDI 
                                 ? `Design Operating Setpoints: Adsorption +${voltageStack.toFixed(1)} V | Desorption 0.0 V (Short-Circuit ZVD)`
-                                : `Design Operating Setpoints: Adsorption +${voltageStack.toFixed(1)} V | Desorption -${(voltageStack * 0.5).toFixed(1)} V (Reversed Polarity)`))}
+                                : (isFCDI 
+                                    ? `Adsorption: +${voltageStack.toFixed(1)} V | Desorption: -${(voltageStack * 0.5).toFixed(1)} V (RPD Mode) | Rinse: 0 V`
+                                    : `Design Operating Setpoints: Adsorption +${voltageStack.toFixed(1)} V | Desorption -${(voltageStack * 0.5).toFixed(1)} V (RPD Mode)`)))}
                     data={activeData}
                     dataKey="voltage"
                     unit="V"
                     color="#D97706"
                     gradientId="gradVolt"
                     yDomain={voltDomain}
-                    showZeroLine={!isEDI}
+                    showZeroLine={!isEDI && !isCDI}
                     calloutPills={isEDI ? [
                         { text: `+${voltageStack.toFixed(1)} V DC`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
-                        { text: `Adsorption: +${voltageStack.toFixed(1)} V (Setpoint)`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
-                        { text: isCDI ? "Desorption: 0.0 V (ZVD)" : `Desorption: -${(voltageStack * 0.5).toFixed(1)} V (Reverse Setpoint)`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" }
+                        { text: `Ads: +${voltageStack.toFixed(1)} V`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+                        { text: isCDI ? "Desorption: 0.0 V (ZVD)" : `Desorption: -${(voltageStack * 0.5).toFixed(1)} V (RPD)`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" },
+                        { text: "Rinse: 0 V", bg: "#F1F5F9", color: "#64748B", border: "#CBD5E1" }
                     ] : [
                         { text: `Operating Voltage: +${voltageStack.toFixed(1)} V`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ])}
@@ -591,18 +633,20 @@ export default function SimulationGraphs() {
                         ? `Continuous EDI Charge Utilization: Λ_EDI = ${(activeChargeEff / 100).toFixed(2)} (Electromigration + Water Splitting)`
                         : (viewMode === "ADSORPTION" 
                             ? `Adsorption Electrosorption Efficiency: Λ_ads = ${(activeChargeEff / 100).toFixed(2)} (0–10m)` 
-                            : `Adsorption Λ_ads = ${(activeChargeEff / 100).toFixed(2)} | Desorption Λ_des ≈ 0.90 (Ion Release) | Rinse = 0.0% (Unpowered)`)}
+                            : (isFCDI 
+                                ? `Adsorption Λ = ${(activeChargeEff / 100).toFixed(2)} | Desorption Λ ≈ 0.90 | Rinse = 0%`
+                                : `Adsorption Λ_ads = ${(activeChargeEff / 100).toFixed(2)} | Desorption Λ_des ≈ 0.90 (Ion Release) | Rinse = 0.0% (Unpowered)`))}
                     data={activeData}
                     dataKey="chargeEfficiency"
                     unit="%"
                     color="#0284C7"
                     gradientId="gradEff"
-                    yDomain={[0, 100]}
+                    yDomain={effDomain}
                     calloutPills={isEDI ? [
                         { text: `Continuous Λ_EDI = ${(activeChargeEff / 100).toFixed(2)}`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
-                        { text: `Ads: Λ = ${(activeChargeEff / 100).toFixed(2)}`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
-                        { text: isCDI ? "Desorp: Λ_des (Decay)" : "Desorp: Λ_des ≈ 0.90", bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" },
+                        { text: `Ads: ${activeChargeEff.toFixed(0)}% (${(activeChargeEff / 100).toFixed(2)})`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+                        { text: isCDI ? "Desorp: Λ_des (Decay)" : "Desorp: 90% (0.90)", bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" },
                         { text: "Rinse: 0%", bg: "#F1F5F9", color: "#64748B", border: "#CBD5E1" }
                     ] : [
                         { text: `Λ = ${(activeChargeEff / 100).toFixed(2)} (Model Parameter)`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
@@ -616,46 +660,46 @@ export default function SimulationGraphs() {
             <div style={{ marginTop: "12px", padding: "10px 14px", background: "#F8FAFC", border: "1px solid #CBD5E1", borderRadius: "4px", fontSize: "11px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px" }}>
                     <span style={{ fontWeight: "700", color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                        {isEDI ? "EDI Continuous Process Mass & Water Balance" : "12-Minute Dynamic Cycle Balance"}
+                        {isEDI ? "EDI Continuous Process Mass & Water Balance" : "Single-Pass Water Balance — 10 min adsorption basis"}
                     </span>
                     <span style={{ fontSize: "9.5px", fontWeight: "600", color: "#15803D", background: "#DCFCE7", padding: "1px 6px", borderRadius: "2px", border: "1px solid #BBF7D0" }}>
-                        Closed Balance (0.000 residual)
+                        Mass &amp; Salt Balance Closed (0.000 residual)
                     </span>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
                     <div style={{ background: "#FFFFFF", padding: "6px 8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                        <div style={{ fontSize: "10px", fontWeight: "700", color: "#0F172A" }}>{isEDI ? "Continuous Feed In" : "External Feed Consumed"}</div>
+                        <div style={{ fontSize: "10px", fontWeight: "700", color: "#0F172A" }}>{isContinuous ? "Continuous Feed In" : "External Feed Consumed"}</div>
                         <div style={{ fontFamily: "monospace", fontWeight: "700", color: "#1E40AF", marginTop: "2px" }}>{extFeedVol.toFixed(2)} L</div>
-                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{isEDI ? `${flowRate.toFixed(1)} L/min continuous @ ${feedTds} mg/L` : `${adsFeedVol.toFixed(1)} L ads + ${desFlushVol.toFixed(1)} L des @ ${feedTds} mg/L`}</div>
+                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{flowRate.toFixed(2)} L/min @ {feedTds} mg/L ({timeBasisMin} min)</div>
                         <div style={{ color: "#334155", fontSize: "9.5px", marginTop: "2px" }}>Salt In: <strong>{saltInVal} mg</strong></div>
                     </div>
 
                     <div style={{ background: "#FFFFFF", padding: "6px 8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
                         <div style={{ fontSize: "10px", fontWeight: "700", color: "#15803D" }}>Product Delivered</div>
                         <div style={{ fontFamily: "monospace", fontWeight: "700", color: "#15803D", marginTop: "2px" }}>{adsVol.toFixed(2)} L</div>
-                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{isEDI ? `${(flowRate * (recoveryPct / 100)).toFixed(2)} L/min @ ${calcOutlet.toFixed(2)} mg/L` : `${(flowRate * (recoveryPct / 100)).toFixed(2)} L/min × 10 min @ ${calcOutlet.toFixed(1)} mg/L`}</div>
+                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{(flowRate * (recoveryPct / 100)).toFixed(2)} L/min @ {calcOutlet.toFixed(1)} mg/L</div>
                         <div style={{ color: "#334155", fontSize: "9.5px", marginTop: "2px" }}>Salt Out: <strong>{saltProdVal} mg</strong></div>
                     </div>
 
                     <div style={{ background: "#FFFFFF", padding: "6px 8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
                         <div style={{ fontSize: "10px", fontWeight: "700", color: "#92400E" }}>Concentrate Discharged</div>
                         <div style={{ fontFamily: "monospace", fontWeight: "700", color: "#92400E", marginTop: "2px" }}>{desVol.toFixed(2)} L</div>
-                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{isEDI ? `${(flowRate * (1 - recoveryPct / 100)).toFixed(2)} L/min reject stream` : `19.20 L/min × 1 min @ ${concTdsDynamic.toFixed(1)} mg/L avg`}</div>
+                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{(flowRate * (1 - recoveryPct / 100)).toFixed(2)} L/min @ {concTdsDynamic.toFixed(1)} mg/L</div>
                         <div style={{ color: "#334155", fontSize: "9.5px", marginTop: "2px" }}>Salt Out: <strong>{saltConcVal} mg</strong></div>
                     </div>
 
                     <div style={{ background: "#FFFFFF", padding: "6px 8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                        <div style={{ fontSize: "10px", fontWeight: "700", color: "#475569" }}>{isEDI ? "In-Situ Resin Auto-Regen" : "Internal Rinse Recycle"}</div>
-                        <div style={{ fontFamily: "monospace", fontWeight: "700", color: "#475569", marginTop: "2px" }}>{isEDI ? "Continuous (H+ / OH-)" : `${rinseVol.toFixed(1)} L (Closed Loop)`}</div>
-                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{isEDI ? "Electrochemical water splitting" : "Internal flush to raw equalization"}</div>
+                        <div style={{ fontSize: "10px", fontWeight: "700", color: "#475569" }}>{isFCDI ? "Internal Carbon Slurry Loop" : (isEDI ? "In-Situ Resin Auto-Regen" : "Internal Rinse Recycle")}</div>
+                        <div style={{ fontFamily: "monospace", fontWeight: "700", color: "#475569", marginTop: "2px" }}>{isFCDI ? "Continuous Slurry Circulation" : (isEDI ? "Continuous (H+ / OH-)" : `${rinseVol.toFixed(1)} L (Closed Loop)`)}</div>
+                        <div style={{ color: "#64748B", fontSize: "9.5px" }}>{isFCDI ? "External uncharging regenerator loop" : (isEDI ? "Electrochemical water splitting" : "Internal flush to raw equalization")}</div>
                         <div style={{ color: "#15803D", fontSize: "9.5px", marginTop: "2px", fontWeight: "700" }}>Net Water Residual: 0.000 L</div>
                     </div>
                 </div>
 
-                <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", background: "#EFF6FF", padding: "6px 10px", borderRadius: "3px", border: "1px solid #BFDBFE", fontSize: "10px", color: "#1E40AF" }}>
+                <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", background: "#EFF6FF", padding: "6px 10px", borderRadius: "3px", border: "1px solid #BFDBFE", fontSize: "10px", color: "#1E40AF", flexWrap: "wrap", gap: "6px" }}>
                     <span>
-                        <strong>Water Balance:</strong> {extFeedVol.toFixed(2)} L in = {adsVol.toFixed(2)} L prod + {desVol.toFixed(2)} L conc | <strong>Recovery: {cycleRecPct}%</strong> (Residual: 0.000 L)
+                        <strong>Single-Pass Water Balance (10-Min Basis):</strong> {recoveryPct.toFixed(1)}% recovery ({adsVol.toFixed(2)} L product / {extFeedVol.toFixed(2)} L feed, Residual: 0.000 L)
                     </span>
                     <span>
                         <strong>Salt Balance:</strong> {saltInVal} mg in = ({saltProdVal} + {saltConcVal}) mg out | <strong>Residual: 0.000 mg (Closed)</strong>

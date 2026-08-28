@@ -81,7 +81,9 @@ export function calculateFCDIModel(inputs = {}) {
     const rawTds = Number(inputs.tds ?? feedWater.tds ?? 500);
     const flowRateLmin = Number(inputs.flowRate ?? feedWater.flowRate ?? 10); // L/min
     const targetTds = Number(inputs.targetTds ?? feedWater.targetTds ?? 50); // mg/L
-    const waterRecoveryPct = Number(inputs.waterRecovery ?? FCDI_ENVELOPE.defaultRecovery); // %
+    const targetRec = Number(inputs.targetRecovery ?? feedWater.targetRecovery);
+    const defaultRec = (!isNaN(targetRec) && targetRec > 0) ? Math.min(FCDI_ENVELOPE.maxRecovery, Math.max(FCDI_ENVELOPE.minRecovery, targetRec)) : FCDI_ENVELOPE.defaultRecovery;
+    const waterRecoveryPct = Number(inputs.waterRecovery ?? defaultRec); // %
     let cellVoltage = Number(inputs.voltage ?? inputs.voltageCell ?? FCDI_ENVELOPE.defaultCellVoltage);
     const inputPlanarAreaCm2 = Number(inputs.electrodeArea ?? 350); // cm²
     const slurryConcentrationWt = Number(inputs.slurryConcentrationWt ?? FCDI_ENVELOPE.defaultSlurryConcentrationWt); // wt%
@@ -198,22 +200,26 @@ export function calculateFCDIModel(inputs = {}) {
     const manualPairs = inputs.cellPairs !== undefined && inputs.cellPairs !== "" ? Number(inputs.cellPairs) : null;
     const requiredPairs = manualPairs !== null ? manualPairs : calculatedPairs;
 
-    const numberOfModules = Math.max(1, Math.ceil(requiredPairs / pairsPerModule));
+    const numberOfModules = Math.max(1, inputs.numberOfModules ? Number(inputs.numberOfModules) : Math.ceil(requiredPairs / pairsPerModule));
     const cellPairs = manualPairs !== null ? manualPairs : (pairsPerModule * numberOfModules);
 
     const totalElectrodeAreaM2 = cellPairs * planarAreaM2; // m²
     const totalElectrodeAreaCm2 = Number((totalElectrodeAreaM2 * 10000).toFixed(0)); // cm²
     const totalMembraneAreaM2 = Number((2 * totalElectrodeAreaM2).toFixed(2)); // m² (1 AEM + 1 CEM per pair)
-
     const cellCurrent = Number((totalFaradayCurrent / cellPairs).toFixed(2)); // Amperes per pair
     const actualCurrentDensityAm2 = Number((cellCurrent / planarAreaM2).toFixed(1)); // A/m²
 
     // 7. Voltages & Stack Electrical Power
-    const voltageModule = Number((pairsPerModule * cellVoltage).toFixed(2)); // V per module
-    const voltageStack = Number((voltageModule * numberOfModules).toFixed(2)); // System Stack Voltage (V)
+    const voltageModule = Number((pairsPerModule * cellVoltage).toFixed(2)); // 47.60 V per module
+    const voltageStack = Number((voltageModule * numberOfModules).toFixed(2)); // Total System Voltage (714.0 V for 15 modules)
+    const voltageBank = voltageModule; // Parallel DC bus bank voltage (47.60 V DC)
+    const voltageSeries = voltageStack; // Total series reference voltage
+    const moduleCurrent = cellCurrent; // 2.76 A per module
+    const bankCurrent = Number((cellCurrent * numberOfModules).toFixed(2)); // 41.40 A Total Bank Current
+    const current = cellCurrent; // Operating current per series module string
 
     const cellPower = Number((cellVoltage * cellCurrent).toFixed(2)); // W per pair
-    const stackElectricalPowerW = Number((voltageStack * cellCurrent).toFixed(1)); // W total stack electrical power
+    const stackElectricalPowerW = Number((voltageStack * cellCurrent).toFixed(1)); // 1970.6 W total electrical power
 
     // 8. Circulating Carbon Slurry Inventory & Operating Salt Loading (Terminology Precise)
     const slurryFlowLmin = Number((flowRateLmin * slurryFlowRatio).toFixed(1)); // L/min
@@ -238,8 +244,9 @@ export function calculateFCDIModel(inputs = {}) {
 
     // 9. Dual Pumping Hydrodynamics: Water-Side & Slurry-Side Viscous Drag
     const spacerThicknessMm = Number(inputs.spacerThickness ?? 0.5); // mm
-    const stackWidthMm = Number(inputs.stackWidth ?? 100); // mm
-    const stackLengthMm = Number(inputs.stackLength ?? 200); // mm
+    const defaultSideMm = Number((Math.sqrt(inputPlanarAreaCm2) * 10).toFixed(1)); // 187.1 mm for 350 cm²
+    const stackWidthMm = Number(inputs.stackWidth ?? defaultSideMm); // mm
+    const stackLengthMm = Number(inputs.stackLength ?? defaultSideMm); // mm
 
     const reactorVolumeLiters = cellPairs * (inputPlanarAreaCm2 * (spacerThicknessMm / 10)) / 1000; // L
     const residenceTimeMin = flowRateLmin > 0 ? reactorVolumeLiters / flowRateLmin : 0.045; // min
@@ -248,9 +255,9 @@ export function calculateFCDIModel(inputs = {}) {
     const spacerThicknessM = spacerThicknessMm / 1000;
     const stackLengthM = stackLengthMm / 1000;
 
-    // Water Channel Hydrodynamics
+    // Water Channel Hydrodynamics (v = Q / (N_pairs * W * h))
     const waterChannelAreaM2 = cellPairs * stackWidthM * spacerThicknessM;
-    const flowVelocityWater = waterChannelAreaM2 > 0 ? (flowRateM3s / waterChannelAreaM2) : 0.035; // m/s
+    const flowVelocityWater = waterChannelAreaM2 > 0 ? (flowRateM3s / waterChannelAreaM2) : 0.0035; // m/s
 
     const hydraulicDiameterM = (2 * stackWidthM * spacerThicknessM) / Math.max(0.0001, stackWidthM + spacerThicknessM);
     const fluidDensityWater = 1000; // kg/m³
@@ -261,8 +268,9 @@ export function calculateFCDIModel(inputs = {}) {
 
     const pressureDropWaterPa = hydraulicDiameterM > 0
         ? (spacerFrictionFactorWater * (stackLengthM / hydraulicDiameterM) * (fluidDensityWater * Math.pow(flowVelocityWater, 2) / 2))
-        : 220;
-    const pressureDropWater = Math.max(160, Math.min(500, Number(pressureDropWaterPa.toFixed(0)))); // Pa
+        : 406;
+    const pressureDropWater = Math.max(160, Math.min(1200, Number(pressureDropWaterPa.toFixed(0)))); // Pa
+    const pressureDropTotal = pressureDropWater + 500; // Total system with manifold allowance
 
     // Slurry Channel Non-Newtonian Viscous Hydrodynamics
     // Slurry effective viscosity increases non-linearly with wt% carbon (Einstein-Guth correlation)
@@ -279,14 +287,14 @@ export function calculateFCDIModel(inputs = {}) {
     const pumpEfficiencyWater = Number(inputs.pumpEfficiencyWater ?? 0.75); // 75% centrifugal pump
     const pumpEfficiencySlurry = Number(inputs.pumpEfficiencySlurry ?? 0.60); // 60% progressive cavity / slurry pump
 
-    const waterPumpPowerW = Number(((flowRateM3s * pressureDropWater) / pumpEfficiencyWater).toFixed(1)); // W
-    const slurryPumpPowerW = Number(((slurryFlowM3s * pressureDropSlurry) / pumpEfficiencySlurry).toFixed(1)); // W
+    const waterPumpPowerW = Number(((flowRateM3s * pressureDropWater) / pumpEfficiencyWater).toFixed(3)); // W
+    const slurryPumpPowerW = Number(((slurryFlowM3s * pressureDropSlurry) / pumpEfficiencySlurry).toFixed(2)); // W
 
     const secElectricalKwhM3 = productFlowM3h > 0 ? (stackElectricalPowerW / 1000) / productFlowM3h : 0;
     const secElectrical = Number(secElectricalKwhM3.toFixed(4));
 
     const secWaterPumpKwhM3 = productFlowM3h > 0 ? (waterPumpPowerW / 1000) / productFlowM3h : 0;
-    const secWaterPump = Number(secWaterPumpKwhM3.toFixed(5));
+    const secWaterPump = Number(secWaterPumpKwhM3.toFixed(6));
 
     const secSlurryPumpKwhM3 = productFlowM3h > 0 ? (slurryPumpPowerW / 1000) / productFlowM3h : 0;
     const secSlurryPump = Number(secSlurryPumpKwhM3.toFixed(5));
@@ -477,8 +485,12 @@ export function calculateFCDIModel(inputs = {}) {
         voltageCell: cellVoltage,
         voltage: cellVoltage,
         voltageModule,
+        voltageBank,
         voltageStack,
-        current: cellCurrent,
+        voltageSeries,
+        current: moduleCurrent,
+        moduleCurrent,
+        bankCurrent,
         cellCurrent,
         cellPower,
         stackElectricalPowerW,
@@ -487,12 +499,16 @@ export function calculateFCDIModel(inputs = {}) {
 
         // Hydrodynamics & Independent Powers
         waterRecovery: waterRecoveryPct,
+        waterRecoveryPct,
         residenceTime: Number(residenceTimeMin.toFixed(4)),
         reactorVolumeLiters: Number(reactorVolumeLiters.toFixed(3)),
         flowVelocity: Number(flowVelocityWater.toFixed(4)),
         pressureDropWater,
         pressureDropSlurry,
         pressureDrop: pressureDropWater,
+        channelPressureDrop: pressureDropWater,
+        pressureDropTotal,
+        totalSystemPressureDrop: pressureDropTotal,
         waterPumpPowerW,
         slurryPumpPowerW,
         electricalPowerW: stackElectricalPowerW,

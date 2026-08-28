@@ -59,7 +59,7 @@ function aiRecommendation(feedWater = {}) {
         score += Math.max(0, Math.min(10, (recovery / 100) * 10));
 
         // Membrane-free capex bonus for low salinity stream (tds <= 400 mg/L) ONLY when CDI actually achieves target setpoint
-        if (techKey === "CDI" && tds <= 400 && targetAchievable) {
+        if (techKey === "CDI" && tds <= 400 && targetAchievable && (!feedWater.targetRecovery || recovery >= Number(feedWater.targetRecovery) - 0.05)) {
             score += 15;
         }
 

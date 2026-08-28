@@ -101,27 +101,29 @@ export default function Sidebar() {
         };
 
         if (field === "tds" && numVal > 0) {
-            if (newFeed.conductivity === "" || newFeed.conductivity === undefined) {
-                newFeed.conductivity = Math.round(numVal / 0.65);
-            }
-            if (newFeed.hardness === "" || newFeed.hardness === undefined) {
-                newFeed.hardness = Math.round(numVal * 0.30);
-            }
+            newFeed.conductivity = Math.round(numVal / 0.65);
+            newFeed.hardness = Math.round(numVal * 0.30);
         }
 
         setFeedWater(newFeed);
+
+        if (isDesignReady && newFeed.tds && newFeed.targetTds && newFeed.flowRate) {
+            recalculate({}, technology, false, newFeed);
+        }
     }
 
     function handleTechnologyChange(newTech) {
         setTechnology(newTech);
+        setOptimizationInputs({});
         if (isDesignReady) {
-            recalculate(optimizationInputs, newTech, false);
+            recalculate({}, newTech, false);
         }
     }
 
     function handleGenerateDesign() {
         if (!isFormValid) return;
-        recalculate(optimizationInputs, technology || "AUTO", false);
+        setOptimizationInputs({});
+        recalculate({}, technology || "AUTO", false);
     }
 
     function handleReset() {
@@ -133,9 +135,12 @@ export default function Sidebar() {
             temperature: "",
             flowRate: "",
             pressure: "",
-            targetTds: ""
+            targetTds: "",
+            targetRecovery: 95.0
         };
         setFeedWater(emptyFeed);
+        setTechnology("AUTO");
+        setSelectedDesign("AUTO");
         setOptimizationInputs({});
         setDesignResult(null);
         setDesignGenerated(false);
@@ -322,13 +327,18 @@ export default function Sidebar() {
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "#64748B", background: "#F8FAFC", padding: "4px 6px", borderRadius: "3px" }}>
-                        <span>Target Recovery (≥ 95%):</span>
+                        <span>Target Recovery:</span>
+                        <strong style={{ color: "#0F172A", fontFamily: "monospace" }}>≥ 95.0%</strong>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "10.5px", color: "#64748B", background: "#F8FAFC", padding: "4px 6px", borderRadius: "3px" }}>
+                        <span>Calculated Recovery:</span>
                         <span style={{
                             color: isDesignReady ? (Number(eng.waterRecovery ?? eng.waterRecoveryPct ?? 0) >= 94.95 ? "#15803D" : "#DC2626") : "#0F172A",
                             fontWeight: "700",
                             fontFamily: "monospace"
                         }}>
-                            {isDesignReady ? `${recovery} ${Number(eng.waterRecovery ?? eng.waterRecoveryPct ?? 0) >= 94.95 ? "PASS" : "FAIL"}` : "—"}
+                            {isDesignReady ? `${recovery} — ${Number(eng.waterRecovery ?? eng.waterRecoveryPct ?? 0) >= 94.95 ? "PASS" : "FAIL"}` : "—"}
                         </span>
                     </div>
                 </div>
@@ -356,9 +366,9 @@ export default function Sidebar() {
                     }}
                 >
                     <option value="AUTO">AUTO (Screening Selection)</option>
+                    <option value="FCDI">FCDI (Flow-Electrode Deion.)</option>
                     <option value="MCDI">MCDI (Membrane Capacitive Deion.)</option>
                     <option value="CDI">CDI (Standard Capacitive Deion.)</option>
-                    <option value="FCDI">FCDI (Flow-Electrode Deion.)</option>
                     <option value="EDI">EDI (Electrodeionization)</option>
                 </select>
             </div>
