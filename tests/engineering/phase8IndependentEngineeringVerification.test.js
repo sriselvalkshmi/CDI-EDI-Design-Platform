@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { analyzeWaterChemistry } from "../../frontend/src/engineering/chemistry/waterChemistryEngine.js";
-import { ENGINEERING_TRUTH_TABLE } from "../../frontend/src/engineering/core/engineeringTruthTable.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import { analyzeWaterChemistry } from "../../shared/engineering/chemistry/waterChemistryEngine.js";
+import { ENGINEERING_TRUTH_TABLE } from "../../shared/engineering/core/engineeringTruthTable.js";
 
 describe("Phase 8 Independent Verification Suite", () => {
     it("runs phase 8 clean room independent engineering verification tests", () => {

@@ -2,10 +2,10 @@
  * Engineering Audit Check Script
  * Validates single source of truth, mass balance closures, and equation database integrity.
  */
-import { DEFAULT_EQUATIONS_DATABASE } from "../frontend/src/engineering/equations/defaultEquationsDatabase.js";
-import { validateFormula } from "../frontend/src/engineering/engine/formulaParser.js";
-import calculateEngineering from "../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { auditEngineeringDesign } from "../frontend/src/engineering/core/engineeringAudit.js";
+import { DEFAULT_EQUATIONS_DATABASE } from "../shared/engineering/equations/defaultEquationsDatabase.js";
+import { validateFormula } from "../shared/engineering/engine/formulaParser.js";
+import calculateEngineering from "../shared/engineering/engine/engineeringEquationEngine.js";
+import { auditEngineeringDesign } from "../shared/engineering/core/engineeringAudit.js";
 
 console.log("==================================================================");
 console.log("🔬 RUNNING SYSTEM INTEGRITY & EQUATION DATABASE AUDIT");

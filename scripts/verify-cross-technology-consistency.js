@@ -1,5 +1,5 @@
-import calculateEngineering from "../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { auditEngineeringDesign } from "../frontend/src/engineering/core/engineeringAudit.js";
+import calculateEngineering from "../shared/engineering/engine/engineeringEquationEngine.js";
+import { auditEngineeringDesign } from "../shared/engineering/core/engineeringAudit.js";
 
 console.log("==================================================================");
 console.log("🚀 CROSS-TECHNOLOGY CONSISTENCY & MULTI-REGIME BENCHMARK SUITE");

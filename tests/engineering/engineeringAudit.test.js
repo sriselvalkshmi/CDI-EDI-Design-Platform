@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { auditEngineeringDesign } from "../../frontend/src/engineering/core/engineeringAudit.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import { auditEngineeringDesign } from "../../shared/engineering/core/engineeringAudit.js";
 
 describe("First-Principles Equation & Mass-Balance Audit Test Suite (Task 26)", () => {
     const defaultFeed = {

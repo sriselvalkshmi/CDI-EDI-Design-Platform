@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { TECHNOLOGY_FUNDAMENTALS } from "../../frontend/src/engineering/core/technologyFundamentals.js";
-import { analyzeWaterChemistry } from "../../frontend/src/engineering/chemistry/waterChemistryEngine.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import { TECHNOLOGY_FUNDAMENTALS } from "../../shared/engineering/core/technologyFundamentals.js";
+import { analyzeWaterChemistry } from "../../shared/engineering/chemistry/waterChemistryEngine.js";
 
 describe("Phase 7 First Principles Topology Suite", () => {
     it("runs phase 7 topology tests", () => {

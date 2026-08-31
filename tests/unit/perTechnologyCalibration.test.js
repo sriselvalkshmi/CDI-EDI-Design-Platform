@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import experimentalDataset from "../../frontend/src/engineering/validation/experimentalData.json" with { type: "json" };
-import { splitAndCalibrate } from "../../frontend/src/engineering/validation/experimentalCalibration.js";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
+import experimentalDataset from "../../shared/engineering/validation/experimentalData.json" with { type: "json" };
+import { splitAndCalibrate } from "../../shared/engineering/validation/experimentalCalibration.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
 
 describe("Stage 2: Per-Technology Model Calibration & Multi-Parameter Validation Test Suite", () => {
     it("verifies per-technology benchmark metrics and multi-parameter scaling", () => {

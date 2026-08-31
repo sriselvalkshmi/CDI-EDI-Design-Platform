@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
-import calculateEngineering, { generateParetoTradeoffCurve } from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { analyzeWaterChemistry } from "../../frontend/src/engineering/chemistry/waterChemistryEngine.js";
-import { extractDesignBasisSummary, PROVENANCE_TIERS } from "../../frontend/src/engineering/core/designBasis.js";
+import calculateEngineering, { generateParetoTradeoffCurve } from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import { analyzeWaterChemistry } from "../../shared/engineering/chemistry/waterChemistryEngine.js";
+import { extractDesignBasisSummary, PROVENANCE_TIERS } from "../../shared/engineering/core/designBasis.js";
 
 describe("Design Basis & Ion Chemistry Suite", () => {
     it("runs design basis and ion chemistry tests", () => {

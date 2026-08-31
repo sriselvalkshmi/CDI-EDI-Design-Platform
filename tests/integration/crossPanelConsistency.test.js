@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import aiRecommendation from "../../frontend/src/engineering/core/aiRecommendation.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import aiRecommendation from "../../shared/engineering/core/aiRecommendation.js";
 
 /**
  * Cross-Technology Single-Source Validation Test Suite

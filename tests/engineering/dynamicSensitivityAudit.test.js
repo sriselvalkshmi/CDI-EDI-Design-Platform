@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { calculateMCDIChargeEfficiency } from "../../frontend/src/engineering/models/mCDIModel.js";
-import { calculateEngineering } from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
+import { calculateMCDIChargeEfficiency } from "../../shared/engineering/models/mCDIModel.js";
+import { calculateEngineering } from "../../shared/engineering/engine/engineeringEquationEngine.js";
 
 describe("Dynamic Parametric Sensitivity & Charge Efficiency Audit (Tests A, B, C)", () => {
     describe("1. Charge Efficiency Mathematical Boundaries & Clamp Verification", () => {

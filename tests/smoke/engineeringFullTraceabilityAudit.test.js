@@ -1,18 +1,18 @@
 "use strict";
 
-import { getCentralEngineeringResult } from "../../frontend/src/engineering/core/singleSourceOfTruth.js";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import calculateCDIModel from "../../frontend/src/engineering/models/cdiModel.js";
-import calculateMCDIModel from "../../frontend/src/engineering/models/mCDIModel.js";
-import calculateFCDIModel from "../../frontend/src/engineering/models/fCDIModel.js";
-import calculateEDIModel from "../../frontend/src/engineering/models/ediModel.js";
-import aiRecommendation from "../../frontend/src/engineering/core/aiRecommendation.js";
-import { analyzeWaterChemistry } from "../../frontend/src/engineering/chemistry/waterChemistryEngine.js";
-import { LITERATURE_BENCHMARKS } from "../../frontend/src/engineering/validation/experimentalValidation.js";
+import { getCentralEngineeringResult } from "../../shared/engineering/core/singleSourceOfTruth.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import calculateCDIModel from "../../shared/engineering/models/cdiModel.js";
+import calculateMCDIModel from "../../shared/engineering/models/mCDIModel.js";
+import calculateFCDIModel from "../../shared/engineering/models/fCDIModel.js";
+import calculateEDIModel from "../../shared/engineering/models/ediModel.js";
+import aiRecommendation from "../../shared/engineering/core/aiRecommendation.js";
+import { analyzeWaterChemistry } from "../../shared/engineering/chemistry/waterChemistryEngine.js";
+import { LITERATURE_BENCHMARKS } from "../../shared/engineering/validation/experimentalValidation.js";
 
 /**
  * Standalone Node.js Engineering Full Traceability & Calculation Audit Test Suite
- * Executable directly via: `node client/src/engineering/engineeringFullTraceabilityAudit.test.js`
+ * Executable directly via: `node tests/smoke/engineeringFullTraceabilityAudit.test.js`
  */
 
 let passCount = 0;

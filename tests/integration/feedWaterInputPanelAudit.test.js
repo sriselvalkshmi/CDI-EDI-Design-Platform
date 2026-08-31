@@ -1,9 +1,9 @@
 import { describe, it } from "vitest";
 import assert from "assert";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { analyzeWaterChemistry } from "../../frontend/src/engineering/chemistry/waterChemistryEngine.js";
-import ediModel from "../../frontend/src/engineering/models/ediModel.js";
-import fCDIModel from "../../frontend/src/engineering/models/fCDIModel.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import { analyzeWaterChemistry } from "../../shared/engineering/chemistry/waterChemistryEngine.js";
+import ediModel from "../../shared/engineering/models/ediModel.js";
+import fCDIModel from "../../shared/engineering/models/fCDIModel.js";
 
 describe("Feed Water Input Panel Audit Suite", () => {
     it("runs feed water input panel audit tests", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import optimize from "../../frontend/src/engineering/sizing/designOptimizer.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import optimize from "../../shared/engineering/sizing/designOptimizer.js";
 
 /**
  * Target-Driven Physics Sizing & Energy Optimization Test Suite

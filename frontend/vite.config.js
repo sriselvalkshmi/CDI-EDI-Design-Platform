@@ -8,12 +8,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@engineering': path.resolve(__dirname, './src/engineering'),
+      '@shared/engineering': path.resolve(__dirname, '../shared/engineering'),
+      '@engineering': path.resolve(__dirname, '../shared/engineering'),
+      '@shared': path.resolve(__dirname, '../shared'),
       '@components': path.resolve(__dirname, './src/components'),
       '@data': path.resolve(__dirname, './src/data'),
       '@services': path.resolve(__dirname, './src/services'),
-      '@context': path.resolve(__dirname, './src/context'),
-      '@shared': path.resolve(__dirname, './src')
+      '@context': path.resolve(__dirname, './src/context')
     }
   },
   server: {

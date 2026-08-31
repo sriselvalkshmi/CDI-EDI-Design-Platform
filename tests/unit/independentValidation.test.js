@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import experimentalDataset from "../../frontend/src/engineering/validation/experimentalData.json" with { type: "json" };
-import { splitAndCalibrate } from "../../frontend/src/engineering/validation/experimentalCalibration.js";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
+import experimentalDataset from "../../shared/engineering/validation/experimentalData.json" with { type: "json" };
+import { splitAndCalibrate } from "../../shared/engineering/validation/experimentalCalibration.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
 
 /**
  * Independent Validation Automated Test Suite (Leak-Free 80/20 Train/Test Split)

@@ -20,8 +20,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './frontend/src'),
-      '@engineering': path.resolve(__dirname, './frontend/src/engineering'),
-      '@shared': path.resolve(__dirname, './frontend/src'),
+      '@shared/engineering': path.resolve(__dirname, './shared/engineering'),
+      '@engineering': path.resolve(__dirname, './shared/engineering'),
+      '@shared': path.resolve(__dirname, './shared'),
       '@frontend': path.resolve(__dirname, './frontend/src')
     }
   }

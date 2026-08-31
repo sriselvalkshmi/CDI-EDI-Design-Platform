@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateCDIModel, calculateCDIChargeEfficiency, CDI_ENVELOPE } from "../../frontend/src/engineering/models/cdiModel.js";
+import { calculateCDIModel, calculateCDIChargeEfficiency, CDI_ENVELOPE } from "../../shared/engineering/models/cdiModel.js";
 
 describe("First-Principles CDI Model Unit & Validation Suite", () => {
 

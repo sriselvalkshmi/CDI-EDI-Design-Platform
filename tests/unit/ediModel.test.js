@@ -4,7 +4,7 @@ import {
     calculateEDIChargeUtilization,
     runEDISensitivityAnalysis,
     DEFAULT_EDI_LIMITS
-} from "../../frontend/src/engineering/models/ediModel.js";
+} from "../../shared/engineering/models/ediModel.js";
 
 describe("First-Principles EDI Engineering Model & Pretreatment Gating Suite", () => {
 

@@ -1,11 +1,14 @@
 # Dependency directories
 node_modules/
+frontend/node_modules/
 client/node_modules/
 
 # Production build outputs
 dist/
+frontend/dist/
 client/dist/
 build/
+*.timestamp-*.mjs
 
 # Environment files & secret keys
 .env
@@ -13,6 +16,11 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
 client/.env
 
 # Temporary logs & debug outputs

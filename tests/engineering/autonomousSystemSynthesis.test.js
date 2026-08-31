@@ -6,7 +6,7 @@ import {
     runROUnit,
     runEDIUnit,
     runMCDIUnit
-} from "../../frontend/src/engineering/models/treatmentTrainSynthesisEngine.js";
+} from "../../shared/engineering/models/treatmentTrainSynthesisEngine.js";
 
 describe("Autonomous Engineering System Synthesis Engine Suite", () => {
 

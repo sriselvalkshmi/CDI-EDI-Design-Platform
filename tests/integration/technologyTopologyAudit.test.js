@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import { TECHNOLOGY_FUNDAMENTALS } from "../../frontend/src/engineering/core/technologyFundamentals.js";
-import { analyzeWaterChemistry } from "../../frontend/src/engineering/chemistry/waterChemistryEngine.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import { TECHNOLOGY_FUNDAMENTALS } from "../../shared/engineering/core/technologyFundamentals.js";
+import { analyzeWaterChemistry } from "../../shared/engineering/chemistry/waterChemistryEngine.js";
 
 /**
  * Phase 6A Automated Regression Test Suite:

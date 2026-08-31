@@ -2,7 +2,7 @@
  * Database Seeding Script
  * Generates SQL seed or pushes 57 authoritative equations directly to Supabase.
  */
-import { DEFAULT_EQUATIONS_DATABASE } from "../frontend/src/engineering/equations/defaultEquationsDatabase.js";
+import { DEFAULT_EQUATIONS_DATABASE } from "../shared/engineering/equations/defaultEquationsDatabase.js";
 import fs from "fs";
 import path from "path";
 

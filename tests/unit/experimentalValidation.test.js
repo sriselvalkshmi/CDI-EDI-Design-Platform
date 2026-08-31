@@ -11,7 +11,7 @@ import {
     applyExperimentalCalibration,
     DEFAULT_EXPERIMENTAL_RUNS,
     LITERATURE_BENCHMARKS
-} from "../../frontend/src/engineering/validation/experimentalValidation.js";
+} from "../../shared/engineering/validation/experimentalValidation.js";
 
 describe("Experimental Validation & Model Calibration Suite", () => {
     // 1. Prediction Error Calculation

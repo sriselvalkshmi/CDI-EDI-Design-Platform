@@ -4,7 +4,7 @@ import {
     validateProcessTrain,
     runProcessTrainSensitivityAnalysis,
     DEFAULT_ECONOMIC_ASSUMPTIONS
-} from "../../frontend/src/engineering/models/processTrainEngine.js";
+} from "../../shared/engineering/models/processTrainEngine.js";
 
 describe("First-Principles Multi-Technology Process Train & Hybrid System Sizing Engine Suite", () => {
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateMCDIModel, calculateMCDIChargeEfficiency, MCDI_ENVELOPE } from "../../frontend/src/engineering/models/mCDIModel.js";
+import { calculateMCDIModel, calculateMCDIChargeEfficiency, MCDI_ENVELOPE } from "../../shared/engineering/models/mCDIModel.js";
 
 describe("First-Principles MCDI Model Unit & Validation Suite", () => {
 

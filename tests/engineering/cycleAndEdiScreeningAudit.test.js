@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { calculateMCDIModel } from "../../frontend/src/engineering/models/mCDIModel";
-import { calculateEDIModel } from "../../frontend/src/engineering/models/ediModel";
-import { executeEngineeringEquationEngine } from "../../frontend/src/engineering/engine/engineeringEquationEngine";
+import { calculateMCDIModel } from "../../shared/engineering/models/mCDIModel";
+import { calculateEDIModel } from "../../shared/engineering/models/ediModel";
+import { executeEngineeringEquationEngine } from "../../shared/engineering/engine/engineeringEquationEngine";
 
 describe("12-Minute Cycle, Mass Balances & EDI Multi-Gate Screening Audit Suite", () => {
     

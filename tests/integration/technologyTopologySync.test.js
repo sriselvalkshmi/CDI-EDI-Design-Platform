@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
-import calculateCDIModel, { CDI_ENVELOPE } from "../../frontend/src/engineering/models/cdiModel.js";
-import calculateMCDIModel, { MCDI_ENVELOPE } from "../../frontend/src/engineering/models/mCDIModel.js";
-import calculateFCDIModel, { FCDI_ENVELOPE } from "../../frontend/src/engineering/models/fCDIModel.js";
-import calculateEDIModel, { DEFAULT_EDI_LIMITS } from "../../frontend/src/engineering/models/ediModel.js";
-import aiRecommendation from "../../frontend/src/engineering/core/aiRecommendation.js";
-import { TECHNOLOGY_FUNDAMENTALS } from "../../frontend/src/engineering/core/technologyFundamentals.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
+import calculateCDIModel, { CDI_ENVELOPE } from "../../shared/engineering/models/cdiModel.js";
+import calculateMCDIModel, { MCDI_ENVELOPE } from "../../shared/engineering/models/mCDIModel.js";
+import calculateFCDIModel, { FCDI_ENVELOPE } from "../../shared/engineering/models/fCDIModel.js";
+import calculateEDIModel, { DEFAULT_EDI_LIMITS } from "../../shared/engineering/models/ediModel.js";
+import aiRecommendation from "../../shared/engineering/core/aiRecommendation.js";
+import { TECHNOLOGY_FUNDAMENTALS } from "../../shared/engineering/core/technologyFundamentals.js";
 
 describe("Engineering Correctness & Technology Fundamental Concept Tests", () => {
 

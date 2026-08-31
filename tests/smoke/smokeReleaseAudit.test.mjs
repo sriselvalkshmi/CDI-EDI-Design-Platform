@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { DEFAULT_EQUATIONS_DATABASE } from "../../frontend/src/engineering/equations/defaultEquationsDatabase.js";
-import { evaluateFormula, validateFormula } from "../../frontend/src/engineering/engine/formulaParser.js";
-import calculateEngineering from "../../frontend/src/engineering/engine/engineeringEquationEngine.js";
+import { DEFAULT_EQUATIONS_DATABASE } from "../../shared/engineering/equations/defaultEquationsDatabase.js";
+import { evaluateFormula, validateFormula } from "../../shared/engineering/engine/formulaParser.js";
+import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
 
 test("1. Master Equation Registry Size & Integrity", () => {
     assert.strictEqual(DEFAULT_EQUATIONS_DATABASE.length, 57, "Authoritative equation catalog must contain exactly 57 equations");

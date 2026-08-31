@@ -1,8 +1,8 @@
-import calculateMCDIModel from "../frontend/src/engineering/models/mCDIModel.js";
-import calculateCDIModel from "../frontend/src/engineering/models/cdiModel.js";
-import calculateFCDIModel from "../frontend/src/engineering/models/fCDIModel.js";
-import calculateEDIModel from "../frontend/src/engineering/models/ediModel.js";
-import calculateEngineering from "../frontend/src/engineering/engine/engineeringEquationEngine.js";
+import calculateMCDIModel from "../shared/engineering/models/mCDIModel.js";
+import calculateCDIModel from "../shared/engineering/models/cdiModel.js";
+import calculateFCDIModel from "../shared/engineering/models/fCDIModel.js";
+import calculateEDIModel from "../shared/engineering/models/ediModel.js";
+import calculateEngineering from "../shared/engineering/engine/engineeringEquationEngine.js";
 
 console.log("==================================================================");
 console.log("🚀 COMPREHENSIVE 4-TECHNOLOGY MODEL VERIFICATION & AUDIT RUNNER");

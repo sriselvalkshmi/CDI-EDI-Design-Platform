@@ -6,12 +6,13 @@ An enterprise-grade, modular engineering web platform for designing, simulating,
 
 ## 🌟 Key Features
 
-- **Authoritative Single Source of Truth**: 57 literature-backed equations, physical models, and mass balance derivations isolated in a shared engineering core.
-- **Interactive Engineering Dashboard**: Zero-login access to thermodynamic calculations, AI recommendations, component sizing, 3D CAD Stack Viewer, and P&ID diagrams.
+- **Authoritative Single Source of Truth (`shared/engineering/`)**: 57 literature-backed equations, physical models, and mass balance derivations isolated in a shared, pure JavaScript engineering core.
+- **Autonomous Technology Selection (AUTO Solver)**: Deterministic, 4-tier feasibility gating (TDS, Recovery, Equipment Envelope, Pretreatment) with multi-variable ranking (SEC, recovery margin, product quality).
+- **Interactive Engineering Dashboard (`frontend/`)**: Zero-login access to thermodynamic calculations, AI recommendations, component sizing, 3D CAD Stack Viewer, and P&ID diagrams.
 - **Protected Equation Editor**: Secure mathematical formula parsing, custom equation management, and PDF report generation.
-- **Comprehensive Automated Testing**: 25+ automated test suites with 300+ rigorous physics, mass balance, SEC accounting, and edge-case verification checks.
-- **Supabase Authentication & RLS**: User authentication, session management, and Row Level Security (RLS) policies.
-- **Serverless CI/CD**: Clean deployment via Netlify and Supabase.
+- **Comprehensive Automated Testing (`tests/`)**: 25+ automated test suites with 300+ rigorous physics, mass balance, SEC accounting, and edge-case verification checks.
+- **Supabase Backend (`backend/supabase/`)**: User authentication, session management, Row Level Security (RLS) policies, and database migrations.
+- **Serverless CI/CD**: Seamless deployment via Netlify (`netlify.toml`).
 
 ---
 
@@ -19,61 +20,70 @@ An enterprise-grade, modular engineering web platform for designing, simulating,
 
 ```text
 CDI-EDI-Design-Platform/
-├── frontend/                          # React + Vite UI Application Layer
+│
+├── frontend/                          # React 18 + Vite UI Application Layer
 │   ├── src/
 │   │   ├── components/                # UI widgets, modals, charts, PID & 3D viewers
-│   │   │   ├── engineering/           # UI-facing CAD/BOM/Schematic renderers
-│   │   │   └── modals/                # Diagnostic and traceability dialogs
-│   │   ├── context/                   # AppContext, AuthContext
-│   │   ├── pages/                     # Dashboard, EquationEditorPage, etc.
+│   │   │   ├── engineering/           # UI-facing CAD, schematics, component cards
+│   │   │   └── modals/                # Diagnostic, traceability & report dialogs
+│   │   ├── context/                   # AppContext (state orchestration), AuthContext
+│   │   ├── data/                      # UI fixtures
+│   │   ├── pages/                     # Dashboard, EquationEditorPage
 │   │   ├── services/                  # Supabase client, Excel exporter, Audit logger
-│   │   ├── styles/                    # App.css, pid.css
-│   │   ├── utils/                     # UI helpers & report generators
+│   │   ├── styles/                    # Global CSS stylesheets
+│   │   ├── utils/                     # PDF report generator
 │   │   ├── App.jsx
 │   │   └── main.jsx
 │   ├── public/                        # Static assets & icons
-│   ├── index.html
-│   ├── vite.config.js                 # Configured with '@shared' and '@frontend' aliases
-│   └── package.json
+│   ├── index.html                     # App HTML entrypoint
+│   ├── vite.config.js                 # Vite configuration with @shared/engineering alias
+│   └── package.json                   # Frontend dependencies
 │
-├── backend/                           # Supabase Database & Backend Layer
-│   ├── migrations/                    # 01_init_schema.sql (PostgreSQL DDL)
-│   ├── policies/                      # rls_policies.sql (Row Level Security)
-│   ├── seed/                          # seed.sql (57 equations & initial dataset)
-│   └── README.md
-│
-├── shared/                            # Authoritative Single Source of Truth
+├── shared/                            # Authoritative Domain & Engineering Core
 │   └── engineering/
-│       ├── equations/                 # defaultEquationsDatabase.js (57 Equations), equationCatalog.js
-│       ├── engine/                    # engineeringEquationEngine.js, formulaParser.js
-│       ├── models/                    # cdiModel.js, mCDIModel.js, fCDIModel.js, ediModel.js, processTrainEngine.js
-│       ├── chemistry/                 # waterChemistryEngine.js, waterChemistry.js
-│       ├── sizing/                    # componentSizing.js, electrodeModel.js, stackDesigner.js, designOptimizer.js
-│       ├── core/                      # singleSourceOfTruth.js, engineeringTruthTable.js, technologyFundamentals.js
-│       ├── validation/                # experimentalValidation.js, experimentalCalibration.js
-│       ├── templates/                 # CDI.json, MCDI.json, FCDI.json, EDI.json
+│       ├── chemistry/                 # Water chemistry speciation, charge balance, LSI
+│       ├── core/                      # AI recommendation, single source of truth, fundamentals
+│       ├── engine/                    # Authoritative equation engine & formula parser
+│       ├── equations/                 # Master 57-equation catalog & physics definitions
+│       ├── models/                    # CDI, MCDI, FCDI, EDI & Process Train models
+│       ├── sizing/                    # Component sizing, stack design & optimizer
+│       ├── templates/                 # Technology configuration JSON templates
+│       ├── validation/                # Experimental validation & calibration benchmarks
 │       └── index.js                   # Unified barrel export
 │
+├── backend/                           # Backend Infrastructure & Database
+│   ├── supabase/
+│   │   ├── migrations/                # PostgreSQL schema DDL migrations
+│   │   ├── policies/                  # Row Level Security (RLS) policies
+│   │   ├── functions/                 # Supabase Edge Functions
+│   │   └── seed.sql                   # Seed SQL dataset
+│   └── README.md                      # Backend documentation
+│
 ├── tests/                             # Automated Test Suites (25+ Suites, 300+ Checks)
-│   ├── unit/                          # Individual model & physics unit tests
+│   ├── unit/                          # Individual model & technology selection unit tests
 │   ├── engineering/                   # First-principles, mass balance, and SEC tests
 │   ├── integration/                   # Cross-panel consistency and end-to-end tests
 │   └── smoke/                         # Equation registry integrity & traceability audits
 │
-├── docs/                              # Structured Technical Documentation
-│   ├── engineering/                   # Technology model specs, physics derivations & changelogs
-│   ├── validation/                    # Literature and experimental validation reports
-│   ├── architecture/                  # Architecture.md, Netlify_Setup.md, Supabase_Setup.md
-│   └── deployment/                    # Deployment_Guide.md
+├── docs/                              # Technical & Engineering Documentation
+│   ├── architecture/                  # ARCHITECTURE.md
+│   ├── engineering-basis/             # Model validation specifications & literature proofs
+│   ├── deployment/                    # Netlify & Supabase setup guides
+│   └── development/                   # DEVELOPMENT_GUIDE.md
 │
 ├── scripts/                           # Tooling, CI/CD & Verification Scripts
 │   ├── test-all.js                    # Unified test runner
-│   ├── seed-db.js                     # Sync 57 equations to backend seed
-│   └── audit-check.js                 # System invariant and mass balance check
+│   ├── validate-gui-auto-selection.mjs# Step 9 GUI validation script
+│   ├── verify-all-technologies.js     # Technology verification suite
+│   ├── verify-cross-technology-consistency.js # Cross-panel audit script
+│   ├── audit-check.js                 # System invariant and mass balance check
+│   └── seed-db.js                     # Sync 57 equations to backend seed
 │
-├── netlify.toml                       # Netlify publish directory (frontend/dist)
+├── netlify.toml                       # Netlify deployment configuration
 ├── package.json                       # Root workspace runner
-└── README.md
+├── package-lock.json                  # Locked dependency tree
+├── vitest.config.js                   # Vitest configuration with shared aliases
+└── README.md                          # Main project readme
 ```
 
 ---
@@ -87,7 +97,7 @@ CDI-EDI-Design-Platform/
    ```
 
 2. **Configure Environment Variables**:
-   Copy `.env.example` to `frontend/.env` and insert your Supabase project credentials:
+   Copy `frontend/.env.example` to `frontend/.env` and insert your Supabase project credentials:
    ```env
    VITE_SUPABASE_URL=https://<your-supabase-project-id>.supabase.co
    VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
@@ -97,14 +107,40 @@ CDI-EDI-Design-Platform/
    ```bash
    npm run dev
    ```
-   Open `http://localhost:5173` in your browser.
+   Open **[http://localhost:5173](http://localhost:5173)** in your browser.
 
-4. **Run Automated Test Suite**:
-   ```bash
-   npm test
-   ```
+---
 
-5. **Build for Production**:
-   ```bash
-   npm run build
-   ```
+## 🧪 Running Automated Tests
+
+Run all 25+ automated test suites (300+ checks):
+```bash
+npm test
+```
+
+Or run targeted test categories:
+```bash
+npm run test:unit            # Run unit tests
+npm run test:engineering     # Run engineering physics tests
+npm run test:integration     # Run integration tests
+npm run test:smoke           # Run smoke & release audits
+```
+
+---
+
+## 🏗️ Building for Production
+
+Compile the production bundle:
+```bash
+npm run build
+```
+Build artifacts will be emitted to `frontend/dist/`.
+
+---
+
+## 🧭 Engineering Models & AUTO Selection
+
+- **Engineering Models**: Located in [`shared/engineering/models/`](file:///c:/Users/DELL/OneDrive/Attachments/CDI-EDI-Design-Platform/shared/engineering/models/) (`cdiModel.js`, `mCDIModel.js`, `fCDIModel.js`, `ediModel.js`, `processTrainEngine.js`).
+- **Equation Catalog**: Master 57 physics formulas in [`shared/engineering/equations/`](file:///c:/Users/DELL/OneDrive/Attachments/CDI-EDI-Design-Platform/shared/engineering/equations/).
+- **Autonomous Technology Selection**: Implemented in [`shared/engineering/core/aiRecommendation.js`](file:///c:/Users/DELL/OneDrive/Attachments/CDI-EDI-Design-Platform/shared/engineering/core/aiRecommendation.js) and [`frontend/src/components/TechTradeoffsPanel.jsx`](file:///c:/Users/DELL/OneDrive/Attachments/CDI-EDI-Design-Platform/frontend/src/components/TechTradeoffsPanel.jsx).
+- **Architecture Documentation**: Comprehensive data flow specification in [`docs/architecture/ARCHITECTURE.md`](file:///c:/Users/DELL/OneDrive/Attachments/CDI-EDI-Design-Platform/docs/architecture/ARCHITECTURE.md).

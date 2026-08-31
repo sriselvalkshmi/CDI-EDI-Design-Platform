@@ -4,7 +4,7 @@ import {
     calculateFCDIChargeUtilization,
     runFCDISensitivityAnalysis,
     FCDI_ENVELOPE
-} from "../../frontend/src/engineering/models/fCDIModel.js";
+} from "../../shared/engineering/models/fCDIModel.js";
 
 describe("Hardened First-Principles FCDI Engineering Model Suite", () => {
 
