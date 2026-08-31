@@ -77,6 +77,68 @@ export default function TechTradeoffsPanel() {
 
     const isEdiPretreatmentRequired = feedTds > 30.0 || feedHardness > 0.5;
 
+    // Hard Feasibility Gate: Single Source of Truth Function
+    const evaluateTechnologyCandidate = (key, name, desc, basis, model) => {
+        const outlet = Number(model.outletTDS ?? model.outletTds ?? 0);
+        const recovery = Number(model.waterRecovery ?? model.waterRecoveryPct ?? 0);
+        const sec = Number(model.secElectricalGross ?? model.sec ?? 0);
+
+        const isTdsPass = outlet <= targetTds + 0.05;
+        const isRecPass = recovery >= targetRecovery - 0.05;
+        const requiresPretreatment = (key === "EDI") ? isEdiPretreatmentRequired : false;
+        const isEquipmentPass = model.equipmentStatus !== "EXCEEDED" && (model.feedQualityFeasible !== false || key !== "EDI");
+
+        // Feasibility: TDS pass AND recovery pass AND equipment limits pass AND no mandatory pretreatment
+        const isPass = isTdsPass && isRecPass && isEquipmentPass && !requiresPretreatment;
+
+        let evaluation = "";
+        if (requiresPretreatment) {
+            evaluation = "Requires Pretreatment";
+        } else if (isPass) {
+            evaluation = "Meets Target";
+        } else if (isTdsPass && !isRecPass) {
+            evaluation = "Recovery Deficit";
+        } else if (!isTdsPass && isRecPass) {
+            evaluation = "Target Exceeded";
+        } else {
+            evaluation = "TDS + Recovery Fail";
+        }
+
+        return {
+            key,
+            name,
+            desc,
+            basis,
+            outlet,
+            productTarget: `${outlet.toFixed(1)} mg/L`,
+            recoveryVal: recovery,
+            recovery: requiresPretreatment ? "—" : `${recovery.toFixed(1)}%`,
+            secVal: sec,
+            sec: `${sec.toFixed(3)} kWh/m³`,
+            isTdsPass,
+            isRecPass,
+            requiresPretreatment,
+            isActionRequired: requiresPretreatment,
+            isPass,
+            evaluation,
+            model
+        };
+    };
+
+    // Principled Ranking of Feasible Candidates (Energy Efficiency -> Recovery -> Quality)
+    const rankFeasibleCandidates = (candidates) => {
+        if (!candidates || candidates.length === 0) return [];
+        return [...candidates].sort((a, b) => {
+            if (Math.abs(a.secVal - b.secVal) > 0.01) {
+                return a.secVal - b.secVal;
+            }
+            if (Math.abs(a.recoveryVal - b.recoveryVal) > 0.1) {
+                return b.recoveryVal - a.recoveryVal;
+            }
+            return a.outlet - b.outlet;
+        });
+    };
+
     // Active design metrics
     const activeOutletTds = Number(engineering.outletTDS ?? engineering.outletTds ?? targetTds);
     const activeRecovery = Number(engineering.waterRecovery ?? engineering.waterRecoveryPct ?? 95.2);
@@ -94,72 +156,26 @@ export default function TechTradeoffsPanel() {
         desc: selectedTech
     };
 
-    // Technology Assessment & Comparison Rows (Evaluated dynamically)
-    const techRows = [
-        {
-            key: "MCDI",
-            name: "MCDI",
-            desc: "Membrane Capacitive Deionization",
-            basis: "AEM/CEM paired electrosorption",
-            productTarget: `${mcdiOutlet.toFixed(1)} mg/L`,
-            recovery: `${mcdiRec.toFixed(1)}%`,
-            sec: `${Number(mcdiModel.secElectricalGross || 0.330).toFixed(3)} kWh/m³`,
-            isTdsPass: isMcdiProdPass,
-            isRecPass: isMcdiRecPass,
-            evaluation: (isMcdiProdPass && isMcdiRecPass) ? "Meets Target" : (isMcdiProdPass ? "Recovery Deficit" : "Target Exceeded"),
-            isPass: isMcdiProdPass && isMcdiRecPass,
-            isRecommended: isMcdiProdPass && isMcdiRecPass
-        },
-        {
-            key: "CDI",
-            name: "CDI",
-            desc: "Capacitive Deionization (Membrane-Free)",
-            basis: "Membrane-free (co-ion expulsion)",
-            productTarget: `${cdiOutlet.toFixed(1)} mg/L`,
-            recovery: `${cdiRec.toFixed(1)}%`,
-            sec: `${Number(cdiModel.secElectricalGross || 0.414).toFixed(3)} kWh/m³`,
-            isTdsPass: isCdiProdPass,
-            isRecPass: isCdiRecPass,
-            evaluation: (isCdiProdPass && isCdiRecPass) ? "Meets Target" : (isCdiProdPass ? "Recovery Deficit" : (!isCdiRecPass ? "TDS + Recovery Fail" : "Target Exceeded")),
-            isPass: isCdiProdPass && isCdiRecPass,
-            isRecommended: false
-        },
-        {
-            key: "FCDI",
-            name: "FCDI",
-            desc: "Flow-Electrode CDI",
-            basis: "Flowing carbon slurry electrode",
-            productTarget: `${fcdiOutlet.toFixed(1)} mg/L`,
-            recovery: `${fcdiRec.toFixed(1)}%`,
-            sec: `${Number(fcdiModel.secElectricalGross || 3.649).toFixed(3)} kWh/m³`,
-            isTdsPass: isFcdiProdPass,
-            isRecPass: isFcdiRecPass,
-            evaluation: (isFcdiProdPass && isFcdiRecPass) ? "Meets Target" : (isFcdiProdPass ? "Selected — Recovery Deficit" : "Target Exceeded"),
-            isPass: isFcdiProdPass && isFcdiRecPass,
-            isRecommended: true
-        },
-        {
-            key: "EDI",
-            name: "EDI",
-            desc: "Electrodeionization Polishing",
-            basis: "Continuous resin electro-regeneration",
-            productTarget: `${ediOutlet.toFixed(1)} mg/L`,
-            recovery: isEdiPretreatmentRequired ? "—" : `${ediRec.toFixed(1)}%`,
-            sec: `${Number(ediModel.secElectricalGross || 0.120).toFixed(3)} kWh/m³`,
-            isTdsPass: isEdiProdPass,
-            isRecPass: isEdiRecPass,
-            evaluation: isEdiPretreatmentRequired ? "Requires Pretreatment" : ((isEdiProdPass && isEdiRecPass) ? "Meets Target" : "Target Exceeded"),
-            isPass: !isEdiPretreatmentRequired && isEdiProdPass && isEdiRecPass,
-            isActionRequired: isEdiPretreatmentRequired,
-            isRecommended: false
-        }
+    // Evaluate all candidates dynamically
+    const rawCandidates = [
+        evaluateTechnologyCandidate("MCDI", "MCDI", "Membrane Capacitive Deionization", "AEM/CEM paired electrosorption", mcdiModel),
+        evaluateTechnologyCandidate("CDI", "CDI", "Capacitive Deionization (Membrane-Free)", "Membrane-free (co-ion expulsion)", cdiModel),
+        evaluateTechnologyCandidate("FCDI", "FCDI", "Flow-Electrode CDI", "Flowing carbon slurry electrode", fcdiModel),
+        evaluateTechnologyCandidate("EDI", "EDI", "Electrodeionization Polishing", "Continuous resin electro-regeneration", ediModel)
     ];
 
-    const aiSelectedTech = designResult?.aiRecommendation?.selectedTechnology || (typeof aiRecommendation === "function" ? aiRecommendation(feedWater)?.selectedTechnology : "MCDI") || "MCDI";
-    const passingCandidates = techRows.filter(r => r.isPass);
-    const autoCandidate = passingCandidates.length > 0 ? passingCandidates[0] : null;
+    // Filter strictly feasible candidates & rank them
+    const feasibleCandidates = rankFeasibleCandidates(rawCandidates.filter(c => c.isPass));
+    const autoCandidate = feasibleCandidates.length > 0 ? feasibleCandidates[0] : null;
     const isAutoFeasible = Boolean(autoCandidate);
-    const feasibleCount = passingCandidates.length;
+    const autoRecommendation = autoCandidate?.key ?? null;
+    const feasibleCount = feasibleCandidates.length;
+
+    // Attach dynamic isRecommended derived strictly from autoRecommendation
+    const techRows = rawCandidates.map(row => ({
+        ...row,
+        isRecommended: isAutoFeasible && row.key === autoRecommendation
+    }));
 
     return (
         <div className="panel tradeoffs-panel" style={{
@@ -259,9 +275,9 @@ export default function TechTradeoffsPanel() {
                                                 padding: "1px 6px",
                                                 borderRadius: "2px",
                                                 whiteSpace: "nowrap",
-                                                background: row.key === "FCDI" ? "#FEF3C7" : (row.isPass ? "#DCFCE7" : (row.isActionRequired ? "#FEF3C7" : "#FEE2E2")),
-                                                color: row.key === "FCDI" ? "#B45309" : (row.isPass ? "#15803D" : (row.isActionRequired ? "#B45309" : "#991B1B")),
-                                                border: `1px solid ${row.key === "FCDI" ? "#FDE68A" : (row.isPass ? "#BBF7D0" : (row.isActionRequired ? "#FDE68A" : "#FECACA"))}`
+                                                background: row.isPass ? "#DCFCE7" : (row.isActionRequired ? "#FEF3C7" : "#FEE2E2"),
+                                                color: row.isPass ? "#15803D" : (row.isActionRequired ? "#B45309" : "#991B1B"),
+                                                border: `1px solid ${row.isPass ? "#BBF7D0" : (row.isActionRequired ? "#FDE68A" : "#FECACA")}`
                                             }}>
                                                 {row.evaluation}
                                             </span>
@@ -318,7 +334,7 @@ export default function TechTradeoffsPanel() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                     <strong style={{ textTransform: "uppercase", letterSpacing: "0.03em" }}>
                         {isAutoFeasible 
-                            ? `AUTO DECISION: ${autoCandidate?.name} RECOMMENDED (${passingCandidates.length} / 4 FEASIBLE)` 
+                            ? `AUTO DECISION: ${autoCandidate?.name} RECOMMENDED (${feasibleCount} / 4 FEASIBLE)` 
                             : "AUTO DECISION: NO DIRECTLY FEASIBLE CANDIDATE (0 / 4)"}
                     </strong>
                     <span style={{

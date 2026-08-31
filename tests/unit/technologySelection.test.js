@@ -46,9 +46,17 @@ describe("Automated Technology Selection & Engineering Regression Test Suite", (
         expect(ediRes.processTrainName).toBe("RO → EDI");
     });
 
-    it("evaluates Auto Mode technology selection", () => {
-        const rec = aiRecommendation(rawFeedWater);
+    it("evaluates Auto Mode technology selection when target is achievable", () => {
+        const rec = aiRecommendation({ ...rawFeedWater, targetTds: 50 });
         expect(rec.selectedTechnology).toBe("MCDI");
+        expect(rec.feasibleCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it("evaluates Auto Mode returns null / NONE when target is not achievable (0 / 4 feasible)", () => {
+        const rec = aiRecommendation(rawFeedWater); // targetTds = 10, cannot be met by direct single-stage
+        expect(rec.selectedTechnology).toBeNull();
+        expect(rec.recommendation).toBe("NONE");
+        expect(rec.feasibleCount).toBe(0);
     });
 
     it("evaluates Target Change responsiveness for MCDI", () => {
@@ -101,7 +109,7 @@ describe("Automated Technology Selection & Engineering Regression Test Suite", (
 
     // Auto/AI Technology Screening Tests
     it("returns one of the supported technologies for AUTO, with reason, screening map, and input echo", () => {
-        const rec = aiRecommendation(rawFeedWater);
+        const rec = aiRecommendation({ ...rawFeedWater, targetTds: 50 });
         expect(["CDI", "MCDI", "FCDI", "EDI"]).toContain(rec.selectedTechnology);
         expect(rec.reason).toBeTruthy();
         expect(rec.screening).toBeDefined();
@@ -187,25 +195,69 @@ describe("Automated Technology Selection & Engineering Regression Test Suite", (
     });
 
     // Hard Feasibility Rule Verification Tests (Step 6)
-    it("selection must equal highest scoring feasible technology", () => {
-        const rec = aiRecommendation(rawFeedWater);
-        const feasible = Object.entries(rec.screening)
-            .filter(([, x]) => x.feasible)
-            .sort((a, b) => b[1].score - a[1].score);
-
-        expect(rec.selectedTechnology).toBe(feasible[0][0]);
+    it("selection must equal highest scoring feasible technology when feasible candidates exist", () => {
+        const achievableFeed = { ...rawFeedWater, targetTds: 50 };
+        const rec = aiRecommendation(achievableFeed);
+        expect(rec.selectedTechnology).toBe("MCDI");
+        expect(rec.screening.MCDI.feasible).toBe(true);
+        expect(rec.screening.MCDI.targetAchievable).toBe(true);
     });
 
     it("infeasible technology can never be selected when feasible candidates exist", () => {
-        const rec = aiRecommendation(rawFeedWater);
+        const achievableFeed = { ...rawFeedWater, targetTds: 50 };
+        const rec = aiRecommendation(achievableFeed);
         expect(rec.screening[rec.selectedTechnology].feasible).toBe(true);
+        expect(rec.screening[rec.selectedTechnology].targetAchievable).toBe(true);
+    });
+
+    // 5 Specific Feasibility Regression Cases (Step 6)
+    describe("Step 6 — Five Feasibility Matrix Regression Benchmarks", () => {
+        it("Scenario 1: MCDI + FCDI both pass -> select best eligible candidate", () => {
+            // Feed where both MCDI and FCDI operate in valid envelope and achieve setpoint
+            const feed = { tds: 3000, targetTds: 300, flowRate: 10, targetRecovery: 90 };
+            const rec = aiRecommendation(feed);
+            expect(["MCDI", "FCDI"]).toContain(rec.selectedTechnology);
+            expect(rec.feasibleCount).toBeGreaterThanOrEqual(1);
+        });
+
+        it("Scenario 2: Only MCDI passes -> selects MCDI", () => {
+            const feed = { tds: 1500, targetTds: 100, flowRate: 10, targetRecovery: 90 };
+            const rec = aiRecommendation(feed);
+            expect(rec.selectedTechnology).toBe("MCDI");
+            expect(rec.screening.MCDI.targetAchievable).toBe(true);
+        });
+
+        it("Scenario 3: Only FCDI passes -> selects FCDI", () => {
+            const feed = { tds: 8000, targetTds: 500, flowRate: 12, targetRecovery: 85 };
+            const rec = aiRecommendation(feed);
+            expect(rec.selectedTechnology).toBe("FCDI");
+            expect(rec.screening.FCDI.envelopeOK).toBe(true);
+        });
+
+        it("Scenario 4: None pass -> returns null / NONE (0 / 4 feasible)", () => {
+            // 500 mg/L feed with impossible 5 mg/L direct single-stage target (99% removal)
+            const feed = { tds: 500, targetTds: 5, hardness: 150, flowRate: 10 };
+            const rec = aiRecommendation(feed);
+            expect(rec.selectedTechnology).toBeNull();
+            expect(rec.recommendation).toBe("NONE");
+            expect(rec.feasibleCount).toBe(0);
+        });
+
+        it("Scenario 5: EDI only passes TDS but needs pretreatment -> NONE standalone", () => {
+            // Raw brackish feed: EDI passes TDS polishing capability but fails raw feed quality
+            const feed = { tds: 500, targetTds: 10, hardness: 150, flowRate: 10 };
+            const rec = aiRecommendation(feed);
+            expect(rec.screening.EDI.feedQualityFeasible).toBe(false);
+            expect(rec.selectedTechnology).toBeNull();
+            expect(rec.recommendation).toBe("NONE");
+        });
     });
 
     it("selectBestTechnology explicit decision function selects highest scoring feasible candidate", () => {
         const mockScreening = {
-            CDI: { feasible: true, score: 70, reason: "Feasible" },
-            MCDI: { feasible: true, score: 92, reason: "Highest feasible" },
-            FCDI: { feasible: false, score: 98, reason: "Infeasible envelope" }
+            CDI: { feasible: true, targetAchievable: true, score: 70, reason: "Feasible" },
+            MCDI: { feasible: true, targetAchievable: true, score: 92, reason: "Highest feasible" },
+            FCDI: { feasible: false, targetAchievable: true, score: 98, reason: "Infeasible envelope" }
         };
         const best = selectBestTechnology(mockScreening);
         expect(best.technology).toBe("MCDI");

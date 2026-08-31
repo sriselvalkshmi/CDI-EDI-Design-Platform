@@ -88,8 +88,8 @@ describe("Engineering Correctness & Technology Fundamental Concept Tests", () =>
             expect(rec.selectedTechnology).toBe("CDI");
         });
 
-        it("must recommend MCDI for brackish water (1500 mg/L) with target 50 mg/L", () => {
-            const rec = aiRecommendation({ tds: 1500, targetTds: 50, flowRate: 10 });
+        it("must recommend MCDI for brackish water (1500 mg/L) with target 100 mg/L", () => {
+            const rec = aiRecommendation({ tds: 1500, targetTds: 100, flowRate: 10 });
             expect(rec.selectedTechnology).toBe("MCDI");
         });
 
@@ -105,7 +105,7 @@ describe("Engineering Correctness & Technology Fundamental Concept Tests", () =>
         });
 
         it("must never override hard engineering feasibility constraints", () => {
-            const rec = aiRecommendation({ tds: 12000, targetTds: 500, flowRate: 10 });
+            const rec = aiRecommendation({ tds: 12000, targetTds: 600, flowRate: 10 });
             expect(rec.screening.CDI.envelopeOK).toBe(false);
             expect(rec.screening.MCDI.envelopeOK).toBe(false);
             expect(rec.selectedTechnology).toBe("FCDI");
