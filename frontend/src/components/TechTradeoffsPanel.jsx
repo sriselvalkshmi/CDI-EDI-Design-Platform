@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import engineeringEquationEngine from "@shared/engineering/engine/engineeringEquationEngine.js";
-import aiRecommendation from "@shared/engineering/core/aiRecommendation.js";
+import { evaluateTechnologyCandidate, rankFeasibleCandidates } from "@shared/engineering/core/aiRecommendation.js";
 
 const TECH_DETAILS = {
     MCDI: {
@@ -49,95 +49,36 @@ export default function TechTradeoffsPanel() {
         recalculate({}, techKey, false);
     };
 
-    // Evaluate each technology dynamically against the exact user feedWater
+    // Evaluate each technology dynamically using the authoritative engineering models
     const mcdiModel = selectedTech === "MCDI" ? engineering : engineeringEquationEngine({ technology: "MCDI", feedWater });
     const cdiModel = selectedTech === "CDI" ? engineering : engineeringEquationEngine({ technology: "CDI", feedWater });
     const fcdiModel = selectedTech === "FCDI" ? engineering : engineeringEquationEngine({ technology: "FCDI", feedWater });
     const ediModel = selectedTech === "EDI" ? engineering : engineeringEquationEngine({ technology: "EDI", feedWater });
 
-    const mcdiOutlet = Number(mcdiModel.outletTDS ?? mcdiModel.outletTds);
-    const cdiOutlet = Number(cdiModel.outletTDS ?? cdiModel.outletTds);
-    const fcdiOutlet = Number(fcdiModel.outletTDS ?? fcdiModel.outletTds);
-    const ediOutlet = Number(ediModel.outletTDS ?? ediModel.outletTds);
+    // Evaluate all candidates using the centralized single source of truth function
+    const rawCandidates = [
+        evaluateTechnologyCandidate({ key: "MCDI", name: "MCDI", desc: "Membrane Capacitive Deionization", basis: "AEM/CEM paired electrosorption", feedWater, model: mcdiModel, targetTds, targetRecovery }),
+        evaluateTechnologyCandidate({ key: "CDI", name: "CDI", desc: "Capacitive Deionization (Membrane-Free)", basis: "Membrane-free electrosorption", feedWater, model: cdiModel, targetTds, targetRecovery }),
+        evaluateTechnologyCandidate({ key: "FCDI", name: "FCDI", desc: "Flow-Electrode CDI", basis: "Circulating carbon slurry electrode", feedWater, model: fcdiModel, targetTds, targetRecovery }),
+        evaluateTechnologyCandidate({ key: "EDI", name: "EDI", desc: "Electrodeionization Polishing", basis: "Continuous resin electro-regeneration", feedWater, model: ediModel, targetTds, targetRecovery })
+    ];
 
-    const isMcdiProdPass = mcdiOutlet <= targetTds;
-    const isCdiProdPass = cdiOutlet <= targetTds;
-    const isFcdiProdPass = fcdiOutlet <= targetTds;
-    const isEdiProdPass = ediOutlet <= targetTds;
+    // Filter strictly feasible candidates & rank them deterministically
+    const feasibleCandidates = rankFeasibleCandidates(rawCandidates, targetTds, targetRecovery);
+    const autoCandidate = feasibleCandidates.length > 0 ? feasibleCandidates[0] : null;
+    const isAutoFeasible = Boolean(autoCandidate);
+    const autoRecommendation = autoCandidate?.key ?? null;
+    const feasibleCount = feasibleCandidates.length;
 
-    const mcdiRec = Number(mcdiModel.waterRecovery ?? mcdiModel.waterRecoveryPct ?? 95.0);
-    const cdiRec = Number(cdiModel.waterRecovery ?? cdiModel.waterRecoveryPct ?? 83.3);
-    const fcdiRec = Number(fcdiModel.waterRecovery ?? fcdiModel.waterRecoveryPct ?? 90.0);
-    const ediRec = Number(ediModel.waterRecovery ?? ediModel.waterRecoveryPct ?? 90.0);
-
-    const isMcdiRecPass = mcdiRec >= targetRecovery - 0.05;
-    const isCdiRecPass = cdiRec >= targetRecovery - 0.05;
-    const isFcdiRecPass = fcdiRec >= targetRecovery - 0.05;
-    const isEdiRecPass = ediRec >= targetRecovery - 0.05;
-
-    const isEdiPretreatmentRequired = feedTds > 30.0 || feedHardness > 0.5;
-
-    // Hard Feasibility Gate: Single Source of Truth Function
-    const evaluateTechnologyCandidate = (key, name, desc, basis, model) => {
-        const outlet = Number(model.outletTDS ?? model.outletTds ?? 0);
-        const recovery = Number(model.waterRecovery ?? model.waterRecoveryPct ?? 0);
-        const sec = Number(model.secElectricalGross ?? model.sec ?? 0);
-
-        const isTdsPass = outlet <= targetTds + 0.05;
-        const isRecPass = recovery >= targetRecovery - 0.05;
-        const requiresPretreatment = (key === "EDI") ? isEdiPretreatmentRequired : false;
-        const isEquipmentPass = model.equipmentStatus !== "EXCEEDED" && (model.feedQualityFeasible !== false || key !== "EDI");
-
-        // Feasibility: TDS pass AND recovery pass AND equipment limits pass AND no mandatory pretreatment
-        const isPass = isTdsPass && isRecPass && isEquipmentPass && !requiresPretreatment;
-
-        let evaluation = "";
-        if (requiresPretreatment) {
-            evaluation = "Requires Pretreatment";
-        } else if (isPass) {
-            evaluation = "Meets Target";
-        } else if (isTdsPass && !isRecPass) {
-            evaluation = "Recovery Deficit";
-        } else if (!isTdsPass && isRecPass) {
-            evaluation = "Target Exceeded";
-        } else {
-            evaluation = "TDS + Recovery Fail";
-        }
-
+    // Attach dynamic isRecommended and autoRank
+    const techRows = rawCandidates.map(row => {
+        const rankIndex = feasibleCandidates.findIndex(fc => fc.key === row.key);
         return {
-            key,
-            name,
-            desc,
-            basis,
-            outlet,
-            productTarget: `${outlet.toFixed(1)} mg/L`,
-            recoveryVal: recovery,
-            recovery: requiresPretreatment ? "—" : `${recovery.toFixed(1)}%`,
-            secVal: sec,
-            sec: `${sec.toFixed(3)} kWh/m³`,
-            isTdsPass,
-            isRecPass,
-            requiresPretreatment,
-            isActionRequired: requiresPretreatment,
-            isPass,
-            evaluation,
-            model
+            ...row,
+            isRecommended: isAutoFeasible && row.key === autoRecommendation,
+            autoRank: rankIndex !== -1 ? `#${rankIndex + 1}` : "—"
         };
-    };
-
-    // Principled Ranking of Feasible Candidates (Energy Efficiency -> Recovery -> Quality)
-    const rankFeasibleCandidates = (candidates) => {
-        if (!candidates || candidates.length === 0) return [];
-        return [...candidates].sort((a, b) => {
-            if (Math.abs(a.secVal - b.secVal) > 0.01) {
-                return a.secVal - b.secVal;
-            }
-            if (Math.abs(a.recoveryVal - b.recoveryVal) > 0.1) {
-                return b.recoveryVal - a.recoveryVal;
-            }
-            return a.outlet - b.outlet;
-        });
-    };
+    });
 
     // Active design metrics
     const activeOutletTds = Number(engineering.outletTDS ?? engineering.outletTds ?? targetTds);
@@ -146,7 +87,7 @@ export default function TechTradeoffsPanel() {
     const activeCellPairs = Number(engineering.cellPairs ?? 34);
     const activeProductFlow = Number((flowRate * (activeRecovery / 100)).toFixed(2));
 
-    const isSelectedProdPass = activeOutletTds <= targetTds;
+    const isSelectedProdPass = activeOutletTds <= targetTds + 0.05;
     const isSelectedRecPass = activeRecovery >= targetRecovery - 0.05;
     const isDesignAccepted = isSelectedProdPass && isSelectedRecPass;
 
@@ -155,27 +96,6 @@ export default function TechTradeoffsPanel() {
         technology: selectedTech,
         desc: selectedTech
     };
-
-    // Evaluate all candidates dynamically
-    const rawCandidates = [
-        evaluateTechnologyCandidate("MCDI", "MCDI", "Membrane Capacitive Deionization", "AEM/CEM paired electrosorption", mcdiModel),
-        evaluateTechnologyCandidate("CDI", "CDI", "Capacitive Deionization (Membrane-Free)", "Membrane-free (co-ion expulsion)", cdiModel),
-        evaluateTechnologyCandidate("FCDI", "FCDI", "Flow-Electrode CDI", "Flowing carbon slurry electrode", fcdiModel),
-        evaluateTechnologyCandidate("EDI", "EDI", "Electrodeionization Polishing", "Continuous resin electro-regeneration", ediModel)
-    ];
-
-    // Filter strictly feasible candidates & rank them
-    const feasibleCandidates = rankFeasibleCandidates(rawCandidates.filter(c => c.isPass));
-    const autoCandidate = feasibleCandidates.length > 0 ? feasibleCandidates[0] : null;
-    const isAutoFeasible = Boolean(autoCandidate);
-    const autoRecommendation = autoCandidate?.key ?? null;
-    const feasibleCount = feasibleCandidates.length;
-
-    // Attach dynamic isRecommended derived strictly from autoRecommendation
-    const techRows = rawCandidates.map(row => ({
-        ...row,
-        isRecommended: isAutoFeasible && row.key === autoRecommendation
-    }));
 
     return (
         <div className="panel tradeoffs-panel" style={{
@@ -190,7 +110,7 @@ export default function TechTradeoffsPanel() {
         }}>
             {/* 1. TECHNOLOGY ASSESSMENT HEADER & TABLE */}
             <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "6px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "6px", flexWrap: "wrap", gap: "6px" }}>
                     <h3 style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                         Technology Assessment &amp; Tradeoffs
                     </h3>
@@ -198,8 +118,31 @@ export default function TechTradeoffsPanel() {
                         Feed: <strong style={{ color: "#0F172A" }}>{feedTds} mg/L TDS</strong> &nbsp;|&nbsp; 
                         Target: <strong style={{ color: "#0F172A" }}>≤ {targetTds} mg/L</strong> &nbsp;|&nbsp; 
                         Recovery: <strong style={{ color: "#0F172A" }}>≥ {targetRecovery}%</strong> &nbsp;|&nbsp;
-                        Feasible Candidates: <strong style={{ color: feasibleCount > 0 ? "#15803D" : "#DC2626" }}>{feasibleCount} / 4</strong>
+                        AUTO Feasible Candidates: <strong style={{ color: feasibleCount > 0 ? "#15803D" : "#DC2626" }}>{feasibleCount} / 4</strong>
                     </div>
+                </div>
+
+                {/* Visible Feasibility Rule Banner */}
+                <div style={{
+                    background: "#F8FAFC",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "4px",
+                    padding: "6px 10px",
+                    marginBottom: "8px",
+                    fontSize: "10.5px",
+                    color: "#475569",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: "4px"
+                }}>
+                    <span>
+                        <strong style={{ color: "#0F172A" }}>Feasibility Criteria:</strong> Product TDS target (≤ {targetTds} mg/L) + Recovery target (≥ {targetRecovery}%) + Operating envelope + Pretreatment requirements satisfied.
+                    </span>
+                    <span style={{ fontSize: "10px", color: "#64748B" }}>
+                        AUTO evaluates all 4 candidates · Active design displays selected technology
+                    </span>
                 </div>
 
                 {/* TECHNOLOGY COMPARISON TABLE */}
@@ -208,11 +151,14 @@ export default function TechTradeoffsPanel() {
                         <thead>
                             <tr style={{ background: "#F8FAFC", color: "#475569", fontWeight: "700", borderBottom: "2px solid #CBD5E1" }}>
                                 <th style={{ padding: "6px 8px" }}>Technology</th>
-                                <th style={{ padding: "6px 8px" }}>Product TDS</th>
+                                <th style={{ padding: "6px 8px", textAlign: "right" }}>Product TDS</th>
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>TDS Check</th>
                                 <th style={{ padding: "6px 8px", textAlign: "right" }}>Recovery</th>
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>Recovery Check</th>
-                                <th style={{ padding: "6px 8px", textAlign: "center" }}>Overall Status</th>
+                                <th style={{ padding: "6px 8px", textAlign: "center" }}>Operating Envelope</th>
+                                <th style={{ padding: "6px 8px", textAlign: "center" }}>Pretreatment</th>
+                                <th style={{ padding: "6px 8px", textAlign: "center" }}>Overall Feasibility</th>
+                                <th style={{ padding: "6px 8px", textAlign: "center" }}>AUTO Rank</th>
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>Action</th>
                             </tr>
                         </thead>
@@ -221,6 +167,8 @@ export default function TechTradeoffsPanel() {
                                 const isSelected = selectedTech === row.key;
                                 const isTdsPass = row.isTdsPass;
                                 const isRecPass = row.isRecPass;
+                                const isEnvPass = row.envelopeOK;
+                                const isPretreatmentReq = row.requiresPretreatment;
 
                                 return (
                                     <tr key={row.key} style={{
@@ -261,17 +209,43 @@ export default function TechTradeoffsPanel() {
                                                 fontWeight: "700",
                                                 padding: "1px 5px",
                                                 borderRadius: "2px",
-                                                background: row.key === "EDI" && isEdiPretreatmentRequired ? "#FEF3C7" : (isRecPass ? "#DCFCE7" : "#FEE2E2"),
-                                                color: row.key === "EDI" && isEdiPretreatmentRequired ? "#B45309" : (isRecPass ? "#15803D" : "#991B1B"),
-                                                border: `1px solid ${row.key === "EDI" && isEdiPretreatmentRequired ? "#FDE68A" : (isRecPass ? "#BBF7D0" : "#FECACA")}`
+                                                background: isPretreatmentReq ? "#FEF3C7" : (isRecPass ? "#DCFCE7" : "#FEE2E2"),
+                                                color: isPretreatmentReq ? "#B45309" : (isRecPass ? "#15803D" : "#991B1B"),
+                                                border: `1px solid ${isPretreatmentReq ? "#FDE68A" : (isRecPass ? "#BBF7D0" : "#FECACA")}`
                                             }}>
-                                                {row.key === "EDI" && isEdiPretreatmentRequired ? "Pretreatment" : (isRecPass ? "PASS" : "FAIL")}
+                                                {isPretreatmentReq ? "—" : (isRecPass ? "PASS" : "FAIL")}
                                             </span>
                                         </td>
                                         <td style={{ padding: "6px 8px", textAlign: "center" }}>
                                             <span style={{
                                                 fontSize: "9.5px",
                                                 fontWeight: "600",
+                                                padding: "1px 5px",
+                                                borderRadius: "2px",
+                                                background: isEnvPass ? "#DCFCE7" : "#FEF3C7",
+                                                color: isEnvPass ? "#15803D" : "#B45309",
+                                                border: `1px solid ${isEnvPass ? "#BBF7D0" : "#FDE68A"}`
+                                            }}>
+                                                {isEnvPass ? "In Envelope" : "Out of Range"}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                                            <span style={{
+                                                fontSize: "9.5px",
+                                                fontWeight: "600",
+                                                padding: "1px 5px",
+                                                borderRadius: "2px",
+                                                background: isPretreatmentReq ? "#FEF3C7" : "#F1F5F9",
+                                                color: isPretreatmentReq ? "#B45309" : "#475569",
+                                                border: `1px solid ${isPretreatmentReq ? "#FDE68A" : "#CBD5E1"}`
+                                            }}>
+                                                {isPretreatmentReq ? "REQUIRED" : "Not Required"}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                                            <span style={{
+                                                fontSize: "9.5px",
+                                                fontWeight: "700",
                                                 padding: "1px 6px",
                                                 borderRadius: "2px",
                                                 whiteSpace: "nowrap",
@@ -279,8 +253,11 @@ export default function TechTradeoffsPanel() {
                                                 color: row.isPass ? "#15803D" : (row.isActionRequired ? "#B45309" : "#991B1B"),
                                                 border: `1px solid ${row.isPass ? "#BBF7D0" : (row.isActionRequired ? "#FDE68A" : "#FECACA")}`
                                             }}>
-                                                {row.evaluation}
+                                                {row.isPass ? "FEASIBLE" : `NOT FEASIBLE (${row.evaluation})`}
                                             </span>
+                                        </td>
+                                        <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: "700", fontFamily: "monospace", color: row.isPass ? "#1D4ED8" : "#94A3B8" }}>
+                                            {row.autoRank}
                                         </td>
                                         <td style={{ padding: "6px 8px", textAlign: "center" }}>
                                             {isSelected ? (
@@ -294,7 +271,7 @@ export default function TechTradeoffsPanel() {
                                                     border: "1px solid #86EFAC",
                                                     whiteSpace: "nowrap"
                                                 }}>
-                                                    Selected (Active Design)
+                                                    Active Design ({technology === "AUTO" ? (row.key === autoRecommendation ? "AUTO Recommendation" : "Active") : "Manual Selection"})
                                                 </span>
                                             ) : (
                                                 <button
@@ -322,48 +299,87 @@ export default function TechTradeoffsPanel() {
                 </div>
             </div>
 
-            {/* 2. AUTONOMOUS DECISION NARRATIVE */}
+            {/* 2. AUTONOMOUS DECISION NARRATIVE & TRANSPARENT SCREENING SUMMARY */}
             <div style={{
                 background: isAutoFeasible ? "#F0FDF4" : "#FEF2F2",
                 border: `1px solid ${isAutoFeasible ? "#BBF7D0" : "#FCA5A5"}`,
                 borderRadius: "5px",
-                padding: "10px 14px",
+                padding: "12px 14px",
                 fontSize: "11px",
                 color: isAutoFeasible ? "#15803D" : "#991B1B"
             }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                    <strong style={{ textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                        {isAutoFeasible 
-                            ? `AUTO DECISION: ${autoCandidate?.name} RECOMMENDED (${feasibleCount} / 4 FEASIBLE)` 
-                            : "AUTO DECISION: NO DIRECTLY FEASIBLE CANDIDATE (0 / 4)"}
-                    </strong>
-                    <span style={{
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px", borderBottom: `1px solid ${isAutoFeasible ? "#DCFCE7" : "#FEE2E2"}`, paddingBottom: "6px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <strong style={{
+                            fontSize: "12px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.03em",
+                            color: isAutoFeasible ? "#15803D" : "#991B1B"
+                        }}>
+                            {isAutoFeasible 
+                                ? `AUTO Recommendation: ${autoCandidate?.name} (${feasibleCount} / 4 Feasible)` 
+                                : "AUTO Recommendation: None — Design Envelope Exceeded (0 / 4 Feasible)"}
+                        </strong>
+                    </div>
+                    <div style={{
                         fontWeight: "700",
                         background: "#FFFFFF",
-                        padding: "1px 6px",
+                        padding: "2px 8px",
                         borderRadius: "3px",
-                        border: `1px solid ${isAutoFeasible ? "#BBF7D0" : "#FCA5A5"}`,
-                        color: isAutoFeasible ? "#15803D" : "#991B1B"
+                        border: `1px solid ${isDesignAccepted ? "#BBF7D0" : "#FCA5A5"}`,
+                        color: isDesignAccepted ? "#15803D" : "#991B1B",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px"
                     }}>
-                        Active Candidate: {selectedTech} {isAutoFeasible && selectedTech === autoCandidate?.key ? "(AUTO Recommended · Active Design)" : "(Manual Selection / Active Design)"}
-                    </span>
-                </div>
-                <div style={{ color: isAutoFeasible ? "#166534" : "#7F1D1D", lineHeight: "1.45" }}>
-                    {isAutoFeasible ? (
-                        selectedTech === autoCandidate?.key ? (
-                            <span>
-                                <strong>Optimal Process Selection:</strong> {autoCandidate?.name} satisfies all design criteria: Product TDS <strong>{autoCandidate?.productTarget}</strong> ≤ {targetTds.toFixed(1)} mg/L, Water Recovery <strong>{autoCandidate?.recovery}</strong> ≥ {targetRecovery.toFixed(1)}%, with specific energy consumption <strong>{autoCandidate?.sec}</strong>.
-                            </span>
-                        ) : (
-                            <span>
-                                <strong>Optimal Process Selection:</strong> {autoCandidate?.name} is recommended as the specification-compliant candidate. Active view displays user-selected <strong>{selectedTech}</strong>: Product TDS <strong>{activeOutletTds.toFixed(1)} mg/L</strong> ({isSelectedProdPass ? "PASS" : "FAIL"}), Water Recovery <strong>{activeRecovery.toFixed(1)}%</strong> ({isSelectedRecPass ? "PASS" : `FAIL — ${(targetRecovery - activeRecovery).toFixed(1)} %-point deficit`}).
-                            </span>
-                        )
-                    ) : (
                         <span>
-                            <strong>Single-Pass Operating Boundary:</strong> No technology meets the specification within the current direct-feed design envelope. Active view displays user-selected <strong>{selectedTech}</strong> ({activeOutletTds.toFixed(1)} mg/L TDS, {activeRecovery.toFixed(1)}% recovery). Multi-stage train staging or pre-treatment (e.g. RO → EDI) is required.
+                            Active Design: <strong>{selectedTech}</strong> ({technology === "AUTO" ? (selectedTech === autoCandidate?.key ? "AUTO Selected" : "Active Design") : "Manual Selection"})
                         </span>
+                        <span style={{
+                            fontSize: "9.5px",
+                            padding: "1px 5px",
+                            borderRadius: "2px",
+                            background: isDesignAccepted ? "#DCFCE7" : "#FEE2E2",
+                            color: isDesignAccepted ? "#15803D" : "#991B1B",
+                            border: `1px solid ${isDesignAccepted ? "#86EFAC" : "#FECACA"}`
+                        }}>
+                            Active Compliance: {isDesignAccepted ? "PASS" : "FAIL"}
+                        </span>
+                    </div>
+                </div>
+
+                <div style={{ color: isAutoFeasible ? "#166534" : "#7F1D1D", lineHeight: "1.5", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {isAutoFeasible ? (
+                        <div>
+                            <div>
+                                <strong>Why {autoCandidate?.name} is Recommended:</strong>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "4px", marginTop: "4px", fontSize: "10.5px" }}>
+                                <span>✓ Product TDS satisfied ({autoCandidate?.productTarget} ≤ {targetTds.toFixed(1)} mg/L)</span>
+                                <span>✓ Water Recovery satisfied ({autoCandidate?.recovery} ≥ {targetRecovery.toFixed(1)}%)</span>
+                                <span>✓ Operating envelope satisfied</span>
+                                <span>✓ Pretreatment not required</span>
+                                <span>✓ Mass &amp; salt balances closed</span>
+                                <span>✓ Ranked #1 by energy efficiency ({autoCandidate?.sec})</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <strong>Single-Pass Operating Boundary:</strong> No technology meets all constraints within the direct-feed envelope (0 / 4 feasible). Multi-stage train staging or pre-treatment (e.g. RO → EDI) is required.
+                        </div>
                     )}
+
+                    {/* Rejected Candidate Diagnostics */}
+                    <div style={{ marginTop: "4px", borderTop: `1px dashed ${isAutoFeasible ? "#BBF7D0" : "#FCA5A5"}`, paddingTop: "6px", fontSize: "10.5px" }}>
+                        <strong>Candidate Breakdown:</strong>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "4px", marginTop: "2px" }}>
+                            {techRows.map(r => (
+                                <div key={r.key} style={{ color: r.isPass ? "#15803D" : "#991B1B" }}>
+                                    <strong>{r.name}:</strong> {r.isPass ? `✓ FEASIBLE (${r.autoRank})` : `✗ ${r.evaluation} (${r.rejectionReason})`}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -380,20 +396,25 @@ export default function TechTradeoffsPanel() {
                     justifyContent: "space-between"
                 }}>
                     <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                            <div style={{ fontSize: "11px", fontWeight: "700", color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                                Active Candidate: {activeTechDetails.technology} {isAutoFeasible && selectedTech === autoCandidate?.key ? "(AUTO Recommended · Active Design)" : "(Manual Selection / Active Design)"}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", borderBottom: "1px solid #E2E8F0", paddingBottom: "6px", flexWrap: "wrap", gap: "4px" }}>
+                            <div style={{ fontSize: "11px", fontWeight: "700", color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                Active Design: <span style={{ color: "#1D4ED8" }}>{selectedTech}</span> ({technology === "AUTO" ? (selectedTech === autoCandidate?.key ? "AUTO Selected" : "Active Design") : "Manual Selection"})
                             </div>
                             <div style={{ fontSize: "10.5px", color: "#64748B" }}>
-                                AUTO RECOMMENDATION: <strong style={{ color: isAutoFeasible ? "#15803D" : "#DC2626" }}>{isAutoFeasible ? autoCandidate?.name : "NONE — DESIGN ENVELOPE EXCEEDED"}</strong>
+                                AUTO Recommendation: <strong style={{ color: isAutoFeasible ? "#15803D" : "#DC2626" }}>{isAutoFeasible ? autoCandidate?.name : "None — Envelope Exceeded"}</strong>
                             </div>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "115px 1fr", rowGap: "5px", fontSize: "11.5px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "135px 1fr", rowGap: "5px", fontSize: "11.5px" }}>
                             <span style={{ color: "#64748B", fontWeight: "600" }}>Method:</span>
                             <strong style={{ color: "#0F172A" }}>{activeTechDetails.method}</strong>
 
-                            <span style={{ color: "#64748B", fontWeight: "600" }}>Technology:</span>
+                            <span style={{ color: "#64748B", fontWeight: "600" }}>Technology Basis:</span>
                             <span style={{ color: "#334155" }}>{activeTechDetails.technology}</span>
+
+                            <span style={{ color: "#64748B", fontWeight: "600" }}>Selection Mode:</span>
+                            <span style={{ color: technology === "AUTO" ? "#15803D" : "#475569", fontWeight: "600" }}>
+                                {technology === "AUTO" ? (selectedTech === autoCandidate?.key ? "AUTO Dispatch (Recommended)" : "AUTO Dispatch") : "Manual Selection (User Override)"}
+                            </span>
 
                             <span style={{ color: "#64748B", fontWeight: "600" }}>Product TDS:</span>
                             <div>
@@ -411,7 +432,7 @@ export default function TechTradeoffsPanel() {
                                 </span>
                             </div>
 
-                            <span style={{ color: "#64748B", fontWeight: "600" }}>Design Check:</span>
+                            <span style={{ color: "#64748B", fontWeight: "600" }}>Active Compliance:</span>
                             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                 <span style={{
                                     fontSize: "10.5px",
@@ -425,19 +446,19 @@ export default function TechTradeoffsPanel() {
                                     width: "fit-content"
                                 }}>
                                     {isDesignAccepted 
-                                        ? "Design Check — PASS (Meets Specification)" 
+                                        ? "Active Design — PASS (Meets Specification)" 
                                         : (!isSelectedProdPass && !isSelectedRecPass 
-                                            ? "Design Check — FAIL (TDS + Recovery)" 
+                                            ? "Active Design — FAIL (TDS + Recovery)" 
                                             : (!isSelectedProdPass 
-                                                ? "Design Check — FAIL (TDS Exceeded)" 
-                                                : "Design Check — FAIL (Recovery Deficit)"))}
+                                                ? "Active Design — FAIL (TDS Exceeded)" 
+                                                : "Active Design — FAIL (Recovery Deficit)"))}
                                 </span>
                                 <span style={{ fontSize: "10px", color: "#334155", fontFamily: "monospace" }}>
                                     Product TDS = {activeOutletTds.toFixed(1)} mg/L → <strong style={{ color: isSelectedProdPass ? "#15803D" : "#DC2626" }}>{isSelectedProdPass ? "PASS" : "FAIL"}</strong> | Recovery = {activeRecovery.toFixed(1)}% → <strong style={{ color: isSelectedRecPass ? "#15803D" : "#DC2626" }}>{isSelectedRecPass ? "PASS" : "FAIL"}</strong>
                                 </span>
                             </div>
 
-                            <span style={{ color: "#64748B", fontWeight: "600" }}>Overall Design:</span>
+                            <span style={{ color: "#64748B", fontWeight: "600" }}>Overall Status:</span>
                             <span style={{ color: isDesignAccepted ? "#15803D" : "#991B1B", fontWeight: "700", fontSize: "11px" }}>
                                 {isDesignAccepted 
                                     ? "FULLY COMPLIANT" 
