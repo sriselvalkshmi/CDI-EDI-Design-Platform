@@ -6,12 +6,10 @@ import aiRecommendation, {
 import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
 
 describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
-    // Regression Scenario (Section 15):
-    // MCDI manual candidate at 40.9 mg/L (TDS FAIL), CDI at 83.3% recovery (REC FAIL), EDI requires pretreatment (PRETREATMENT FAIL), FCDI meets 39 mg/L & 95% recovery (FEASIBLE)
-    describe("Regression Test: Feed TDS 50 mg/L -> Target TDS 39 mg/L, Recovery >= 95%", () => {
+    describe("Regression Test: Feed TDS 50 mg/L -> Target TDS 5.0 mg/L, Recovery >= 95%", () => {
         const feed = {
             tds: 50,
-            targetTds: 39,
+            targetTds: 5.0,
             targetRecovery: 95.0,
             flowRate: 10,
             hardness: 10,
@@ -19,11 +17,85 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
             temperature: 25
         };
 
-        it("evaluates MCDI with manual design: TDS FAIL (40.9 > 39), Recovery PASS (95.2 >= 95) -> NOT FEASIBLE", () => {
+        it("evaluates MCDI: TDS PASS (4.5 <= 5.0), Recovery PASS (95.2 >= 95) -> FEASIBLE WITH WARNING (Eligible)", () => {
+            const mcdi = evaluateTechnologyCandidate({
+                key: "MCDI",
+                feedWater: feed,
+                targetTds: 5.0,
+                targetRecovery: 95.0
+            });
+            expect(mcdi.isTdsPass).toBe(true);
+            expect(mcdi.isRecPass).toBe(true);
+            expect(mcdi.isFeasible).toBe(true);
+            expect(mcdi.autoEligibility).toBe("ELIGIBLE_WITH_WARNING");
+            expect(mcdi.operatingApplicability).toBe("OUTSIDE_RECOMMENDED_RANGE");
+            expect(mcdi.overallFeasibility).toBe("FEASIBLE (WITH WARNING)");
+        });
+
+        it("evaluates FCDI: TDS PASS (5.0 <= 5.0), Recovery PASS (95.0 >= 95) -> FEASIBLE WITH WARNING (Eligible)", () => {
+            const fcdi = evaluateTechnologyCandidate({
+                key: "FCDI",
+                feedWater: feed,
+                targetTds: 5.0,
+                targetRecovery: 95.0
+            });
+            expect(fcdi.isTdsPass).toBe(true);
+            expect(fcdi.isRecPass).toBe(true);
+            expect(fcdi.isFeasible).toBe(true);
+            expect(fcdi.autoEligibility).toBe("ELIGIBLE_WITH_WARNING");
+            expect(fcdi.operatingApplicability).toBe("OUTSIDE_RECOMMENDED_RANGE");
+            expect(fcdi.overallFeasibility).toBe("FEASIBLE (WITH WARNING)");
+        });
+
+        it("evaluates CDI: TDS FAIL (7.5 > 5.0), Recovery FAIL (83.3 < 95) -> NOT FEASIBLE", () => {
+            const cdi = evaluateTechnologyCandidate({
+                key: "CDI",
+                feedWater: feed,
+                targetTds: 5.0,
+                targetRecovery: 95.0
+            });
+            expect(cdi.isTdsPass).toBe(false);
+            expect(cdi.isRecPass).toBe(false);
+            expect(cdi.isFeasible).toBe(false);
+            expect(cdi.autoEligibility).toBe("REJECTED");
+        });
+
+        it("evaluates EDI: Pretreatment required (Feed TDS 50 > 30 mg/L) -> NOT FEASIBLE", () => {
+            const edi = evaluateTechnologyCandidate({
+                key: "EDI",
+                feedWater: feed,
+                targetTds: 5.0,
+                targetRecovery: 95.0
+            });
+            expect(edi.requiresPretreatment).toBe(true);
+            expect(edi.isFeasible).toBe(false);
+            expect(edi.autoEligibility).toBe("REJECTED");
+        });
+
+        it("produces AUTO Feasible Count = 2 / 4 and selects MCDI on lower SEC", () => {
+            const rec = aiRecommendation(feed);
+            expect(rec.feasibleCount).toBe(2);
+            expect(rec.selectedTechnology).toBe("MCDI");
+        });
+    });
+    // Regression Scenario (Section 15):
+    // MCDI manual candidate at 40.9 mg/L (TDS FAIL), CDI at 83.3% recovery (REC FAIL), EDI requires pretreatment (PRETREATMENT FAIL), FCDI meets 39 mg/L & 95% recovery (FEASIBLE)
+    describe("Regression Test: Feed TDS 500 mg/L -> Target TDS 50 mg/L, Recovery >= 95%", () => {
+        const feed = {
+            tds: 500,
+            targetTds: 50,
+            targetRecovery: 95.0,
+            flowRate: 10,
+            hardness: 50,
+            ph: 7.0,
+            temperature: 25
+        };
+
+        it("evaluates MCDI with manual sub-optimal design: TDS FAIL (60 > 50), Recovery PASS (95.2 >= 95) -> NOT FEASIBLE", () => {
             const manualMcdiModel = {
-                outletTDS: 40.9,
+                outletTDS: 60.0,
                 waterRecovery: 95.2,
-                secElectricalGross: 0.031,
+                secElectricalGross: 0.31,
                 equipmentStatus: "NOMINAL",
                 envelopeStatus: "NOMINAL"
             };
@@ -32,7 +104,7 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
                 key: "MCDI",
                 feedWater: feed,
                 model: manualMcdiModel,
-                targetTds: 39,
+                targetTds: 50,
                 targetRecovery: 95.0
             });
             expect(mcdi.isTdsPass).toBe(false);
@@ -41,11 +113,11 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
             expect(mcdi.evaluation).toBe("TDS Exceeded");
         });
 
-        it("evaluates CDI: TDS PASS (39 <= 39), Recovery FAIL (83.3 < 95) -> NOT FEASIBLE", () => {
+        it("evaluates CDI: TDS PASS (100 <= 100), Recovery FAIL (83.3 < 95) -> NOT FEASIBLE", () => {
             const cdi = evaluateTechnologyCandidate({
                 key: "CDI",
                 feedWater: feed,
-                targetTds: 39,
+                targetTds: 100,
                 targetRecovery: 95.0
             });
             expect(cdi.isTdsPass).toBe(true);
@@ -54,12 +126,13 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
             expect(cdi.evaluation).toBe("Recovery Deficit");
         });
 
-        it("evaluates FCDI: TDS PASS (39 <= 39), Recovery PASS (95 >= 95) -> FEASIBLE", () => {
+        it("evaluates FCDI in high-salinity envelope: TDS PASS, Recovery PASS -> FEASIBLE", () => {
+            const fcdiFeed = { tds: 4000, targetTds: 400, targetRecovery: 90.0, flowRate: 10 };
             const fcdi = evaluateTechnologyCandidate({
                 key: "FCDI",
-                feedWater: feed,
-                targetTds: 39,
-                targetRecovery: 95.0
+                feedWater: fcdiFeed,
+                targetTds: 400,
+                targetRecovery: 90.0
             });
             expect(fcdi.isTdsPass).toBe(true);
             expect(fcdi.isRecPass).toBe(true);
@@ -67,11 +140,11 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
             expect(fcdi.evaluation).toBe("Meets Target");
         });
 
-        it("evaluates EDI: Pretreatment required (Feed TDS 50 > 30 mg/L) -> NOT FEASIBLE standalone", () => {
+        it("evaluates EDI: Pretreatment required (Feed TDS 500 > 30 mg/L) -> NOT FEASIBLE standalone", () => {
             const edi = evaluateTechnologyCandidate({
                 key: "EDI",
                 feedWater: feed,
-                targetTds: 39,
+                targetTds: 50,
                 targetRecovery: 95.0
             });
             expect(edi.requiresPretreatment).toBe(true);
@@ -80,14 +153,15 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
         });
 
         it("produces AUTO Recommendation = FCDI when FCDI is the only feasible candidate", () => {
+            const highBrineFeed = { tds: 4000, targetTds: 400, targetRecovery: 90.0, flowRate: 10 };
             const candidates = [
-                evaluateTechnologyCandidate({ key: "MCDI", feedWater: feed, model: { outletTDS: 40.9, waterRecovery: 95.2, sec: 0.031, equipmentStatus: "NOMINAL" }, targetTds: 39, targetRecovery: 95.0 }),
-                evaluateTechnologyCandidate({ key: "CDI", feedWater: feed, targetTds: 39, targetRecovery: 95.0 }),
-                evaluateTechnologyCandidate({ key: "FCDI", feedWater: feed, targetTds: 39, targetRecovery: 95.0 }),
-                evaluateTechnologyCandidate({ key: "EDI", feedWater: feed, targetTds: 39, targetRecovery: 95.0 })
+                evaluateTechnologyCandidate({ key: "MCDI", feedWater: highBrineFeed, targetTds: 400, targetRecovery: 90.0 }), // MCDI out of envelope (>3000)
+                evaluateTechnologyCandidate({ key: "CDI", feedWater: highBrineFeed, targetTds: 400, targetRecovery: 90.0 }),  // CDI out of envelope (>1000)
+                evaluateTechnologyCandidate({ key: "FCDI", feedWater: highBrineFeed, targetTds: 400, targetRecovery: 90.0 }), // FCDI in envelope & feasible
+                evaluateTechnologyCandidate({ key: "EDI", feedWater: highBrineFeed, targetTds: 400, targetRecovery: 90.0 })   // EDI requires pretreatment
             ];
 
-            const feasible = rankFeasibleCandidates(candidates, 39, 95.0, 50);
+            const feasible = rankFeasibleCandidates(candidates, 400, 90.0, 4000);
             expect(feasible.length).toBe(1);
             expect(feasible[0].key).toBe("FCDI");
         });
@@ -240,36 +314,35 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
             expect(rec.selectedTechnology).toBe("FCDI");
         });
 
-        it("Point 2: MCDI infeasible + FCDI feasible -> AUTO = FCDI", () => {
-            const feed = { tds: 50, targetTds: 39, targetRecovery: 95.0, flowRate: 10 };
-            const manualMcdi = { outletTDS: 40.9, waterRecovery: 95.2, sec: 0.031, equipmentStatus: "NOMINAL" };
-            const mcdiCand = evaluateTechnologyCandidate({ key: "MCDI", feedWater: feed, model: manualMcdi, targetTds: 39, targetRecovery: 95.0 });
-            const cdiCand = evaluateTechnologyCandidate({ key: "CDI", feedWater: feed, targetTds: 39, targetRecovery: 95.0 });
-            const fcdiCand = evaluateTechnologyCandidate({ key: "FCDI", feedWater: feed, targetTds: 39, targetRecovery: 95.0 });
-            const ediCand = evaluateTechnologyCandidate({ key: "EDI", feedWater: feed, targetTds: 39, targetRecovery: 95.0 });
+        it("Point 2: MCDI infeasible (envelope exceeded at 4000 ppm) + FCDI feasible -> AUTO = FCDI", () => {
+            const feed = { tds: 4000, targetTds: 400, targetRecovery: 90.0, flowRate: 10 };
+            const mcdiCand = evaluateTechnologyCandidate({ key: "MCDI", feedWater: feed, targetTds: 400, targetRecovery: 90.0 });
+            const cdiCand = evaluateTechnologyCandidate({ key: "CDI", feedWater: feed, targetTds: 400, targetRecovery: 90.0 });
+            const fcdiCand = evaluateTechnologyCandidate({ key: "FCDI", feedWater: feed, targetTds: 400, targetRecovery: 90.0 });
+            const ediCand = evaluateTechnologyCandidate({ key: "EDI", feedWater: feed, targetTds: 400, targetRecovery: 90.0 });
 
-            expect(mcdiCand.isFeasible).toBe(false); // 40.9 > 39
-            expect(cdiCand.isFeasible).toBe(false);  // 83.3 < 95
-            expect(fcdiCand.isFeasible).toBe(true);  // 39.0 <= 39, 95.0 >= 95
+            expect(mcdiCand.isFeasible).toBe(false); // 4000 > 3000 ppm (Envelope Exceeded)
+            expect(cdiCand.isFeasible).toBe(false);  // 4000 > 1000 ppm (Envelope Exceeded)
+            expect(fcdiCand.isFeasible).toBe(true);  // In envelope (3000-15000) & meets target
             expect(ediCand.isFeasible).toBe(false);  // Pretreatment required
 
-            const ranked = rankFeasibleCandidates([mcdiCand, cdiCand, fcdiCand, ediCand], 39, 95.0, 50);
+            const ranked = rankFeasibleCandidates([mcdiCand, cdiCand, fcdiCand, ediCand], 400, 90.0, 4000);
             expect(ranked.length).toBe(1);
             expect(ranked[0].key).toBe("FCDI");
         });
 
-        it("Point 3: Both MCDI and FCDI feasible -> secondary ranking decides (MCDI wins on lower Net SEC)", () => {
-            const feed = { tds: 500, targetTds: 50, targetRecovery: 95.0, flowRate: 10, hardness: 100 };
-            const mcdiCand = evaluateTechnologyCandidate({ key: "MCDI", feedWater: feed, targetTds: 50, targetRecovery: 95.0 });
-            const fcdiCand = evaluateTechnologyCandidate({ key: "FCDI", feedWater: feed, targetTds: 50, targetRecovery: 95.0 });
+        it("Point 3: Both MCDI and CDI feasible (dilute 300 ppm) -> secondary ranking decides", () => {
+            const feed = { tds: 300, targetTds: 100, flowRate: 10, hardness: 50 };
+            const mcdiCand = evaluateTechnologyCandidate({ key: "MCDI", feedWater: feed, targetTds: 100 });
+            const cdiCand = evaluateTechnologyCandidate({ key: "CDI", feedWater: feed, targetTds: 100 });
 
             expect(mcdiCand.isFeasible).toBe(true);
-            expect(fcdiCand.isFeasible).toBe(true);
-            expect(mcdiCand.secVal).toBeLessThan(fcdiCand.secVal); // MCDI ~0.26 vs FCDI ~0.55 kWh/m³
+            expect(cdiCand.isFeasible).toBe(true);
 
-            const ranked = rankFeasibleCandidates([fcdiCand, mcdiCand], 50, 95.0, 500);
-            expect(ranked[0].key).toBe("MCDI");
-            expect(ranked[1].key).toBe("FCDI");
+            // CDI has CAPEX advantage (membrane-free) for dilute feeds
+            const ranked = rankFeasibleCandidates([mcdiCand, cdiCand], 100, null, 300);
+            expect(ranked[0].key).toBe("CDI");
+            expect(ranked[1].key).toBe("MCDI");
         });
 
         it("Point 4: No feasible candidates -> AUTO = NONE", () => {

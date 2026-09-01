@@ -155,7 +155,6 @@ export default function TechTradeoffsPanel() {
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>TDS Check</th>
                                 <th style={{ padding: "6px 8px", textAlign: "right" }}>Recovery</th>
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>Recovery Check</th>
-                                <th style={{ padding: "6px 8px", textAlign: "center" }}>Operating Envelope</th>
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>Pretreatment</th>
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>Overall Feasibility</th>
                                 <th style={{ padding: "6px 8px", textAlign: "center" }}>AUTO Rank</th>
@@ -167,7 +166,6 @@ export default function TechTradeoffsPanel() {
                                 const isSelected = selectedTech === row.key;
                                 const isTdsPass = row.isTdsPass;
                                 const isRecPass = row.isRecPass;
-                                const isEnvPass = row.envelopeOK;
                                 const isPretreatmentReq = row.requiresPretreatment;
 
                                 return (
@@ -214,19 +212,6 @@ export default function TechTradeoffsPanel() {
                                                 border: `1px solid ${isPretreatmentReq ? "#FDE68A" : (isRecPass ? "#BBF7D0" : "#FECACA")}`
                                             }}>
                                                 {isPretreatmentReq ? "—" : (isRecPass ? "PASS" : "FAIL")}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: "6px 8px", textAlign: "center" }}>
-                                            <span style={{
-                                                fontSize: "9.5px",
-                                                fontWeight: "600",
-                                                padding: "1px 5px",
-                                                borderRadius: "2px",
-                                                background: isEnvPass ? "#DCFCE7" : "#FEF3C7",
-                                                color: isEnvPass ? "#15803D" : "#B45309",
-                                                border: `1px solid ${isEnvPass ? "#BBF7D0" : "#FDE68A"}`
-                                            }}>
-                                                {isEnvPass ? "In Envelope" : "Out of Range"}
                                             </span>
                                         </td>
                                         <td style={{ padding: "6px 8px", textAlign: "center" }}>
@@ -357,7 +342,7 @@ export default function TechTradeoffsPanel() {
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "4px", marginTop: "4px", fontSize: "10.5px" }}>
                                 <span>✓ Product TDS satisfied ({autoCandidate?.productTarget} ≤ {targetTds.toFixed(1)} mg/L)</span>
                                 <span>✓ Water Recovery satisfied ({autoCandidate?.recovery} ≥ {targetRecovery.toFixed(1)}%)</span>
-                                <span>✓ Operating envelope satisfied</span>
+                                <span>✓ Hard engineering &amp; equipment constraints satisfied</span>
                                 <span>✓ Pretreatment not required</span>
                                 <span>✓ Mass &amp; salt balances closed</span>
                                 <span>✓ Ranked #1 by energy efficiency ({autoCandidate?.sec})</span>
@@ -375,7 +360,7 @@ export default function TechTradeoffsPanel() {
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "4px", marginTop: "2px" }}>
                             {techRows.map(r => (
                                 <div key={r.key} style={{ color: r.isPass ? "#15803D" : "#991B1B" }}>
-                                    <strong>{r.name}:</strong> {r.isPass ? `✓ FEASIBLE (${r.autoRank})` : `✗ ${r.evaluation} (${r.rejectionReason})`}
+                                    <strong>{r.name}:</strong> {r.isPass ? `✓ ${r.overallFeasibility} (${r.autoRank})` : `✗ ${r.evaluation} (${r.rejectionReason})`}
                                 </div>
                             ))}
                         </div>
@@ -575,44 +560,23 @@ export default function TechTradeoffsPanel() {
                         {/* Technology Notes */}
                         <div style={{ padding: "10px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "4px" }}>
                             <div style={{ fontSize: "11px", fontWeight: "700", color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: "6px" }}>
-                                Technology Assessment
+                                Technology Assessment Breakdown
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "8px", fontSize: "10.5px" }}>
-                                <div style={{ background: "#FFFFFF", padding: "8px 10px", borderRadius: "4px", border: `1px solid ${isMcdiProdPass && isMcdiRecPass ? "#BBF7D0" : "#FECACA"}` }}>
-                                    <div style={{ fontWeight: "700", color: isMcdiProdPass && isMcdiRecPass ? "#15803D" : "#991B1B" }}>
-                                        MCDI — {selectedTech === "MCDI" ? "Active Design · " : ""}{isMcdiProdPass && isMcdiRecPass ? "Meets Target" : (isMcdiProdPass ? "Recovery Deficit" : (!isMcdiRecPass ? "TDS + Recovery Fail" : "TDS Exceeded"))}
-                                    </div>
-                                    <div style={{ color: "#334155", marginTop: "4px", lineHeight: "1.4" }}>
-                                        Product TDS: {mcdiOutlet.toFixed(1)} mg/L ({isMcdiProdPass ? "PASS" : "FAIL"}) · Recovery: {mcdiRec.toFixed(1)}% ({isMcdiRecPass ? "PASS" : "FAIL"}).
-                                    </div>
-                                </div>
-
-                                <div style={{ background: "#FFFFFF", padding: "8px 10px", borderRadius: "4px", border: `1px solid ${isCdiProdPass && isCdiRecPass ? "#BBF7D0" : "#FECACA"}` }}>
-                                    <div style={{ fontWeight: "700", color: isCdiProdPass && isCdiRecPass ? "#15803D" : "#991B1B" }}>
-                                        CDI — {selectedTech === "CDI" ? "Active Design · " : ""}{isCdiProdPass && isCdiRecPass ? "Meets Target" : (isCdiProdPass ? "Recovery Deficit" : (!isCdiRecPass ? "TDS + Recovery Fail" : "TDS Exceeded"))}
-                                    </div>
-                                    <div style={{ color: "#334155", marginTop: "4px", lineHeight: "1.4" }}>
-                                        Product TDS: {cdiOutlet.toFixed(1)} mg/L ({isCdiProdPass ? "PASS" : "FAIL"}) · Recovery: {cdiRec.toFixed(1)}% ({isCdiRecPass ? "PASS" : "FAIL"}).
-                                    </div>
-                                </div>
-
-                                <div style={{ background: "#FFFFFF", padding: "8px 10px", borderRadius: "4px", border: `1px solid ${isFcdiProdPass && isFcdiRecPass ? "#BBF7D0" : "#FDE68A"}` }}>
-                                    <div style={{ fontWeight: "700", color: isFcdiProdPass && isFcdiRecPass ? "#15803D" : "#B45309" }}>
-                                        FCDI — {selectedTech === "FCDI" ? "Active Design · " : ""}{isFcdiProdPass && isFcdiRecPass ? "Meets Target" : (isFcdiProdPass ? "Recovery Deficit" : (!isFcdiRecPass ? "TDS + Recovery Fail" : "TDS Exceeded"))}
-                                    </div>
-                                    <div style={{ color: "#334155", marginTop: "4px", lineHeight: "1.4" }}>
-                                        Product TDS: {fcdiOutlet.toFixed(1)} mg/L ({isFcdiProdPass ? "PASS" : "FAIL"}) · Recovery: {fcdiRec.toFixed(1)}% ({isFcdiRecPass ? "PASS" : "FAIL"}).
-                                    </div>
-                                </div>
-
-                                <div style={{ background: "#FFFFFF", padding: "8px 10px", borderRadius: "4px", border: `1px solid ${isEdiPretreatmentRequired ? "#FED7AA" : (isEdiProdPass && isEdiRecPass ? "#BBF7D0" : "#FECACA")}` }}>
-                                    <div style={{ fontWeight: "700", color: isEdiPretreatmentRequired ? "#B45309" : (isEdiProdPass && isEdiRecPass ? "#15803D" : "#991B1B") }}>
-                                        EDI — {selectedTech === "EDI" ? "Active Design · " : ""}{isEdiPretreatmentRequired ? "Requires Pretreatment" : (isEdiProdPass && isEdiRecPass ? "Meets Target" : (!isEdiRecPass ? "TDS + Recovery Fail" : "TDS Exceeded"))}
-                                    </div>
-                                    <div style={{ color: "#334155", marginTop: "4px", lineHeight: "1.4" }}>
-                                        Product TDS: {ediOutlet.toFixed(1)} mg/L ({isEdiProdPass ? "PASS" : "FAIL"}). {isEdiPretreatmentRequired ? `Feed TDS (${feedTds} mg/L) exceeds 30 mg/L threshold; pretreatment required.` : "Direct feed within operating envelope."}
-                                    </div>
-                                </div>
+                                {techRows.map(row => {
+                                    const isFeas = row.isPass;
+                                    const isPre = row.requiresPretreatment;
+                                    return (
+                                        <div key={row.key} style={{ background: "#FFFFFF", padding: "8px 10px", borderRadius: "4px", border: `1px solid ${isFeas ? "#BBF7D0" : (isPre ? "#FED7AA" : "#FECACA")}` }}>
+                                            <div style={{ fontWeight: "700", color: isFeas ? "#15803D" : (isPre ? "#B45309" : "#991B1B") }}>
+                                                {row.name} — {selectedTech === row.key ? "Active Design · " : ""}{row.isPass ? "Meets Target" : row.evaluation}
+                                            </div>
+                                            <div style={{ color: "#334155", marginTop: "4px", lineHeight: "1.4" }}>
+                                                Product TDS: {row.productTarget} ({row.isTdsPass ? "PASS" : "FAIL"}) · Recovery: {row.recovery} ({row.requiresPretreatment ? "—" : (row.isRecPass ? "PASS" : "FAIL")}).
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
 

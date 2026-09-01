@@ -3,18 +3,52 @@
 import calculateEngineering from "../engine/engineeringEquationEngine.js";
 
 /**
- * Standard Literature Operating Envelope Boundaries (Zhao et al., Porada et al., Jeon et al., DuPont EDI)
+ * Standard Literature Operating Envelope Boundaries & Hard Engineering Limits
+ * Recommended: Published literature sweet-spots (Zhao et al., Porada et al., Jeon et al., DuPont EDI)
+ * Hard limits: Physical equipment, model domain, and hydraulic limits
  */
 export const TECHNOLOGY_BOUNDARIES = {
-    CDI: { tdsMin: 100, tdsMax: 1000, flowMax: 15 },
-    MCDI: { tdsMin: 100, tdsMax: 3000, flowMax: 15 },
-    FCDI: { tdsMin: 3000, tdsMax: 15000, flowMax: 20 },
-    EDI: { tdsMin: 0.05, tdsMax: 30, flowMax: 10 }
+    CDI: { 
+        tdsMin: 100, 
+        tdsMax: 1000, 
+        flowMax: 15,
+        hardMaxTds: 1000,
+        hardMaxFlow: 50,
+        hardMaxVoltage: 1.5
+    },
+    MCDI: { 
+        tdsMin: 100, 
+        tdsMax: 3000, 
+        flowMax: 15,
+        hardMaxTds: 3000,
+        hardMaxFlow: 50,
+        hardMaxVoltage: 1.6
+    },
+    FCDI: { 
+        tdsMin: 3000, 
+        tdsMax: 15000, 
+        flowMax: 20,
+        hardMaxTds: 50000,
+        hardMaxFlow: 50,
+        hardMaxVoltage: 1.8
+    },
+    EDI: { 
+        tdsMin: 0.05, 
+        tdsMax: 30, 
+        flowMax: 10,
+        hardMaxTds: 30, // Standalone direct feed without RO pretreatment
+        hardMaxHardness: 0.5,
+        hardMaxFlow: 50
+    }
 };
 
 /**
  * Evaluates an individual technology candidate dynamically against feed-water constraints.
  * Central single source of truth function for feasibility across the platform.
+ * 
+ * Strict Hierarchy:
+ * 1. Hard Engineering Constraints (TDS, Recovery, Pretreatment, Hard Equipment Limits) -> Feasibility Gate
+ * 2. Literature Operating Range (Recommended Sweet-Spot vs Extended Range) -> Warning/Applicability
  */
 export function evaluateTechnologyCandidate({
     key,
@@ -41,46 +75,87 @@ export function evaluateTechnologyCandidate({
     const power = Number((eng.power ?? 0).toFixed(1));
     const pressureDrop = Number(eng.pressureDrop ?? 0);
 
-    // 1. Mandatory Constraint Checks (with explicit numerical tolerance = 0.05)
+    const b = TECHNOLOGY_BOUNDARIES[techKey] || { 
+        tdsMin: 0, 
+        tdsMax: 20000, 
+        flowMax: 50, 
+        hardMaxTds: 20000, 
+        hardMaxFlow: 50 
+    };
+
+    // 1. HARD Engineering Constraint Checks (Mandatory Feasibility Gate)
     const isTdsPass = outletTDS <= tTds + 0.05;
     const isRecPass = tRec !== null ? recovery >= tRec - 0.05 : recovery >= (techKey === "CDI" ? 75.0 : 85.0);
 
-    // EDI Pretreatment requirement (DuPont/SnowPure EDI envelope: feed TDS <= 30 mg/L, hardness <= 0.5 mg/L)
+    // EDI Pretreatment requirement (DuPont/SnowPure EDI envelope: direct feed TDS <= 30 mg/L, hardness <= 0.5 mg/L)
     const isEdiPretreatmentRequired = (techKey === "EDI") ? (tds > 30.0 || hardness > 0.5) : false;
     const feedQualityFeasible = techKey === "EDI" ? !isEdiPretreatmentRequired : Boolean(eng.feedQualityFeasible !== false);
 
-    // Operating Envelope: Literature boundary check
-    const b = TECHNOLOGY_BOUNDARIES[techKey] || { tdsMin: 0, tdsMax: 20000, flowMax: 50 };
-    const envelopeOK = tds >= b.tdsMin && tds <= b.tdsMax && flow <= b.flowMax;
-    const isEnvelopePass = tds <= b.tdsMax && flow <= b.flowMax && eng.envelopeStatus !== "OUTSIDE_ENVELOPE";
+    // Hard physical/equipment and model limit checks
     const isEquipmentPass = eng.equipmentStatus !== "EXCEEDED";
+    const isHardLimitPass = tds <= b.hardMaxTds && flow <= b.hardMaxFlow && eng.envelopeStatus !== "HARD_LIMIT_EXCEEDED" && isEquipmentPass;
 
-    // Overall Feasibility: ALL mandatory conditions must pass
-    const isFeasible = isTdsPass && isRecPass && feedQualityFeasible && isEnvelopePass && !isEdiPretreatmentRequired && isEquipmentPass;
+    // Hard Feasibility: ALL mandatory physical & specification conditions must pass
+    const isFeasible = isTdsPass && isRecPass && feedQualityFeasible && isHardLimitPass && !isEdiPretreatmentRequired && isEquipmentPass;
 
+    // 2. Recommended Literature Operating Range Classification (Applicability Warning)
+    const isInRecommendedRange = tds >= b.tdsMin && tds <= b.tdsMax && flow <= b.flowMax && eng.envelopeStatus !== "OUTSIDE_ENVELOPE";
+    
+    let operatingApplicability = "IN_RECOMMENDED_RANGE";
+    let operatingRangeLabel = "Recommended";
+    if (!isHardLimitPass) {
+        operatingApplicability = "HARD_LIMIT_EXCEEDED";
+        operatingRangeLabel = "Hard Limit Exceeded";
+    } else if (!isInRecommendedRange) {
+        operatingApplicability = "OUTSIDE_RECOMMENDED_RANGE";
+        operatingRangeLabel = "Extended Range (Warning)";
+    }
+
+    // AUTO Eligibility Classification
+    let autoEligibility = "ELIGIBLE";
+    if (isEdiPretreatmentRequired || !isFeasible) {
+        autoEligibility = "REJECTED";
+    } else if (!isInRecommendedRange) {
+        autoEligibility = "ELIGIBLE_WITH_WARNING";
+    }
+
+    // Overall Feasibility & Rejection Reason Formulations
     let evaluation = "";
+    let overallFeasibility = "";
     let rejectionReason = "";
+
     if (isEdiPretreatmentRequired) {
         evaluation = "Requires Pretreatment";
+        overallFeasibility = "NOT FEASIBLE (Requires Pretreatment)";
         rejectionReason = `Pretreatment required (Feed TDS ${tds} mg/L > 30 mg/L or Hardness ${hardness} mg/L > 0.5 mg/L).`;
-    } else if (isFeasible) {
-        evaluation = "Meets Target";
-        rejectionReason = "Fully compliant with all specifications & operating constraints.";
-    } else if (!isTdsPass && isRecPass) {
-        evaluation = "TDS Exceeded";
-        rejectionReason = `Product TDS (${outletTDS.toFixed(1)} mg/L) exceeds target (≤ ${tTds.toFixed(1)} mg/L).`;
-    } else if (isTdsPass && !isRecPass) {
-        evaluation = "Recovery Deficit";
-        rejectionReason = `Water recovery (${recovery.toFixed(1)}%) below target (≥ ${(tRec ?? 95.0).toFixed(1)}%).`;
+    } else if (!isHardLimitPass) {
+        evaluation = "Hard Limit Exceeded";
+        overallFeasibility = "NOT FEASIBLE (Hard Limit Exceeded)";
+        rejectionReason = `Hard physical/equipment limit exceeded (Feed ${tds} mg/L vs max limit ${b.hardMaxTds} mg/L).`;
     } else if (!isTdsPass && !isRecPass) {
         evaluation = "TDS + Recovery Fail";
+        overallFeasibility = "NOT FEASIBLE (TDS + Recovery Fail)";
         rejectionReason = `Both product TDS (${outletTDS.toFixed(1)} mg/L) and recovery (${recovery.toFixed(1)}%) fail target specifications.`;
-    } else if (!isEnvelopePass || !envelopeOK) {
-        evaluation = "Envelope Exceeded";
-        rejectionReason = `Operating boundary exceeded (Feed ${tds} mg/L vs max ${b.tdsMax} mg/L).`;
+    } else if (!isTdsPass) {
+        evaluation = "TDS Exceeded";
+        overallFeasibility = "NOT FEASIBLE (TDS Exceeded)";
+        rejectionReason = `Product TDS (${outletTDS.toFixed(1)} mg/L) exceeds target (≤ ${tTds.toFixed(1)} mg/L).`;
+    } else if (!isRecPass) {
+        evaluation = "Recovery Deficit";
+        overallFeasibility = "NOT FEASIBLE (Recovery Deficit)";
+        rejectionReason = `Water recovery (${recovery.toFixed(1)}%) below target (≥ ${(tRec ?? 95.0).toFixed(1)}%).`;
+    } else if (isFeasible && !isInRecommendedRange) {
+        evaluation = "Meets Target (Extended Range)";
+        overallFeasibility = "FEASIBLE (WITH WARNING)";
+        rejectionReason = `Satisfies mandatory engineering targets (TDS & Recovery), but operates in extended range outside standard literature envelope (${b.tdsMin}–${b.tdsMax} mg/L).`;
+    } else if (isFeasible) {
+        evaluation = "Meets Target";
+        overallFeasibility = "FEASIBLE";
+        rejectionReason = "Fully compliant with all specifications & operating constraints.";
     } else {
-        evaluation = "Equipment Limit Exceeded";
-        rejectionReason = "Operating envelope or equipment limitations exceeded.";
+        evaluation = "Non-Compliant";
+        overallFeasibility = "NOT FEASIBLE";
+        rejectionReason = "Operating constraints not satisfied.";
     }
 
     const removalEfficiency = tds > 0
@@ -116,9 +191,15 @@ export function evaluateTechnologyCandidate({
         removalEfficiency,
         isTdsPass,
         isRecPass,
-        envelopeOK,
-        inEnvelope: envelopeOK,
-        isEnvelopePass,
+        envelopeOK: isInRecommendedRange,
+        inEnvelope: isInRecommendedRange,
+        isEnvelopePass: isHardLimitPass,
+        isHardLimitPass,
+        isInRecommendedRange,
+        operatingApplicability,
+        operatingRangeLabel,
+        autoEligibility,
+        overallFeasibility,
         requiresPretreatment: isEdiPretreatmentRequired,
         isActionRequired: isEdiPretreatmentRequired,
         feedQualityFeasible,
