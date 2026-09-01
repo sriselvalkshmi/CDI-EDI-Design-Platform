@@ -37,7 +37,6 @@ const CATEGORIES = [
     "Electrochemical",
     "Performance",
     "Energy",
-    "Economics",
     "Optimization"
 ];
 
@@ -46,7 +45,6 @@ const SOURCE_CLASSIFICATIONS = [
     "Engineering Model",
     "Empirical Correlation",
     "Performance Metric",
-    "Economic Model",
     "Optimization Metric",
     "Design Constraint"
 ];

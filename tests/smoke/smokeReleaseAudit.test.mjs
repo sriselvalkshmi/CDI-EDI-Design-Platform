@@ -6,7 +6,7 @@ import { evaluateFormula, validateFormula } from "../../shared/engineering/engin
 import calculateEngineering from "../../shared/engineering/engine/engineeringEquationEngine.js";
 
 test("1. Master Equation Registry Size & Integrity", () => {
-    assert.strictEqual(DEFAULT_EQUATIONS_DATABASE.length, 57, "Authoritative equation catalog must contain exactly 57 equations");
+    assert.strictEqual(DEFAULT_EQUATIONS_DATABASE.length, 46, "Authoritative equation catalog must contain exactly 46 pure engineering equations");
     
     DEFAULT_EQUATIONS_DATABASE.forEach(eq => {
         assert.ok(eq.id, `Equation ${eq.name} must have an ID`);
