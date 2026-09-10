@@ -67,7 +67,12 @@ export function evaluateTechnologyCandidate({
     const tTds = targetTds !== null && targetTds !== undefined ? Number(targetTds) : Number(feedWater.targetTds ?? 50);
     const tRec = targetRecovery !== null && targetRecovery !== undefined ? Number(targetRecovery) : (feedWater.targetRecovery !== undefined && feedWater.targetRecovery !== null ? Number(feedWater.targetRecovery) : null);
 
-    const eng = model || calculateEngineering({ technology: techKey, feedWater });
+    const eng = model || calculateEngineering({
+        technology: techKey,
+        feedWater,
+        targetTds: tTds,
+        targetRecovery: tRec
+    });
 
     const outletTDS = Number((eng.outletTDS ?? eng.outletTds ?? 0).toFixed(1));
     const recovery = Number((eng.waterRecovery ?? eng.waterRecoveryPct ?? (techKey === "CDI" ? 83.3 : (techKey === "FCDI" ? 90.0 : 95.0))).toFixed(1));
@@ -146,7 +151,7 @@ export function evaluateTechnologyCandidate({
         rejectionReason = `Water recovery (${recovery.toFixed(1)}%) below target (≥ ${(tRec ?? 95.0).toFixed(1)}%).`;
     } else if (isFeasible && !isInRecommendedRange) {
         evaluation = "Meets Target (Extended Range)";
-        overallFeasibility = "FEASIBLE (WITH WARNING)";
+        overallFeasibility = "FEASIBLE WITH WARNING";
         rejectionReason = `Satisfies mandatory engineering targets (TDS & Recovery), but operates in extended range outside standard literature envelope (${b.tdsMin}–${b.tdsMax} mg/L).`;
     } else if (isFeasible) {
         evaluation = "Meets Target";
@@ -200,6 +205,7 @@ export function evaluateTechnologyCandidate({
         operatingRangeLabel,
         autoEligibility,
         overallFeasibility,
+        isWarning: isFeasible && !isInRecommendedRange,
         requiresPretreatment: isEdiPretreatmentRequired,
         isActionRequired: isEdiPretreatmentRequired,
         feedQualityFeasible,
@@ -269,6 +275,76 @@ export function rankFeasibleCandidates(candidates = [], targetTds = 50, targetRe
 }
 
 /**
+ * Deterministic ranking function for all technology candidates (feasible and infeasible).
+ * Hierarchy:
+ * Priority 1: Feasible / passing candidates first, ranked using standard rankFeasibleCandidates criteria.
+ * Priority 2: Infeasible candidates ranked by:
+ *   - Direct-feed suitability: candidates not requiring pretreatment come first (e.g. EDI requires pretreatment for TDS > 30 mg/L)
+ *   - Hard equipment / physical envelope compliance (within physical limits)
+ *   - Composite engineering score (higher score first)
+ *   - Proximity to target TDS (smaller absolute deviation)
+ *   - Higher water recovery
+ *   - Lower SEC
+ */
+export function rankAllCandidates(candidates = [], targetTds = 50, targetRecovery = 95.0, feedTds = 500) {
+    if (!candidates || candidates.length === 0) return [];
+    const feasible = candidates.filter(c => c.isFeasible || c.isPass);
+    const infeasible = candidates.filter(c => !c.isFeasible && !c.isPass);
+
+    const rankedFeasible = rankFeasibleCandidates(feasible, targetTds, targetRecovery, feedTds);
+
+    const rankedInfeasible = [...infeasible].sort((a, b) => {
+        // Priority 1: Direct-feed compatibility without pretreatment requirement
+        const preA = Boolean(a.requiresPretreatment || a.isActionRequired);
+        const preB = Boolean(b.requiresPretreatment || b.isActionRequired);
+        if (preA !== preB) {
+            return preA ? 1 : -1;
+        }
+
+        // Priority 2: Hard physical / equipment bounds
+        const hardA = a.isHardLimitPass !== false;
+        const hardB = b.isHardLimitPass !== false;
+        if (hardA !== hardB) {
+            return hardA ? -1 : 1;
+        }
+
+        // Priority 3: Composite score
+        const scoreA = Number(a.score ?? 0);
+        const scoreB = Number(b.score ?? 0);
+        if (Math.abs(scoreA - scoreB) >= 1) {
+            return scoreB - scoreA;
+        }
+
+        // Priority 4: Closeness to target TDS
+        const outletA = Number(a.outletTDS ?? a.outlet ?? 0);
+        const outletB = Number(b.outletTDS ?? b.outlet ?? 0);
+        const diffA = Math.abs(outletA - targetTds);
+        const diffB = Math.abs(outletB - targetTds);
+        if (Math.abs(diffA - diffB) > 0.5) {
+            return diffA - diffB;
+        }
+
+        // Priority 5: Higher recovery
+        const recA = Number(a.recoveryVal ?? a.waterRecovery ?? 0);
+        const recB = Number(b.recoveryVal ?? b.waterRecovery ?? 0);
+        if (Math.abs(recA - recB) > 0.5) {
+            return recB - recA;
+        }
+
+        // Priority 6: Lower SEC
+        const secA = Number(a.secVal ?? a.sec ?? 0);
+        const secB = Number(b.secVal ?? b.sec ?? 0);
+        if (Math.abs(secA - secB) > 0.01) {
+            return secA - secB;
+        }
+
+        return 0;
+    });
+
+    return [...rankedFeasible, ...rankedInfeasible];
+}
+
+/**
  * AI Technology Recommendation Engine & Multi-Tech Feasibility Evaluator
  * Enforces strict feasibility-first gating without array-order bias.
  */
@@ -296,6 +372,10 @@ function aiRecommendation(feedWater = {}) {
     const feasibleCandidates = rankFeasibleCandidates(rawCandidates, targetTds, targetRecovery, tds);
     const autoCandidate = feasibleCandidates.length > 0 ? feasibleCandidates[0] : null;
     const isAutoFeasible = Boolean(autoCandidate);
+
+    // Full deterministic ranking across all candidates (feasible first, then best alternative)
+    const rankedCandidates = rankAllCandidates(rawCandidates, targetTds, targetRecovery, tds);
+    const bestCandidate = autoCandidate || (rankedCandidates.length > 0 ? rankedCandidates[0] : null);
     
     // Ultrapure handling (RO -> EDI recommendation for ultrapure setpoint <= 1.0 mg/L)
     const isUltrapureTarget = targetTds <= 1.0;
@@ -452,7 +532,9 @@ function aiRecommendation(feedWater = {}) {
         } : null,
         evaluations: rawCandidates,
         feasibleCandidates,
-        bestEval: autoCandidate
+        rankedCandidates,
+        bestCandidate,
+        bestEval: autoCandidate || bestCandidate
     };
 }
 

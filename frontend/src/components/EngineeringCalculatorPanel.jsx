@@ -53,11 +53,11 @@ export default function EngineeringCalculatorPanel() {
     const calculatedStackHeightMm = isDesignReady ? Number((cellPairs * (tSpacer + 2 * tMembrane + 2 * tElectrode) + tEndplates).toFixed(1)) : null;
 
     // Parallel hydraulic flow area and channel superficial velocity: v = Q / A_flow
-    const channelWidthM = electrodeArea ? Math.sqrt(electrodeArea / 10000) : 0.1871; // m (W = sqrt(A))
-    const channelAreaM2 = (cellPairs && electrodeArea) ? cellPairs * channelWidthM * (tSpacer / 1000) : 0.00318; // m² (A_flow = N_pairs * W * h)
+    const channelWidthM = (isDesignReady && electrodeArea) ? Math.sqrt(electrodeArea / 10000) : 0; // m (W = sqrt(A))
+    const channelAreaM2 = (isDesignReady && cellPairs && electrodeArea) ? cellPairs * channelWidthM * (tSpacer / 1000) : 0; // m² (A_flow = N_pairs * W * h)
     const calculatedVelocity = (isDesignReady && flow && channelAreaM2 > 0)
         ? Number(((flow / 60000) / channelAreaM2).toFixed(3))
-        : (eng.flowVelocity ? Number(eng.flowVelocity).toFixed(3) : 0.105);
+        : (isDesignReady && eng.flowVelocity ? Number(eng.flowVelocity).toFixed(3) : 0);
 
     const productFlow = isDesignReady && flow ? Number((flow * (recovery / 100)).toFixed(2)) : null;
     const rejectFlow = isDesignReady && flow && productFlow ? Number((flow - productFlow).toFixed(2)) : null;
@@ -191,7 +191,13 @@ export default function EngineeringCalculatorPanel() {
     }
 
     function handleReset() {
-        setOptimizationInputs({});
+        setOptimizationInputs({
+            voltage: 0,
+            current: 0,
+            cellPairs: 0,
+            electrodeArea: 0,
+            numberOfModules: 0
+        });
         if (isDesignReady) {
             recalculate({}, technology || "AUTO", false);
         }
@@ -275,8 +281,8 @@ export default function EngineeringCalculatorPanel() {
                     <span style={{ fontWeight: "700", color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.03em" }}>
                         Data Consistency &amp; Compliance:
                     </span>
-                    <span style={{ color: "#15803D", fontWeight: "600" }}>
-                        ✓ Mass balance closed (0.000 L / 0.0000 g/s)
+                    <span style={{ color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
+                        {isDesignReady ? "✓ Mass balance closed (0.000 L / 0.0000 g/s)" : "— Mass balance check pending"}
                     </span>
                     <span style={{ color: isDesignReady ? (isTdsPass ? "#15803D" : "#DC2626") : "#64748B", fontWeight: "600" }}>
                         {isDesignReady && outletTds !== null && targetTds !== null
@@ -320,7 +326,7 @@ export default function EngineeringCalculatorPanel() {
                     <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && outletTds !== null ? `${outletTds.toFixed(1)} mg/L` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Target: ≤ {targetTds !== null ? `${targetTds.toFixed(1)} mg/L` : "50.0 mg/L"}</div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Target: ≤ {isDesignReady && targetTds !== null && targetTds !== "" ? `${Number(targetTds).toFixed(1)} mg/L` : "0.0 mg/L"}</div>
                     <div style={{ fontSize: "9.5px", color: tdsBadgeColor, fontWeight: "700" }}>
                         {tdsBadgeText}
                     </div>
@@ -350,15 +356,19 @@ export default function EngineeringCalculatorPanel() {
                     </div>
                 </div>
 
-                {/* Stack Power */}
+                {/* Stack / Module Power */}
                 <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Stack Power</span>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
+                        {modules > 1 ? "Module Power" : "Stack Power"}
+                    </span>
                     <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && power !== null ? `${power.toFixed(1)} W` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Active Power</div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
+                        {modules > 1 && power !== null ? `Bank Power: ≈ ${(power * modules).toFixed(1)} W` : "Active DC Power"}
+                    </div>
                     <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? "DC Terminal Power" : "—"}
+                        {isDesignReady ? (modules > 1 ? `${modules} Modules in Bank` : "DC Terminal Power") : "—"}
                     </div>
                 </div>
 
@@ -369,24 +379,30 @@ export default function EngineeringCalculatorPanel() {
                         {isDesignReady && voltageStack !== null ? `${voltageStack.toFixed(1)} V DC` : "—"}
                     </strong>
                     <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
-                        {cellVoltage !== null ? `${cellVoltage.toFixed(2)} V/cell (${cellPairs} pairs)` : (voltageStack !== null ? `${(voltageStack / (cellPairs || 34)).toFixed(2)} V/cell` : "—")}
+                        {isDesignReady 
+                            ? (modules > 1 
+                                ? `Module: ${(voltageStack / modules).toFixed(1)} V · Cell: ${cellVoltage !== null ? cellVoltage.toFixed(2) : "0.00"} V` 
+                                : `${cellVoltage !== null ? cellVoltage.toFixed(2) : "0.00"} V/cell (${cellPairs || 0} pairs)`)
+                            : "0.00 V/cell (0 pairs)"}
                     </div>
                     <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? (modules > 1 ? `${modules}-Module Bank` : "Single Module") : "—"}
+                        {isDesignReady ? (modules > 1 ? `Series Stack (${modules} Modules)` : "Single Module") : "—"}
                     </div>
                 </div>
 
-                {/* Stack Current */}
+                {/* Stack Current / Bank Current */}
                 <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Stack Current</span>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
+                        {modules > 1 ? "Bank Current" : "Stack Current"}
+                    </span>
                     <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && current !== null ? (modules > 1 ? `${(current * modules).toFixed(2)} A` : `${current.toFixed(2)} A`) : "—"}
                     </strong>
                     <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
-                        {isDesignReady && current !== null ? (modules > 1 ? `Module: ${current.toFixed(2)} A` : `Operating: ${current.toFixed(2)} A`) : "—"}
+                        {isDesignReady && current !== null ? (modules > 1 ? `Module Current: ${current.toFixed(2)} A` : `Operating: ${current.toFixed(2)} A`) : "—"}
                     </div>
                     <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? (modules > 1 ? `${modules}-Mod Bank` : "1 Module Active") : "—"}
+                        {isDesignReady ? (modules > 1 ? `${modules}-Module Parallel Bank` : "1 Module Active") : "—"}
                     </div>
                 </div>
 
@@ -397,7 +413,7 @@ export default function EngineeringCalculatorPanel() {
                         {isDesignReady && pressureDrop !== null ? `${pressureDrop} Pa` : "—"}
                     </strong>
                     <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
-                        Total System: {eng.totalSystemPressureDrop ?? (pressureDrop !== null ? pressureDrop + 500 : 906)} Pa
+                        Total System: {isDesignReady ? (eng.totalSystemPressureDrop ?? (pressureDrop !== null ? pressureDrop + 500 : 0)) : 0} Pa
                     </div>
                     <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
                         {isDesignReady ? "Mesh Loss" : "—"}
@@ -412,7 +428,7 @@ export default function EngineeringCalculatorPanel() {
                         Stack &amp; Process Specifications
                     </h3>
                     <span style={{ fontSize: "10.5px", color: "#64748B" }}>
-                        Process: {tech} | Feed: {flow !== null ? `${flow.toFixed(2)} L/min` : "—"} @ {feedTds !== null ? `${feedTds} mg/L` : "—"}
+                        Process: {isDesignReady ? tech : (technology || "—")} | Feed: {isDesignReady && flow !== null ? `${flow.toFixed(2)} L/min` : "—"} @ {isDesignReady && feedTds !== null ? `${feedTds} mg/L` : "—"}
                     </span>
                 </div>
 
@@ -491,11 +507,16 @@ export default function EngineeringCalculatorPanel() {
                             <td style={{ padding: "4px 8px", textAlign: "right" }}>{renderStatusBadge(isDesignReady ? "INPUT" : "REQUIRED")}</td>
                         </tr>
                         <tr style={{ borderBottom: "1px solid #F1F5F9" }}>
-                            <td style={{ padding: "4px 8px", color: "#334155" }}>Operating Current</td>
+                            <td style={{ padding: "4px 8px", color: "#334155" }}>
+                                <div>Operating Current</div>
+                                <div style={{ fontSize: "9px", color: "#64748B" }}>
+                                    {modules > 1 ? "Module Current (per series string) & Bank Current (total parallel feed)" : "Operating current"}
+                                </div>
+                            </td>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "700" }}>
                                 {modules > 1 && current !== null 
-                                    ? `${(current * modules).toFixed(2)} (Bank) · ${current.toFixed(2)} / mod` 
-                                    : (current !== null ? current.toFixed(2) : "—")}
+                                    ? `Mod: ${current.toFixed(2)} A · Bank: ${(current * modules).toFixed(2)} A` 
+                                    : (current !== null ? `${current.toFixed(2)} A` : "—")}
                             </td>
                             <td style={{ padding: "4px 8px", color: "#64748B", paddingLeft: "14px" }}>A</td>
                             <td style={{ padding: "4px 8px", color: "#64748B" }}>Engineering Model</td>
@@ -511,7 +532,10 @@ export default function EngineeringCalculatorPanel() {
                             <td style={{ padding: "4px 8px", textAlign: "right" }}>{renderStatusBadge(isDesignReady ? "CALCULATED" : "REQUIRED")}</td>
                         </tr>
                         <tr style={{ borderBottom: "1px solid #F1F5F9" }}>
-                            <td style={{ padding: "4px 8px", color: "#334155" }}>Cell Voltage</td>
+                            <td style={{ padding: "4px 8px", color: "#334155" }}>
+                                <div>Cell Voltage</div>
+                                <div style={{ fontSize: "9px", color: "#64748B" }}>Unit repeating cell pair potential</div>
+                            </td>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "700" }}>
                                 {cellVoltage !== null ? cellVoltage.toFixed(2) : "—"}
                             </td>
@@ -520,20 +544,34 @@ export default function EngineeringCalculatorPanel() {
                             <td style={{ padding: "4px 8px", textAlign: "right" }}>{renderStatusBadge(isDesignReady ? "CALCULATED" : "REQUIRED")}</td>
                         </tr>
                         <tr style={{ borderBottom: "1px solid #F1F5F9" }}>
-                            <td style={{ padding: "4px 8px", color: "#334155" }}>Stack Voltage</td>
+                            <td style={{ padding: "4px 8px", color: "#334155" }}>
+                                <div>Module &amp; Stack Voltages</div>
+                                <div style={{ fontSize: "9px", color: "#64748B" }}>
+                                    {modules > 1 
+                                        ? `Mod: ${(voltageStack / modules).toFixed(1)} V (${Math.round(cellPairs / modules)} pairs) · Stack Series: ${voltageStack.toFixed(1)} V (${cellPairs} pairs) · Bank Bus: ${(voltageStack / modules).toFixed(1)} V` 
+                                        : `${cellPairs} pairs in series`}
+                                </div>
+                            </td>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "700" }}>
-                                {modules > 1 && voltageStack !== null && cellPairs && cellVoltage
-                                    ? `${voltageStack.toFixed(1)} (Bank) · ${(cellPairs * cellVoltage).toFixed(1)} (Series Ref)` 
-                                    : (voltageStack !== null ? voltageStack.toFixed(1) : "—")}
+                                {modules > 1 && voltageStack !== null
+                                    ? `Stack: ${voltageStack.toFixed(1)} V · Mod: ${(voltageStack / modules).toFixed(1)} V` 
+                                    : (voltageStack !== null ? `${voltageStack.toFixed(1)} V` : "—")}
                             </td>
                             <td style={{ padding: "4px 8px", color: "#64748B", paddingLeft: "14px" }}>V DC</td>
                             <td style={{ padding: "4px 8px", color: "#64748B" }}>Engineering Model</td>
                             <td style={{ padding: "4px 8px", textAlign: "right" }}>{renderStatusBadge(isDesignReady ? "CALCULATED" : "REQUIRED")}</td>
                         </tr>
                         <tr style={{ borderBottom: "1px solid #F1F5F9" }}>
-                            <td style={{ padding: "4px 8px", color: "#334155" }}>Stack Power</td>
+                            <td style={{ padding: "4px 8px", color: "#334155" }}>
+                                <div>Electrical Power</div>
+                                <div style={{ fontSize: "9px", color: "#64748B" }}>
+                                    {modules > 1 ? "Module Power (per string) & Bank Power (total skid active power)" : "Active DC terminal power"}
+                                </div>
+                            </td>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "700" }}>
-                                {power !== null ? power.toFixed(1) : "—"}
+                                {modules > 1 && power !== null
+                                    ? `Mod: ${power.toFixed(1)} W · Bank: ≈ ${(power * modules).toFixed(1)} W`
+                                    : (power !== null ? `${power.toFixed(1)} W` : "—")}
                             </td>
                             <td style={{ padding: "4px 8px", color: "#64748B", paddingLeft: "14px" }}>W</td>
                             <td style={{ padding: "4px 8px", color: "#64748B" }}>Electrical Model</td>
@@ -571,14 +609,14 @@ export default function EngineeringCalculatorPanel() {
                             <td style={{ padding: "4px 8px", color: "#334155" }}>
                                 <div style={{ fontWeight: "600" }}>Estimated Internal Channel ΔP</div>
                                 <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "1px" }}>
-                                    Darcy-Weisbach mesh correlation (Channel ΔP: {pressureDrop !== null ? pressureDrop : 406} Pa | Total System ΔP: {eng.totalSystemPressureDrop ?? (pressureDrop !== null ? pressureDrop + 500 : 906)} Pa)
+                                    Darcy-Weisbach mesh correlation (Channel ΔP: {isDesignReady && pressureDrop !== null ? pressureDrop : 0} Pa | Total System ΔP: {isDesignReady ? (eng.totalSystemPressureDrop ?? (pressureDrop !== null ? pressureDrop + 500 : 0)) : 0} Pa)
                                 </div>
                             </td>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "700" }}>
-                                {pressureDrop !== null ? pressureDrop : "406"}
+                                {isDesignReady && pressureDrop !== null ? pressureDrop : 0}
                             </td>
                             <td style={{ padding: "4px 8px", color: "#64748B", paddingLeft: "14px" }}>Pa</td>
-                            <td style={{ padding: "4px 8px", color: "#64748B" }}>Mesh Friction ({pressureDrop !== null ? pressureDrop : 406} Pa)</td>
+                            <td style={{ padding: "4px 8px", color: "#64748B" }}>Mesh Friction ({isDesignReady && pressureDrop !== null ? `${pressureDrop} Pa` : "0 Pa"})</td>
                             <td style={{ padding: "4px 8px", textAlign: "right" }}>{renderStatusBadge(isDesignReady ? "CALCULATED" : "REQUIRED")}</td>
                         </tr>
                         <tr>
@@ -589,11 +627,13 @@ export default function EngineeringCalculatorPanel() {
                                 </div>
                             </td>
                             <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "700" }}>
-                                {calculatedVelocity}
+                                {isDesignReady ? calculatedVelocity : 0}
                             </td>
                             <td style={{ padding: "4px 8px", color: "#64748B", paddingLeft: "14px" }}>m/s</td>
                             <td style={{ padding: "4px 8px", color: "#64748B" }}>
-                                A_flow = {(channelAreaM2 * 10000).toFixed(1)} cm² ({cellPairs || 34}ch × {(channelWidthM * 100).toFixed(1)}cm × 0.05cm)
+                                {isDesignReady 
+                                    ? `A_flow = ${(channelAreaM2 * 10000).toFixed(1)} cm² (${cellPairs || 0}ch × ${(channelWidthM * 100).toFixed(1)}cm × 0.05cm)`
+                                    : "A_flow = 0.0 cm² (0ch × 0.0cm × 0.05cm)"}
                             </td>
                             <td style={{ padding: "4px 8px", textAlign: "right" }}>{renderStatusBadge(isDesignReady ? "CALCULATED" : "REQUIRED")}</td>
                         </tr>
@@ -712,17 +752,19 @@ export default function EngineeringCalculatorPanel() {
                                 <span style={{ color: "#334155" }}>Operating Charge Utilization (Λ)</span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                     <strong style={{ fontFamily: "monospace" }}>
-                                        {isDesignReady && eng?.chargeUtilization !== undefined ? (Number(eng.chargeUtilization) > 1 ? (Number(eng.chargeUtilization) / 100).toFixed(2) : Number(eng.chargeUtilization).toFixed(2)) : (eng?.chargeEfficiency !== undefined ? (Number(eng.chargeEfficiency) > 1 ? (Number(eng.chargeEfficiency) / 100).toFixed(2) : Number(eng.chargeEfficiency).toFixed(2)) : "0.88")}
+                                        {isDesignReady && eng?.chargeUtilization !== undefined ? (Number(eng.chargeUtilization) > 1 ? (Number(eng.chargeUtilization) / 100).toFixed(2) : Number(eng.chargeUtilization).toFixed(2)) : (isDesignReady && eng?.chargeEfficiency !== undefined ? (Number(eng.chargeEfficiency) > 1 ? (Number(eng.chargeEfficiency) / 100).toFixed(2) : Number(eng.chargeEfficiency).toFixed(2)) : "0.00")}
                                     </strong>
-                                    {renderStatusBadge("DESIGN PARAMETER")}
+                                    {renderStatusBadge(isDesignReady ? "DESIGN PARAMETER" : "PENDING")}
                                 </div>
                             </div>
 
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #F1F5F9" }}>
-                                <span style={{ color: "#334155" }}>Nominal Baseline (Λ_FCDI)</span>
+                                <span style={{ color: "#334155" }}>Nominal Charge-Utilization Baseline (Λ_{isDesignReady ? tech : (technology || "—")})</span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <strong style={{ fontFamily: "monospace" }}>0.88</strong>
-                                    {renderStatusBadge("DESIGN BASELINE")}
+                                    <strong style={{ fontFamily: "monospace" }}>
+                                        {isDesignReady ? (tech === "MCDI" ? "0.92" : (tech === "FCDI" ? "0.88" : (tech === "CDI" ? "0.75" : "0.90"))) : "0.00"}
+                                    </strong>
+                                    {renderStatusBadge(isDesignReady ? "DESIGN BASELINE" : "PENDING")}
                                 </div>
                             </div>
 
@@ -747,8 +789,8 @@ export default function EngineeringCalculatorPanel() {
                                     Parallel-Channel Velocity (v = Q / A_flow)
                                 </span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <strong style={{ fontFamily: "monospace" }}>{calculatedVelocity} m/s</strong>
-                                    {renderStatusBadge("CALCULATED")}
+                                    <strong style={{ fontFamily: "monospace" }}>{isDesignReady ? `${calculatedVelocity} m/s` : "0 m/s"}</strong>
+                                    {renderStatusBadge(isDesignReady ? "CALCULATED" : "PENDING")}
                                 </div>
                             </div>
 
@@ -757,8 +799,8 @@ export default function EngineeringCalculatorPanel() {
                                     Estimated Channel ΔP (Excl. Manifold)
                                 </span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <strong style={{ fontFamily: "monospace" }}>{pressureDrop !== null ? `≈ ${pressureDrop} Pa` : "≈ 500 Pa"}</strong>
-                                    {renderStatusBadge("CORRELATION")}
+                                    <strong style={{ fontFamily: "monospace" }}>{isDesignReady && pressureDrop !== null ? `≈ ${pressureDrop} Pa` : "0 Pa"}</strong>
+                                    {renderStatusBadge(isDesignReady ? "CORRELATION" : "PENDING")}
                                 </div>
                             </div>
 
@@ -766,9 +808,9 @@ export default function EngineeringCalculatorPanel() {
                                 <span style={{ color: "#334155" }}>Active Stack Height</span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                     <strong style={{ fontFamily: "monospace" }}>
-                                        {calculatedStackHeightMm !== null ? `${calculatedStackHeightMm} mm` : "108 mm"}
+                                        {isDesignReady && calculatedStackHeightMm !== null ? `${calculatedStackHeightMm} mm` : "0 mm"}
                                     </strong>
-                                    {renderStatusBadge("CALCULATED")}
+                                    {renderStatusBadge(isDesignReady ? "CALCULATED" : "PENDING")}
                                 </div>
                             </div>
 
@@ -776,9 +818,9 @@ export default function EngineeringCalculatorPanel() {
                                 <span style={{ color: "#334155" }}>Aux Hydraulic Work</span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                     <strong style={{ fontFamily: "monospace" }}>
-                                        {secHydraulic !== null ? `${(secHydraulic * 1000).toFixed(3)} Wh/m³` : "0.150 Wh/m³"}
+                                        {isDesignReady && secHydraulic !== null ? `${(secHydraulic * 1000).toFixed(3)} Wh/m³` : "0.000 Wh/m³"}
                                     </strong>
-                                    {renderStatusBadge("CALCULATED")}
+                                    {renderStatusBadge(isDesignReady ? "CALCULATED" : "PENDING")}
                                 </div>
                             </div>
                         </div>
@@ -824,7 +866,7 @@ export default function EngineeringCalculatorPanel() {
                             type="number"
                             step="0.05"
                             placeholder="—"
-                            value={optimizationInputs.voltage ?? (cellVoltage !== null ? cellVoltage : "")}
+                            value={optimizationInputs.voltage !== undefined && optimizationInputs.voltage !== "" ? optimizationInputs.voltage : (cellVoltage !== null ? cellVoltage : 0)}
                             onChange={(e) => handleInputChange("voltage", e.target.value)}
                             style={{ width: "100%", padding: "4px 6px", border: "1px solid #CBD5E1", borderRadius: "3px", fontSize: "11.5px", fontWeight: "600", fontFamily: "monospace", boxSizing: "border-box" }}
                         />
@@ -835,7 +877,7 @@ export default function EngineeringCalculatorPanel() {
                             type="number"
                             step="0.05"
                             placeholder="—"
-                            value={optimizationInputs.current ?? (current !== null ? current : "")}
+                            value={optimizationInputs.current !== undefined && optimizationInputs.current !== "" ? optimizationInputs.current : (current !== null ? current : 0)}
                             onChange={(e) => handleInputChange("current", e.target.value)}
                             style={{ width: "100%", padding: "4px 6px", border: "1px solid #CBD5E1", borderRadius: "3px", fontSize: "11.5px", fontWeight: "600", fontFamily: "monospace", boxSizing: "border-box" }}
                         />
@@ -845,7 +887,7 @@ export default function EngineeringCalculatorPanel() {
                         <input
                             type="number"
                             placeholder="—"
-                            value={optimizationInputs.cellPairs ?? (cellPairs !== null ? cellPairs : "")}
+                            value={optimizationInputs.cellPairs !== undefined && optimizationInputs.cellPairs !== "" ? optimizationInputs.cellPairs : (cellPairs !== null ? cellPairs : 0)}
                             onChange={(e) => handleInputChange("cellPairs", e.target.value)}
                             style={{ width: "100%", padding: "4px 6px", border: "1px solid #CBD5E1", borderRadius: "3px", fontSize: "11.5px", fontWeight: "600", fontFamily: "monospace", boxSizing: "border-box" }}
                         />
@@ -855,7 +897,7 @@ export default function EngineeringCalculatorPanel() {
                         <input
                             type="number"
                             placeholder="—"
-                            value={optimizationInputs.electrodeArea ?? (electrodeArea !== null ? electrodeArea : "")}
+                            value={optimizationInputs.electrodeArea !== undefined && optimizationInputs.electrodeArea !== "" ? optimizationInputs.electrodeArea : (electrodeArea !== null ? electrodeArea : 0)}
                             onChange={(e) => handleInputChange("electrodeArea", e.target.value)}
                             style={{ width: "100%", padding: "4px 6px", border: "1px solid #CBD5E1", borderRadius: "3px", fontSize: "11.5px", fontWeight: "600", fontFamily: "monospace", boxSizing: "border-box" }}
                         />
@@ -865,7 +907,7 @@ export default function EngineeringCalculatorPanel() {
                         <input
                             type="number"
                             placeholder="—"
-                            value={optimizationInputs.numberOfModules ?? (modules !== null ? modules : "")}
+                            value={optimizationInputs.numberOfModules !== undefined && optimizationInputs.numberOfModules !== "" ? optimizationInputs.numberOfModules : (modules !== null ? modules : 0)}
                             onChange={(e) => handleInputChange("numberOfModules", e.target.value)}
                             style={{ width: "100%", padding: "4px 6px", border: "1px solid #CBD5E1", borderRadius: "3px", fontSize: "11.5px", fontWeight: "600", fontFamily: "monospace", boxSizing: "border-box" }}
                         />
@@ -1067,7 +1109,11 @@ export default function EngineeringCalculatorPanel() {
                         )}
                     </div>
                     <div>
-                        Mass Balance: <strong style={{ color: "#15803D" }}>CLOSED (Residual &lt; 0.001)</strong>
+                        Mass Balance: {isDesignReady && flow > 0 && feedTds > 0 ? (
+                            <strong style={{ color: "#15803D" }}>CLOSED (Residual &lt; 0.001)</strong>
+                        ) : (
+                            <strong style={{ color: "#64748B" }}>PENDING INPUTS</strong>
+                        )}
                     </div>
                 </div>
                 <div style={{ textAlign: "right" }}>

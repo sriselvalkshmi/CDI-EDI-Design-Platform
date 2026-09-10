@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 
 import EngineeringCalculatorPanel from "../components/EngineeringCalculatorPanel";
 import TechTradeoffsPanel from "../components/TechTradeoffsPanel";
+import DesignExplorerPanel from "../components/DesignExplorerPanel";
 import PIDDiagram from "../components/PIDDiagram";
 import SimulationGraphs from "../components/SimulationGraphs";
 
@@ -34,6 +35,9 @@ export default function Dashboard() {
 
                     {/* 5. TECHNOLOGY SCREENING MATRIX */}
                     <TechTradeoffsPanel />
+
+                    {/* DESIGN EXPLORER — SCENARIO & SENSITIVITY ANALYSIS */}
+                    <DesignExplorerPanel />
 
                     {/* 10. STACK GEOMETRY & PROCESS FLOW */}
                     <PIDDiagram />

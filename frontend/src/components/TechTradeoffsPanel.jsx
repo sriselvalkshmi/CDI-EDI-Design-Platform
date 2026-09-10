@@ -234,11 +234,11 @@ export default function TechTradeoffsPanel() {
                                                 padding: "1px 6px",
                                                 borderRadius: "2px",
                                                 whiteSpace: "nowrap",
-                                                background: row.isPass ? "#DCFCE7" : (row.isActionRequired ? "#FEF3C7" : "#FEE2E2"),
-                                                color: row.isPass ? "#15803D" : (row.isActionRequired ? "#B45309" : "#991B1B"),
-                                                border: `1px solid ${row.isPass ? "#BBF7D0" : (row.isActionRequired ? "#FDE68A" : "#FECACA")}`
+                                                background: row.isPass ? (row.isWarning || !row.isInRecommendedRange ? "#FEF3C7" : "#DCFCE7") : (row.isActionRequired ? "#FEF3C7" : "#FEE2E2"),
+                                                color: row.isPass ? (row.isWarning || !row.isInRecommendedRange ? "#92400E" : "#15803D") : (row.isActionRequired ? "#B45309" : "#991B1B"),
+                                                border: `1px solid ${row.isPass ? (row.isWarning || !row.isInRecommendedRange ? "#FDE68A" : "#BBF7D0") : (row.isActionRequired ? "#FDE68A" : "#FECACA")}`
                                             }}>
-                                                {row.isPass ? "FEASIBLE" : `NOT FEASIBLE (${row.evaluation})`}
+                                                {row.isPass ? (row.isWarning || !row.isInRecommendedRange ? "FEASIBLE WITH WARNING" : "FEASIBLE") : `NOT FEASIBLE (${row.evaluation})`}
                                             </span>
                                         </td>
                                         <td style={{ padding: "6px 8px", textAlign: "center", fontWeight: "700", fontFamily: "monospace", color: row.isPass ? "#1D4ED8" : "#94A3B8" }}>
@@ -302,7 +302,7 @@ export default function TechTradeoffsPanel() {
                             color: isAutoFeasible ? "#15803D" : "#991B1B"
                         }}>
                             {isAutoFeasible 
-                                ? `AUTO Recommendation: ${autoCandidate?.name} (${feasibleCount} / 4 Feasible)` 
+                                ? `AUTO Recommendation: ${autoCandidate?.name} ${!autoCandidate?.isInRecommendedRange ? "(FEASIBLE WITH WARNING)" : ""} (${feasibleCount} / 4 Feasible)` 
                                 : "AUTO Recommendation: None — Design Envelope Exceeded (0 / 4 Feasible)"}
                         </strong>
                     </div>
@@ -386,7 +386,9 @@ export default function TechTradeoffsPanel() {
                                 Active Design: <span style={{ color: "#1D4ED8" }}>{selectedTech}</span> ({technology === "AUTO" ? (selectedTech === autoCandidate?.key ? "AUTO Selected" : "Active Design") : "Manual Selection"})
                             </div>
                             <div style={{ fontSize: "10.5px", color: "#64748B" }}>
-                                AUTO Recommendation: <strong style={{ color: isAutoFeasible ? "#15803D" : "#DC2626" }}>{isAutoFeasible ? autoCandidate?.name : "None — Envelope Exceeded"}</strong>
+                                AUTO Recommendation: <strong style={{ color: isAutoFeasible ? (autoCandidate?.isInRecommendedRange ? "#15803D" : "#D97706") : "#DC2626" }}>
+                                    {isAutoFeasible ? `${autoCandidate?.name} ${!autoCandidate?.isInRecommendedRange ? "(FEASIBLE WITH WARNING)" : ""}` : "None — Envelope Exceeded"}
+                                </strong>
                             </div>
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "135px 1fr", rowGap: "5px", fontSize: "11.5px" }}>

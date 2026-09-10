@@ -14,7 +14,9 @@ export default function Sidebar() {
         setOptimizationInputs,
         recalculate,
         user,
-        designResult
+        designResult,
+        setDesignResult,
+        setDesignGenerated
     } = useApp();
 
     const eng = designResult?.engineering || null;
@@ -140,8 +142,13 @@ export default function Sidebar() {
         };
         setFeedWater(emptyFeed);
         setTechnology("AUTO");
-        setSelectedDesign("AUTO");
-        setOptimizationInputs({});
+        setOptimizationInputs({
+            voltage: 0,
+            current: 0,
+            cellPairs: 0,
+            electrodeArea: 0,
+            numberOfModules: 0
+        });
         setDesignResult(null);
         setDesignGenerated(false);
     }

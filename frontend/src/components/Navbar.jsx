@@ -3,7 +3,7 @@ import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { generateEngineeringReportPDF } from "../utils/reportGenerator";
 import { exportDesignReportToExcel } from "../services/excelExporter";
-import { Cpu, FileText, Download, Shield, LogOut, User, Lock, Key, X } from "lucide-react";
+import { Cpu, FileText, Download, Shield, LogOut, User, Lock, Key, X, Sliders } from "lucide-react";
 
 export default function Navbar() {
     const {
@@ -27,6 +27,18 @@ export default function Navbar() {
     const eng = designResult?.engineering || {};
     const feed = designResult?.input?.feedWater || feedWater || {};
     const tech = designResult?.selectedTechnology || eng.technology || (technology !== "AUTO" ? technology : "MCDI");
+
+    const handleScrollToExplorer = () => {
+        if (page !== "DASHBOARD") {
+            setPage("DASHBOARD");
+        }
+        setTimeout(() => {
+            const el = document.getElementById("design-explorer-section");
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth" });
+            }
+        }, 100);
+    };
 
     const handleExportPDF = () => {
         try {
@@ -136,6 +148,28 @@ export default function Navbar() {
                     >
                         <FileText size={12} color="#2563EB" />
                         <span>Export PDF</span>
+                    </button>
+
+                    {/* DESIGN EXPLORER JUMP BUTTON */}
+                    <button
+                        onClick={handleScrollToExplorer}
+                        title="Jump to Design Explorer (Scenario & Sensitivity Analysis)"
+                        style={{
+                            background: "#F0FDF4",
+                            color: "#166534",
+                            border: "1px solid #BBF7D0",
+                            padding: "5px 10px",
+                            borderRadius: "4px",
+                            fontSize: "11.5px",
+                            fontWeight: "700",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px"
+                        }}
+                    >
+                        <Sliders size={12} color="#15803D" />
+                        <span>Design Explorer</span>
                     </button>
 
                     {/* EQUATION EDITOR (PASSWORD PROTECTED) */}

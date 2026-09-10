@@ -74,11 +74,11 @@ export function AppProvider({ children }) {
     const [optimizationStatus, setOptimizationStatus] = useState("idle");
     const [optimizationError, setOptimizationError] = useState(null);
     const [optimizationInputs, setOptimizationInputs] = useState({
-        voltage: 1.4,
-        current: 2.76,
-        cellPairs: 510,
-        electrodeArea: 350,
-        numberOfModules: 15
+        voltage: 0,
+        current: 0,
+        cellPairs: 0,
+        electrodeArea: 0,
+        numberOfModules: 0
     });
 
     const [lockedParameters, setLockedParameters] = useState({
@@ -154,7 +154,7 @@ export function AppProvider({ children }) {
     const [showSelectionLogic, setShowSelectionLogic] = useState(false);
 
     // Client-side engineering calculation engine
-    const recalculate = (currentInputs = optimizationInputs, currentTech = technology, isOptimization = false, feedWaterOverride = null) => {
+    const recalculate = (currentInputs = optimizationInputs, currentTech = technology, isOptimization = false, feedWaterOverride = null, isScenario = false) => {
         const activeFeedWater = feedWaterOverride || feedWater;
 
         // Ensure essential numeric values exist before running calculation
@@ -184,7 +184,8 @@ export function AppProvider({ children }) {
 
             // 2. AI Recommendation
             const ai = aiRecommendation(sanitizedFeed);
-            const activeTech = currentTech === "AUTO" ? (ai.selectedTechnology || "MCDI") : currentTech;
+            const bestCandidateTech = ai.selectedTechnology || ai.rankedCandidates?.[0]?.key || "MCDI";
+            const activeTech = currentTech === "AUTO" ? bestCandidateTech : currentTech;
             const prevTech = designResult?.selectedTechnology;
 
             let calcInputs = { ...currentInputs };
@@ -192,6 +193,13 @@ export function AppProvider({ children }) {
                 // Reset stack geometry when switching technology so the new technology sizes itself from first principles
                 calcInputs = {};
             }
+
+            // Filter out empty, null, or non-positive manual overrides so sizing calculations size themselves from first principles
+            Object.keys(calcInputs).forEach(key => {
+                if (calcInputs[key] === "" || calcInputs[key] === null || calcInputs[key] === undefined || Number(calcInputs[key]) <= 0) {
+                    delete calcInputs[key];
+                }
+            });
 
             // 3. Engineering Equation Engine
             let eng = engineeringEquationEngine({
@@ -244,7 +252,9 @@ export function AppProvider({ children }) {
                 elect = electrodeModel(sanitizedFeed, eng);
                 size = componentSizing(eng, activeTech);
 
-                setOptimizationInputs(calcInputs);
+                if (!isScenario) {
+                    setOptimizationInputs(calcInputs);
+                }
             }
 
             // 7. Simulation Engine
@@ -335,8 +345,10 @@ export function AppProvider({ children }) {
                 }
             };
 
-            setDesignResult(unifiedResult);
-            setDesignGenerated(true);
+            if (!isScenario) {
+                setDesignResult(unifiedResult);
+                setDesignGenerated(true);
+            }
             return unifiedResult;
         } catch (error) {
             console.error("Recalculation error in AppContext:", error);

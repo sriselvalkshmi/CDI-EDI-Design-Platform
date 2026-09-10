@@ -66,7 +66,9 @@ export default function CAD3DStackViewer({ technology: propTech }) {
     const pairsPerModule = Number(eng.pairsPerModule || (eng.cellPairs ? Math.round(eng.cellPairs / numberOfModules) : 34));
     const totalCellPairs = Number(eng.cellPairs || 34);
     const moduleVoltage = Number(eng.voltageModule || (pairsPerModule * cellVoltage));
-    const systemVoltage = Number(eng.voltageBank || (numberOfModules > 1 && eng.voltageBank ? eng.voltageBank : (eng.voltageStack || moduleVoltage)));
+    const stackVoltageSeries = Number(eng.voltageStack || (totalCellPairs * cellVoltage));
+    const bankVoltage = Number(eng.voltageBank || moduleVoltage);
+    const systemVoltage = stackVoltageSeries;
 
     const electrodeArea = Number(eng.electrodeArea || 350); // cm²
     const electrodeThickness = Number(eng.electrodeThickness || 0.60); // mm
@@ -83,8 +85,12 @@ export default function CAD3DStackViewer({ technology: propTech }) {
     const outletTDS = Number(eng.outletTDS || 10);
     const waterRecovery = Number(eng.waterRecovery || 95.0);
 
-    const operatingCurrent = Number(eng.bankCurrent || (numberOfModules > 1 && eng.moduleCurrent ? eng.moduleCurrent * numberOfModules : eng.current) || 0.40); // A
-    const power = Number(eng.power || eng.stackElectricalPowerW || (systemVoltage * operatingCurrent) || 19.0); // W
+    const moduleCurrent = Number(eng.moduleCurrent || eng.current || 0.40);
+    const bankCurrent = Number(eng.bankCurrent || (numberOfModules > 1 ? moduleCurrent * numberOfModules : moduleCurrent));
+    const operatingCurrent = bankCurrent;
+    const modulePower = Number(eng.power || eng.stackElectricalPowerW || (moduleVoltage * moduleCurrent) || 175.2);
+    const bankPower = Number(numberOfModules > 1 ? (modulePower * numberOfModules) : modulePower);
+    const power = modulePower;
     const currentDensity = Number(eng.currentDensity || 11.4); // A/m²
 
     // Pretreatment EDI Envelope check
@@ -971,9 +977,12 @@ export default function CAD3DStackViewer({ technology: propTech }) {
                     <div style={{ color: "#475569", display: "flex", flexDirection: "column", gap: "2px", fontSize: "10.5px" }}>
                         <div>Hydraulic Velocity: <strong style={{ color: "#0F172A" }}>{flowVelocity.toFixed(3)} m/s</strong></div>
                         <div>Pressure Drop: <strong style={{ color: "#0F172A" }}>{pressureDrop.toFixed(0)} Pa</strong></div>
-                        <div>Stack Power: <strong style={{ color: "#0F172A" }}>{power.toFixed(1)} W</strong></div>
-                        <div>System Voltage: <strong style={{ color: "#0F172A" }}>{systemVoltage.toFixed(1)} V DC</strong></div>
-                        <div>Operating Current: <strong style={{ color: "#0F172A" }}>{operatingCurrent.toFixed(2)} A</strong></div>
+                        <div>Module Power: <strong style={{ color: "#0F172A" }}>{modulePower.toFixed(1)} W</strong>{numberOfModules > 1 ? ` (Bank: ≈ ${bankPower.toFixed(1)} W)` : ""}</div>
+                        <div>Cell Voltage: <strong style={{ color: "#0F172A" }}>{cellVoltage.toFixed(2)} V</strong></div>
+                        <div>Module Voltage: <strong style={{ color: "#0F172A" }}>{moduleVoltage.toFixed(1)} V DC</strong> ({pairsPerModule} pairs)</div>
+                        <div>Stack Voltage: <strong style={{ color: "#0F172A" }}>{stackVoltageSeries.toFixed(1)} V DC</strong> ({totalCellPairs} pairs series)</div>
+                        {numberOfModules > 1 && <div>Bank Bus Voltage: <strong style={{ color: "#0F172A" }}>{bankVoltage.toFixed(1)} V DC</strong> (Parallel Bus)</div>}
+                        <div>Module Current: <strong style={{ color: "#0F172A" }}>{moduleCurrent.toFixed(2)} A</strong>{numberOfModules > 1 ? ` (Bank: ${bankCurrent.toFixed(2)} A)` : ""}</div>
                     </div>
                     <div style={{ fontSize: "9px", color: "#64748B", marginTop: "4px", borderTop: "1px solid #E2E8F0", paddingTop: "3px" }}>
                         Values calculated from the current design configuration.

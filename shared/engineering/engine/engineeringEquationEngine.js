@@ -26,8 +26,32 @@ function calculateEngineering(inputs = {}) {
 
     const tds = Math.max(10, Math.round(rawTds));
     const conductivity = Number(rawCond.toFixed(1));
-    const targetTds = Math.max(0.05, Number(feedWater.targetTds ?? inputs.targetTds ?? 50));
+    const defaultTargetTds = rawTds <= 30 ? 0.05 : 50;
+    const targetTds = Math.max(0.05, Number(feedWater.targetTds ?? inputs.targetTds ?? defaultTargetTds));
     const flowRate = Number(inputs.flowRate ?? feedWater.flowRate ?? 10); // L/min
+    const targetRecovery = inputs.targetRecovery !== undefined || feedWater.targetRecovery !== undefined
+        ? Number(inputs.targetRecovery ?? feedWater.targetRecovery)
+        : (inputs.waterRecovery !== undefined || inputs.recovery !== undefined ? Number(inputs.waterRecovery ?? inputs.recovery) : undefined);
+    const explicitWaterRecovery = inputs.waterRecovery !== undefined || inputs.recovery !== undefined
+        ? Number(inputs.waterRecovery ?? inputs.recovery)
+        : undefined;
+
+    const resolvedInputs = {
+        ...inputs,
+        tds,
+        targetTds,
+        flowRate,
+        ...(targetRecovery !== undefined && !isNaN(targetRecovery) ? { targetRecovery } : {}),
+        ...(explicitWaterRecovery !== undefined && !isNaN(explicitWaterRecovery) ? { waterRecovery: explicitWaterRecovery, recovery: explicitWaterRecovery } : {}),
+        feedWater: {
+            ...feedWater,
+            tds,
+            targetTds,
+            flowRate,
+            ...(targetRecovery !== undefined && !isNaN(targetRecovery) ? { targetRecovery } : {}),
+            ...(explicitWaterRecovery !== undefined && !isNaN(explicitWaterRecovery) ? { waterRecovery: explicitWaterRecovery, recovery: explicitWaterRecovery } : {})
+        }
+    };
 
     // Delegated First-Principles Multi-Technology Process Train Solver
     if (technology === "PROCESS_TRAIN" || technology === "TRAIN") {
@@ -80,7 +104,7 @@ function calculateEngineering(inputs = {}) {
 
     // Delegated First-Principles CDI Model Solver
     if (technology === "CDI") {
-        const cdiRes = calculateCDIModel(inputs);
+        const cdiRes = calculateCDIModel(resolvedInputs);
         const outletTDS = cdiRes.outletTds;
         const targetMargin = Number((targetTds - outletTDS).toFixed(1));
         const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(1));
@@ -134,7 +158,7 @@ function calculateEngineering(inputs = {}) {
 
     // Delegated First-Principles MCDI Model Solver
     if (technology === "MCDI") {
-        const mcdiRes = calculateMCDIModel(inputs);
+        const mcdiRes = calculateMCDIModel(resolvedInputs);
         const outletTDS = mcdiRes.outletTds;
         const targetMargin = Number((targetTds - outletTDS).toFixed(1));
         const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(1));
@@ -188,7 +212,7 @@ function calculateEngineering(inputs = {}) {
 
     // Delegated First-Principles FCDI Model Solver
     if (technology === "FCDI") {
-        const fcdiRes = calculateFCDIModel(inputs);
+        const fcdiRes = calculateFCDIModel(resolvedInputs);
         const outletTDS = fcdiRes.outletTds;
         const targetMargin = Number((targetTds - outletTDS).toFixed(1));
         const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(1));
@@ -242,7 +266,7 @@ function calculateEngineering(inputs = {}) {
 
     // Delegated First-Principles EDI Model Solver
     if (technology === "EDI") {
-        const ediRes = calculateEDIModel(inputs);
+        const ediRes = calculateEDIModel(resolvedInputs);
         const outletTDS = ediRes.outletTds;
         const targetMargin = Number((targetTds - outletTDS).toFixed(3));
         const targetDeviation = Number(Math.abs(outletTDS - targetTds).toFixed(3));

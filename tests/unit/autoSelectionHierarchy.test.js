@@ -29,7 +29,7 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
             expect(mcdi.isFeasible).toBe(true);
             expect(mcdi.autoEligibility).toBe("ELIGIBLE_WITH_WARNING");
             expect(mcdi.operatingApplicability).toBe("OUTSIDE_RECOMMENDED_RANGE");
-            expect(mcdi.overallFeasibility).toBe("FEASIBLE (WITH WARNING)");
+            expect(mcdi.overallFeasibility).toBe("FEASIBLE WITH WARNING");
         });
 
         it("evaluates FCDI: TDS PASS (5.0 <= 5.0), Recovery PASS (95.0 >= 95) -> FEASIBLE WITH WARNING (Eligible)", () => {
@@ -44,7 +44,7 @@ describe("Strict Feasibility-First AUTO Technology Selection Hierarchy", () => {
             expect(fcdi.isFeasible).toBe(true);
             expect(fcdi.autoEligibility).toBe("ELIGIBLE_WITH_WARNING");
             expect(fcdi.operatingApplicability).toBe("OUTSIDE_RECOMMENDED_RANGE");
-            expect(fcdi.overallFeasibility).toBe("FEASIBLE (WITH WARNING)");
+            expect(fcdi.overallFeasibility).toBe("FEASIBLE WITH WARNING");
         });
 
         it("evaluates CDI: TDS FAIL (7.5 > 5.0), Recovery FAIL (83.3 < 95) -> NOT FEASIBLE", () => {
