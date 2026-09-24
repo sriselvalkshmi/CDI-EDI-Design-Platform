@@ -25,8 +25,10 @@ export default function DesignExplorerPanel() {
         technology,
         optimizationInputs,
         designResult,
+        teaInputs,
         recalculate
     } = useApp();
+
 
     const isDesignActive = Boolean(designResult?.engineering || (feedWater?.tds && feedWater.tds !== ""));
 
@@ -344,10 +346,12 @@ export default function DesignExplorerPanel() {
             const result = runScenarioAnalysis({
                 baseline: baselinePayload,
                 parameter: paramName,
-                values
+                values,
+                teaInputs
             });
 
             setAnalysisResult(result);
+
             setAnalysisStatus("COMPLETE");
         } catch (err) {
             console.error("Scenario Analysis Error:", err);
@@ -403,13 +407,22 @@ export default function DesignExplorerPanel() {
         sec: { label: "Gross Electrical SEC", unit: "kWh/m³", color: "#D97706", refVal: null, refLabel: null },
         pressureDrop: { label: "Channel Pressure Drop (ΔP)", unit: "Pa", color: "#9333EA", refVal: null, refLabel: null },
         power: { label: "Stack Active Power", unit: "W", color: "#0F172A", refVal: null, refLabel: null },
-        productFlow: { label: "Product Flow", unit: "L/min", color: "#0284C7", refVal: null, refLabel: null }
+        productFlow: { label: "Product Flow", unit: "L/min", color: "#0284C7", refVal: null, refLabel: null },
+        operatingTreatmentCost: { label: "Operating Treatment Cost", unit: "₹/m³", color: "#16A34A", refVal: null, refLabel: null },
+        annualOpex: { label: "Annual OPEX", unit: "₹/year", color: "#D97706", refVal: null, refLabel: null },
+        capex: { label: "Total CAPEX", unit: "₹", color: "#0F172A", refVal: null, refLabel: null }
     };
 
-    // Chart dataset preparation (reads exact same scenario result fields used by Scenario Results table)
-    const chartData = useMemo(() => {
+
+    // Filter scenarios so that ONLY feasible scenarios are visible in user-facing results
+    const visibleScenarios = useMemo(() => {
         if (!analysisResult?.scenarios) return [];
-        return analysisResult.scenarios.map((sc) => ({
+        return analysisResult.scenarios.filter((sc) => sc.isFeasible || sc.isPass || sc.feasibility === "FEASIBLE" || sc.feasibility === "FEASIBLE WITH WARNING");
+    }, [analysisResult]);
+
+    // Chart dataset preparation (reads exact same visible feasible scenario results)
+    const chartData = useMemo(() => {
+        return visibleScenarios.map((sc) => ({
             scenario: sc.id,
             paramValue: sc.paramValue,
             paramFormatted: sc.paramFormatted,
@@ -421,9 +434,14 @@ export default function DesignExplorerPanel() {
             pressureDrop: sc.pressureDrop,
             power: sc.power,
             productFlow: sc.productFlow,
+            capex: sc.capex,
+            annualOpex: sc.annualOpex,
+            energyCost: sc.energyCost,
+            operatingTreatmentCost: sc.operatingTreatmentCost,
             feasibility: sc.feasibility
         }));
-    }, [analysisResult]);
+    }, [visibleScenarios]);
+
 
     // Custom Dot renderer indicating feasibility on chart (only feasible scenarios are plotted)
     const renderFeasibilityDot = (props) => {
@@ -754,16 +772,16 @@ export default function DesignExplorerPanel() {
                             SCENARIO SUMMARY
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "8px", textAlign: "center" }}>
-                            <div style={{ background: "#FFFFFF", padding: "8px 6px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                                <span style={{ fontSize: "9px", color: "#64748B", display: "block", fontWeight: "700", whiteSpace: "nowrap" }}>TOTAL CANDIDATE CASES</span>
-                                <strong style={{ fontSize: "17px", color: "#0F172A", fontFamily: "monospace" }}>
-                                    {analysisResult.summary.totalCandidateCases ?? analysisResult.summary.totalScenarios}
+                            <div style={{ background: "#F0FDF4", padding: "8px 6px", borderRadius: "3px", border: "1px solid #BBF7D0" }}>
+                                <span style={{ fontSize: "9px", color: "#166534", display: "block", fontWeight: "700", whiteSpace: "nowrap" }}>TOTAL FEASIBLE SCENARIOS</span>
+                                <strong style={{ fontSize: "17px", color: "#15803D", fontFamily: "monospace" }}>
+                                    {analysisResult.summary.feasibleCount ?? (analysisResult.scenarios || []).filter(s => s.isFeasible || s.isPass || s.feasibility === "FEASIBLE" || s.feasibility === "FEASIBLE WITH WARNING").length}
                                 </strong>
                             </div>
-                            <div style={{ background: "#F0FDF4", padding: "8px 6px", borderRadius: "3px", border: "1px solid #BBF7D0" }}>
-                                <span style={{ fontSize: "9px", color: "#166534", display: "block", fontWeight: "700", whiteSpace: "nowrap" }}>FEASIBLE SCENARIOS</span>
-                                <strong style={{ fontSize: "17px", color: "#15803D", fontFamily: "monospace" }}>
-                                    {analysisResult.summary.feasibleCount}
+                            <div style={{ background: "#FFFFFF", padding: "8px 6px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                                <span style={{ fontSize: "9px", color: "#64748B", display: "block", fontWeight: "700", whiteSpace: "nowrap" }}>EVALUATED INTERNALLY</span>
+                                <strong style={{ fontSize: "17px", color: "#0F172A", fontFamily: "monospace" }}>
+                                    {analysisResult.summary.totalCandidateCases ?? analysisResult.summary.totalScenarios}
                                 </strong>
                             </div>
                         </div>
@@ -866,7 +884,7 @@ export default function DesignExplorerPanel() {
                                 SCENARIO RESULTS
                             </span>
                             <span style={{ fontSize: "10.5px", color: "#64748B" }}>
-                                (Only successful scenarios are displayed — {analysisResult.scenarios.length} of {analysisResult.summary.totalCandidateCases ?? analysisResult.summary.totalScenarios} candidate cases discovered)
+                                ({visibleScenarios.length} feasible scenarios displayed — {analysisResult.summary.totalCandidateCases ?? analysisResult.summary.totalScenarios} evaluated internally)
                             </span>
                         </div>
                         <span style={{ fontSize: "10px", color: "#64748B" }}>
@@ -883,7 +901,10 @@ export default function DesignExplorerPanel() {
                                 <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "700" }}>PRODUCT TDS</th>
                                 <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "700" }}>RECOVERY</th>
                                 <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "700" }}>SEC</th>
-                                <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "700" }}>PRESSURE DROP</th>
+                                <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "700", color: "#0F172A" }}>CAPEX (₹)</th>
+                                <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "700", color: "#B45309" }}>OPEX (₹/yr)</th>
+                                <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "800", color: "#15803D" }}>COST (₹/m³)</th>
+                                <th style={{ padding: "6px 7px", textAlign: "right", fontWeight: "700" }}>ΔP (Pa)</th>
                                 <th style={{ padding: "6px 7px", textAlign: "center", fontWeight: "700" }}>MASS BALANCE</th>
                                 <th style={{ padding: "6px 7px", textAlign: "center", fontWeight: "700" }}>SALT BALANCE</th>
                                 <th style={{ padding: "6px 7px", textAlign: "center", fontWeight: "700" }}>OPERATING RANGE</th>
@@ -891,9 +912,10 @@ export default function DesignExplorerPanel() {
                             </tr>
                         </thead>
                         <tbody>
-                            {analysisResult.scenarios.length === 0 ? (
+                            {visibleScenarios.length === 0 ? (
                                 <tr>
-                                    <td colSpan="11" style={{ padding: "28px 14px", textAlign: "center", background: "#FEF2F2", color: "#991B1B" }}>
+                                    <td colSpan="14" style={{ padding: "28px 14px", textAlign: "center", background: "#FEF2F2", color: "#991B1B" }}>
+
                                         <div style={{ fontWeight: "800", fontSize: "12px", marginBottom: "4px" }}>
                                             No feasible configurations discovered meeting target specifications.
                                         </div>
@@ -903,7 +925,7 @@ export default function DesignExplorerPanel() {
                                     </td>
                                 </tr>
                             ) : (
-                                analysisResult.scenarios.map((sc) => {
+                                visibleScenarios.map((sc) => {
                                     const isExpanded = expandedScenarioId === sc.id;
                                     const isOptimal = analysisResult.summary.bestRegion?.bestScenarioId === sc.id && analysisResult.summary.bestRegion?.isFeasibleFound;
                                     const baselineParamKey = SWEEP_PARAMETERS[selectedParam]?.key;
@@ -911,17 +933,15 @@ export default function DesignExplorerPanel() {
 
                                     let badgeBg = "#DCFCE7";
                                     let badgeColor = "#15803D";
-                                let badgeBorder = "#BBF7D0";
+                                    let badgeBorder = "#BBF7D0";
+                                    let badgeText = "✓ FEASIBLE";
 
-                                if (sc.feasibility === "FEASIBLE WITH WARNING") {
-                                    badgeBg = "#FEF3C7";
-                                    badgeColor = "#92400E";
-                                    badgeBorder = "#FDE68A";
-                                } else if (sc.feasibility === "NOT FEASIBLE") {
-                                    badgeBg = "#FEE2E2";
-                                    badgeColor = "#991B1B";
-                                    badgeBorder = "#FECACA";
-                                }
+                                    if (sc.operatingRange === "EXTENDED RANGE" || sc.isWarning || sc.feasibility === "FEASIBLE WITH WARNING") {
+                                        badgeBg = "#FEF3C7";
+                                        badgeColor = "#92400E";
+                                        badgeBorder = "#FDE68A";
+                                        badgeText = "✓ FEASIBLE (EXTENDED)";
+                                    }
 
                                 return (
                                     <React.Fragment key={sc.id}>
@@ -979,9 +999,19 @@ export default function DesignExplorerPanel() {
                                             <td style={{ padding: "6px 7px", textAlign: "right", fontFamily: "monospace", fontWeight: "700", color: "#1D4ED8" }}>
                                                 {sc.sec.toFixed(3)} kWh/m³
                                             </td>
-                                            <td style={{ padding: "6px 7px", textAlign: "right", fontFamily: "monospace", color: "#475569" }}>
-                                                {sc.pressureDrop} Pa
+                                            <td style={{ padding: "6px 7px", textAlign: "right", fontFamily: "monospace", fontWeight: "700", color: "#0F172A" }}>
+                                                ₹ {sc.capex ? sc.capex.toLocaleString("en-IN") : "—"}
                                             </td>
+                                            <td style={{ padding: "6px 7px", textAlign: "right", fontFamily: "monospace", fontWeight: "700", color: "#B45309" }}>
+                                                ₹ {sc.annualOpex ? sc.annualOpex.toLocaleString("en-IN") : "—"}
+                                            </td>
+                                            <td style={{ padding: "6px 7px", textAlign: "right", fontFamily: "monospace", fontWeight: "800", color: "#15803D" }}>
+                                                ₹ {sc.operatingTreatmentCost ? sc.operatingTreatmentCost.toFixed(2) : "—"}
+                                            </td>
+                                            <td style={{ padding: "6px 7px", textAlign: "right", fontFamily: "monospace", color: "#475569" }}>
+                                                {sc.pressureDrop}
+                                            </td>
+
                                             <td style={{ padding: "6px 7px", textAlign: "center" }}>
                                                 <span style={{ fontSize: "9.5px", fontWeight: "700", color: sc.massBalanceStatus === "CLOSED" ? "#15803D" : "#DC2626" }}>
                                                     {sc.massBalanceStatus === "CLOSED" ? "✓ CLOSED" : "✕ OPEN"}
@@ -1023,7 +1053,7 @@ export default function DesignExplorerPanel() {
                                         {/* 6. EXPANDED SCENARIO DETAIL INSPECTION SECTION */}
                                         {isExpanded && (
                                             <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #CBD5E1" }}>
-                                                <td colSpan="11" style={{ padding: "10px 14px", fontSize: "11px", color: "#334155" }}>
+                                                <td colSpan="14" style={{ padding: "10px 14px", fontSize: "11px", color: "#334155" }}>
                                                     <div style={{ background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "4px", padding: "10px 12px" }}>
                                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #E2E8F0", paddingBottom: "4px", marginBottom: "8px" }}>
                                                             <strong style={{ fontSize: "11.5px", color: "#0F172A", textTransform: "uppercase" }}>
@@ -1034,7 +1064,8 @@ export default function DesignExplorerPanel() {
                                                             </span>
                                                         </div>
 
-                                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "10px" }}>
+                                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "8px" }}>
+
                                                             {/* INPUTS */}
                                                             <div style={{ background: "#F8FAFC", padding: "6px 8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
                                                                 <span style={{ fontSize: "9.5px", fontWeight: "800", color: "#0F172A", textTransform: "uppercase", display: "block", marginBottom: "3px" }}>
@@ -1087,8 +1118,8 @@ export default function DesignExplorerPanel() {
                                                                     FEASIBILITY
                                                                 </span>
                                                                 <div style={{ fontSize: "10px", display: "flex", flexDirection: "column", gap: "2px" }}>
-                                                                    <div>TDS Target: <strong style={{ color: sc.feasibilityDetail.isTdsPass ? "#15803D" : "#DC2626" }}>{sc.feasibilityDetail.isTdsPass ? "PASS" : "FAIL"}</strong></div>
-                                                                    <div>Recovery Target: <strong style={{ color: sc.feasibilityDetail.isRecPass ? "#15803D" : "#DC2626" }}>{sc.feasibilityDetail.isRecPass ? "PASS" : "FAIL"}</strong></div>
+                                                                    <div>TDS Target: <strong style={{ color: sc.feasibilityDetail.isTdsPass ? "#15803D" : "#64748B" }}>{sc.feasibilityDetail.isTdsPass ? "✓ SATISFIED" : "AUDIT REQUIRED"}</strong></div>
+                                                                    <div>Recovery Target: <strong style={{ color: sc.feasibilityDetail.isRecPass ? "#15803D" : "#64748B" }}>{sc.feasibilityDetail.isRecPass ? "✓ SATISFIED" : "AUDIT REQUIRED"}</strong></div>
                                                                     <div>Operating Range: <strong>{sc.operatingRange}</strong></div>
                                                                     <div>Feasibility: <strong style={{ color: "#15803D" }}>{sc.feasibility}</strong></div>
                                                                 </div>
@@ -1107,7 +1138,22 @@ export default function DesignExplorerPanel() {
                                                                     </div>
                                                                 </div>
                                                             </div>
+
+                                                            {/* ECONOMIC ANALYSIS (TEA) */}
+                                                            <div style={{ background: "#F0FDF4", padding: "6px 8px", borderRadius: "3px", border: "1px solid #BBF7D0" }}>
+                                                                <span style={{ fontSize: "9.5px", fontWeight: "800", color: "#166534", textTransform: "uppercase", display: "block", marginBottom: "3px" }}>
+                                                                    ECONOMIC (TEA)
+                                                                </span>
+                                                                <div style={{ fontSize: "10.5px", fontFamily: "monospace", display: "flex", flexDirection: "column", gap: "2px" }}>
+                                                                    <div>CAPEX: <strong>₹ {sc.capex ? sc.capex.toLocaleString("en-IN") : "—"}</strong></div>
+                                                                    <div>Annual OPEX: <strong style={{ color: "#B45309" }}>₹ {sc.annualOpex ? sc.annualOpex.toLocaleString("en-IN") : "—"}</strong></div>
+                                                                    <div>Energy Cost: <strong>₹ {sc.energyCost ? sc.energyCost.toLocaleString("en-IN") : "—"}</strong></div>
+                                                                    <div>Operating Cost: <strong style={{ color: "#15803D" }}>₹ {sc.operatingTreatmentCost ? sc.operatingTreatmentCost.toFixed(2) : "—"} / m³</strong></div>
+                                                                    <div>Annual Water: <strong>{sc.annualProductWater ? sc.annualProductWater.toLocaleString("en-IN") : "—"} m³</strong></div>
+                                                                </div>
+                                                            </div>
                                                         </div>
+
 
                                                         {/* MULTI-TECHNOLOGY FEASIBILITY AUDIT SECTION */}
                                                         {sc.allEvaluatedTechs && sc.allEvaluatedTechs.length > 0 && (
@@ -1213,12 +1259,16 @@ export default function DesignExplorerPanel() {
                                 <option value="outletTds">Product TDS (mg/L)</option>
                                 <option value="recovery">Water Recovery (%)</option>
                                 <option value="sec">Gross SEC (kWh/m³)</option>
+                                <option value="operatingTreatmentCost">Operating Treatment Cost (₹/m³)</option>
+                                <option value="annualOpex">Annual OPEX (₹/year)</option>
+                                <option value="capex">Total CAPEX (₹)</option>
                                 <option value="pressureDrop">Channel ΔP (Pa)</option>
                                 <option value="power">Stack Active Power (W)</option>
                                 <option value="productFlow">Product Flow (L/min)</option>
                             </select>
                         </div>
                     </div>
+
 
                     {/* Recharts Container */}
                     <div style={{ width: "100%", height: 260 }}>

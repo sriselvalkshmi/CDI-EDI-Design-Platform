@@ -3,7 +3,8 @@ import { useApp } from "../context/AppContext";
 import { useAuth } from "../context/AuthContext";
 import { generateEngineeringReportPDF } from "../utils/reportGenerator";
 import { exportDesignReportToExcel } from "../services/excelExporter";
-import { Cpu, FileText, Download, Shield, LogOut, User, Lock, Key, X, Sliders } from "lucide-react";
+import { Cpu, FileText, Download, Shield, LogOut, User, Lock, Key, X, Sliders, ShieldCheck } from "lucide-react";
+import EngineeringReviewModal from "./engineering/EngineeringReviewModal";
 
 export default function Navbar() {
     const {
@@ -12,7 +13,9 @@ export default function Navbar() {
         designResult,
         feedWater,
         technology,
-        equations
+        equations,
+        showEngineeringReview,
+        setShowEngineeringReview
     } = useApp();
 
     const { currentUser, currentRole, logout } = useAuth();
@@ -172,6 +175,28 @@ export default function Navbar() {
                         <span>Design Explorer</span>
                     </button>
 
+                    {/* ENGINEERING REVIEW & AUDIT MODAL BUTTON */}
+                    <button
+                        onClick={() => setShowEngineeringReview(true)}
+                        title="Open Physical Conservation & Feasibility Audit Review"
+                        style={{
+                            background: "#EFF6FF",
+                            color: "#1E40AF",
+                            border: "1px solid #BFDBFE",
+                            padding: "5px 10px",
+                            borderRadius: "4px",
+                            fontSize: "11.5px",
+                            fontWeight: "700",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px"
+                        }}
+                    >
+                        <ShieldCheck size={13} color="#2563EB" />
+                        <span>Engineering Audit</span>
+                    </button>
+
                     {/* EQUATION EDITOR (PASSWORD PROTECTED) */}
                     <button
                         onClick={handleOpenEquationEditor}
@@ -255,6 +280,13 @@ export default function Navbar() {
                     </div>
                 </div>
             </header>
+
+            {/* ENGINEERING REVIEW & AUDIT MODAL */}
+            <EngineeringReviewModal
+                isOpen={showEngineeringReview}
+                onClose={() => setShowEngineeringReview(false)}
+                designResult={designResult}
+            />
         </>
     );
 }

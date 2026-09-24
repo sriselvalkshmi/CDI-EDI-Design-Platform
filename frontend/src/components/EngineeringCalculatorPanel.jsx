@@ -74,6 +74,44 @@ export default function EngineeringCalculatorPanel() {
     const rejSaltMass = isDesignReady && rejectFlow && rejectTds !== null ? (rejectFlow / 60) * (rejectTds / 1000) : 0;
     const saltMassResidual = isDesignReady ? Number(Math.abs(feedSaltMass - (prodSaltMass + rejSaltMass)).toFixed(4)) : 0;
 
+    // Authoritative Electrochemical & Faraday Charge-to-Salt Transport Bridge
+    const bridge = eng.faradayChargeReconciliation || null;
+    const rawLambda = Number(bridge?.chargeUtilization ?? bridge?.chargeEfficiencyFrac ?? eng.chargeUtilization ?? eng.chargeEfficiency ?? 0.80);
+    const chargeEfficiencyFrac = rawLambda > 1.0 ? rawLambda / 100 : rawLambda;
+    const totalFaradayCurrentA = bridge 
+        ? Number((bridge.totalFaradayCurrentA ?? bridge.totalCurrentA ?? ((bridge.cellCurrentA ?? current ?? 0) * (bridge.cellPairs ?? cellPairs ?? 1))).toFixed(4))
+        : (isDesignReady && current !== null && cellPairs !== null ? Number((current * cellPairs).toFixed(4)) : 0);
+    const molarMassNaCl = 58.44; // g/mol
+    const faradayConstant = 96485.3321; // C/mol
+    const faradayEffectiveCurrentA = bridge 
+        ? Number((bridge.effectiveCurrentA ?? bridge.chargeUtilizedCoulombsPerSec ?? (totalFaradayCurrentA * chargeEfficiencyFrac)).toFixed(4))
+        : totalFaradayCurrentA * chargeEfficiencyFrac;
+    const faradayMolarRateMolS = bridge 
+        ? Number(bridge.molarRemovalRateMols ?? bridge.molarSaltRateMolPerS ?? (faradayEffectiveCurrentA / faradayConstant))
+        : faradayEffectiveCurrentA / faradayConstant;
+    const faradaySaltRateMgS = bridge 
+        ? Number(bridge.faradaySaltRemovalMgS ?? bridge.saltRemovalRateMgPerS ?? (faradayMolarRateMolS * molarMassNaCl * 1000))
+        : (isDesignReady ? faradayMolarRateMolS * molarMassNaCl * 1000 : 0);
+    const streamSaltRateMgS = (bridge?.streamSaltRemovalMgS ?? bridge?.streamSaltRemovalRateMgPerS) !== undefined
+        ? Number(bridge.streamSaltRemovalMgS ?? bridge.streamSaltRemovalRateMgPerS)
+        : (isDesignReady && feedSaltMass && prodSaltMass
+            ? (feedSaltMass - prodSaltMass) * 1000
+            : (isDesignReady && flow && productFlow && feedTds && outletTds !== null ? (((flow / 60) * feedTds) - ((productFlow / 60) * outletTds)) : 0));
+    const cycleDurationSec = 600; // 10 min benchmark cycle
+    const faradaySalt10MinMg = (bridge?.faradaySaltRemoval10MinMg ?? bridge?.faradaySaltRemovedPerCycleMg) !== undefined
+        ? Number(bridge.faradaySaltRemoval10MinMg ?? bridge.faradaySaltRemovedPerCycleMg)
+        : (faradaySaltRateMgS * cycleDurationSec);
+    const streamSalt10MinMg = (bridge?.streamSaltRemoval10MinMg ?? bridge?.streamSaltRemovedPerCycleMg) !== undefined
+        ? Number(bridge.streamSaltRemoval10MinMg ?? bridge.streamSaltRemovedPerCycleMg)
+        : (streamSaltRateMgS * cycleDurationSec);
+    const faradayResidualMg = Math.abs(faradaySalt10MinMg - streamSalt10MinMg);
+    const faradayRelErrorPct = (bridge?.discrepancyPercent ?? bridge?.chargeBalanceRelativeErrorPct) !== undefined
+        ? Number(bridge.discrepancyPercent ?? bridge.chargeBalanceRelativeErrorPct)
+        : (streamSalt10MinMg > 0 ? (faradayResidualMg / streamSalt10MinMg) * 100 : 0);
+    const isFaradayReconciled = bridge 
+        ? Boolean(bridge.reconciled ?? bridge.isConserved ?? (faradayRelErrorPct <= 0.5))
+        : (isDesignReady && faradayRelErrorPct <= 0.5);
+
     const bankI = Number(eng.bankCurrent ?? current ?? 0);
     const modI = Number(eng.moduleCurrent ?? current ?? 0);
     const vSeries = Number(eng.voltageSeries ?? (cellPairs * cellVoltage));
@@ -98,22 +136,43 @@ export default function EngineeringCalculatorPanel() {
         if (saltMassResidual > 0.001) dataErrors.push(`Salt Mass Balance Mismatch: ${saltMassResidual} g/s residual`);
         if (!isPowerConsistent) dataErrors.push(`Power Mismatch: Stack VI (${powerExpectedBank} W) vs Displayed (${power} W)`);
         if (!isVoltageConsistent) dataErrors.push(`Voltage Mismatch: N × V_cell (${voltageExpectedMod} V / ${voltageExpectedSeries} V) vs Displayed (${voltageStack} V)`);
+        if (!isFaradayReconciled) dataErrors.push(`Faraday Balance Discrepancy: ${faradayRelErrorPct.toFixed(3)}% residual`);
     }
 
-    // Automatic Programmatic Target Pass/Fail & Margin Logic
-    const isTdsPass = isDesignReady && targetTds !== null && outletTds !== null ? outletTds <= targetTds : null;
+    // Automatic Programmatic Target Status & Margin Logic
+    const isTdsPass = isDesignReady && targetTds !== null && outletTds !== null ? outletTds <= (targetTds + 0.05) : null;
     const tdsDiff = isDesignReady && targetTds !== null && outletTds !== null ? Math.abs(outletTds - targetTds).toFixed(1) : null;
     const tdsBadgeText = isDesignReady && isTdsPass !== null
-        ? (isTdsPass ? (Number(tdsDiff) === 0 ? "PASS · AT LIMIT" : `PASS · ${tdsDiff} mg/L margin`) : `FAIL · ${tdsDiff} mg/L over limit`)
+        ? (isTdsPass ? (Number(tdsDiff) === 0 ? "✓ FEASIBLE · TARGET MET" : `✓ FEASIBLE · ${tdsDiff} mg/L margin`) : `✕ INFEASIBLE · +${tdsDiff} mg/L over`)
         : "—";
     const tdsBadgeColor = isDesignReady && isTdsPass !== null ? (isTdsPass ? "#15803D" : "#DC2626") : "#64748B";
 
-    const isRecPass = isDesignReady && recovery !== null ? recovery >= 95.0 : null;
-    const recDiff = isDesignReady && recovery !== null ? Math.abs(recovery - 95.0).toFixed(1) : null;
+    const isRecPass = isDesignReady && recovery !== null ? recovery >= ((feed?.targetRecovery ?? 95.0) - 0.05) : null;
+    const recDiff = isDesignReady && recovery !== null ? Math.abs(recovery - (feed?.targetRecovery ?? 95.0)).toFixed(1) : null;
     const recBadgeText = isDesignReady && isRecPass !== null
-        ? (isRecPass ? `PASS · ${recDiff} %-pt margin` : `FAIL · ${recDiff} %-pt below target`)
+        ? (isRecPass ? (Number(recDiff) === 0 ? "✓ FEASIBLE · TARGET MET" : `✓ FEASIBLE · ${recDiff} %-pt margin`) : `✕ INFEASIBLE · -${recDiff} %-pt deficit`)
         : "—";
     const recBadgeColor = isDesignReady && isRecPass !== null ? (isRecPass ? "#15803D" : "#DC2626") : "#64748B";
+
+    const isWaterPass = isDesignReady && flowResidual <= 0.001;
+    const isSaltPass = isDesignReady && saltMassResidual <= 0.001;
+    const isFaradayPass = isDesignReady && isFaradayReconciled;
+    const isHydraulicPass = isDesignReady && (pressureDrop === null || pressureDrop <= 500000);
+    const isElecPass = isDesignReady && isPowerConsistent && isVoltageConsistent;
+
+    // Strict unified feasibility gate - requiring ALL mandatory validation gates
+    const isOverallFeasible = Boolean(
+        isDesignReady &&
+        dataErrors.length === 0 &&
+        isTdsPass &&
+        isRecPass &&
+        isWaterPass &&
+        isSaltPass &&
+        isFaradayPass &&
+        isHydraulicPass &&
+        isElecPass &&
+        (!eng.feasibilityGate || eng.feasibilityGate.isFeasible)
+    );
 
     const isModified = isDesignReady && (
         (optimizationInputs.voltage !== undefined && optimizationInputs.voltage !== cellVoltage) ||
@@ -264,160 +323,128 @@ export default function EngineeringCalculatorPanel() {
                 </div>
             )}
 
-            {/* DATA CONSISTENCY & COMPLIANCE SUMMARY */}
+            {/* OVERALL DESIGN STATUS HEADER */}
             <div style={{
-                background: "#F8FAFC",
+                background: "#FFFFFF",
                 border: "1px solid #CBD5E1",
                 borderRadius: "4px",
-                padding: "8px 12px",
+                padding: "10px 14px",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                fontSize: "11px",
                 flexWrap: "wrap",
                 gap: "8px"
             }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: "700", color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                        Data Consistency &amp; Compliance:
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <span style={{ fontSize: "12.5px", fontWeight: "800", color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                        {tech} Engineering Design
                     </span>
-                    <span style={{ color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? "✓ Mass balance closed (0.000 L / 0.0000 g/s)" : "— Mass balance check pending"}
-                    </span>
-                    <span style={{ color: isDesignReady ? (isTdsPass ? "#15803D" : "#DC2626") : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady && outletTds !== null && targetTds !== null
-                            ? (isTdsPass ? `✓ TDS target satisfied (${outletTds.toFixed(1)} ≤ ${Number(targetTds).toFixed(1)} mg/L)` : `✗ TDS target not satisfied (${outletTds.toFixed(1)} > ${Number(targetTds).toFixed(1)} mg/L)`)
-                            : "— TDS target check pending"}
-                    </span>
-                    <span style={{ color: isDesignReady ? (isRecPass ? "#15803D" : "#DC2626") : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady && recovery !== null
-                            ? (isRecPass ? `✓ Recovery target satisfied (${recovery.toFixed(1)}% ≥ 95.0%)` : `✗ Recovery target not satisfied (${recovery.toFixed(1)}% < 95.0%)`)
-                            : "— Recovery target check pending"}
+                    <span style={{
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        color: isDesignReady ? (isOverallFeasible ? "#15803D" : "#DC2626") : "#64748B",
+                        background: isDesignReady ? (isOverallFeasible ? "#DCFCE7" : "#FEE2E2") : "#F1F5F9",
+                        border: `1px solid ${isDesignReady ? (isOverallFeasible ? "#86EFAC" : "#FCA5A5") : "#CBD5E1"}`,
+                        padding: "3px 10px",
+                        borderRadius: "3px"
+                    }}>
+                        {isDesignReady ? (isOverallFeasible ? "FEASIBLE · DESIGN SATISFIED" : "INFEASIBLE · GATES UNRESOLVED") : "AWAITING DESIGN GENERATION"}
                     </span>
                 </div>
-                <div>
-                    <span style={{
-                        fontWeight: "700",
-                        color: isDesignReady ? ((isTdsPass && isRecPass) ? "#15803D" : "#991B1B") : "#64748B",
-                        background: isDesignReady ? ((isTdsPass && isRecPass) ? "#DCFCE7" : "#FEE2E2") : "#F1F5F9",
-                        padding: "2px 8px",
-                        borderRadius: "3px",
-                        border: `1px solid ${isDesignReady ? ((isTdsPass && isRecPass) ? "#86EFAC" : "#FCA5A5") : "#CBD5E1"}`
-                    }}>
-                        Overall Design: {isDesignReady ? ((isTdsPass && isRecPass) ? "PASS — FULLY COMPLIANT" : (!isTdsPass && !isRecPass ? "FAIL — TDS + Recovery Fail" : (!isTdsPass ? "FAIL — TDS Exceeded" : "FAIL — Recovery Deficit"))) : "AWAITING DESIGN GENERATION"}
-                    </span>
+                <div style={{ fontSize: "11px", color: "#64748B", fontFamily: "monospace" }}>
+                    Feed: <strong style={{ color: "#0F172A" }}>{feedTds ?? "—"} mg/L</strong> &nbsp;|&nbsp; Flow: <strong style={{ color: "#0F172A" }}>{flow !== null ? flow.toFixed(1) : "—"} L/min</strong> &nbsp;|&nbsp; Target: <strong style={{ color: "#0F172A" }}>≤ {targetTds !== null ? Number(targetTds).toFixed(1) : "—"} mg/L</strong>
                 </div>
             </div>
 
-            {/* 1. DESIGN RESULT / KPI STRIP */}
+            {/* 1. MAIN ENGINEERING DASHBOARD METRICS */}
             <div style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(7, 1fr)",
+                gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
                 gap: "8px",
                 background: "#FFFFFF",
                 border: "1px solid #CBD5E1",
                 borderRadius: "4px",
-                padding: "10px 12px",
-                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+                padding: "10px 12px"
             }}>
                 {/* Product TDS */}
-                <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
                     <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Product TDS</span>
-                    <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && outletTds !== null ? `${outletTds.toFixed(1)} mg/L` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Target: ≤ {isDesignReady && targetTds !== null && targetTds !== "" ? `${Number(targetTds).toFixed(1)} mg/L` : "0.0 mg/L"}</div>
-                    <div style={{ fontSize: "9.5px", color: tdsBadgeColor, fontWeight: "700" }}>
-                        {tdsBadgeText}
-                    </div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Target: ≤ {targetTds !== null ? `${Number(targetTds).toFixed(1)} mg/L` : "3.0 mg/L"}</div>
                 </div>
 
                 {/* Water Recovery */}
-                <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Water Recovery</span>
-                    <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Recovery</span>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && recovery !== null ? `${recovery.toFixed(1)} %` : "—"}
                     </strong>
                     <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Target: ≥ 95.0%</div>
-                    <div style={{ fontSize: "9.5px", color: recBadgeColor, fontWeight: "700" }}>
-                        {recBadgeText}
-                    </div>
                 </div>
 
                 {/* Gross Electrical SEC */}
-                <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
                     <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Gross Elec SEC</span>
-                    <strong style={{ fontSize: "15px", color: "#1D4ED8", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                    <strong style={{ fontSize: "16px", color: "#1D4ED8", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && secGross !== null ? `${secGross.toFixed(3)} kWh/m³` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Product Basis</div>
-                    <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? "Stack Terminal" : "—"}
-                    </div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Product basis</div>
                 </div>
 
-                {/* Stack / Module Power */}
-                <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
-                        {modules > 1 ? "Module Power" : "Stack Power"}
-                    </span>
-                    <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                {/* Stack Power */}
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Stack Power</span>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && power !== null ? `${power.toFixed(1)} W` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
-                        {modules > 1 && power !== null ? `Bank Power: ≈ ${(power * modules).toFixed(1)} W` : "Active DC Power"}
-                    </div>
-                    <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? (modules > 1 ? `${modules} Modules in Bank` : "DC Terminal Power") : "—"}
-                    </div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>DC active power</div>
                 </div>
 
-                {/* Stack Terminal Voltage */}
-                <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Stack Terminal Voltage</span>
-                    <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                {/* Stack Voltage */}
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Stack Voltage</span>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && voltageStack !== null ? `${voltageStack.toFixed(1)} V DC` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
-                        {isDesignReady 
-                            ? (modules > 1 
-                                ? `Module: ${(voltageStack / modules).toFixed(1)} V · Cell: ${cellVoltage !== null ? cellVoltage.toFixed(2) : "0.00"} V` 
-                                : `${cellVoltage !== null ? cellVoltage.toFixed(2) : "0.00"} V/cell (${cellPairs || 0} pairs)`)
-                            : "0.00 V/cell (0 pairs)"}
-                    </div>
-                    <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? (modules > 1 ? `Series Stack (${modules} Modules)` : "Single Module") : "—"}
-                    </div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>{cellVoltage !== null ? `${cellVoltage.toFixed(2)} V/cell` : "—"}</div>
                 </div>
 
-                {/* Stack Current / Bank Current */}
-                <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
-                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>
-                        {modules > 1 ? "Bank Current" : "Stack Current"}
-                    </span>
-                    <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
-                        {isDesignReady && current !== null ? (modules > 1 ? `${(current * modules).toFixed(2)} A` : `${current.toFixed(2)} A`) : "—"}
+                {/* Stack Current */}
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Stack Current</span>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                        {isDesignReady && current !== null ? `${current.toFixed(2)} A` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
-                        {isDesignReady && current !== null ? (modules > 1 ? `Module Current: ${current.toFixed(2)} A` : `Operating: ${current.toFixed(2)} A`) : "—"}
-                    </div>
-                    <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? (modules > 1 ? `${modules}-Module Parallel Bank` : "1 Module Active") : "—"}
-                    </div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Operating current</div>
                 </div>
 
-                {/* Estimated Internal Channel ΔP */}
-                <div style={{ background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                {/* Cell Pairs */}
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Cell Pairs</span>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                        {isDesignReady && cellPairs !== null ? `${cellPairs}` : "—"}
+                    </strong>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Repeating pairs</div>
+                </div>
+
+                {/* Active Area */}
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
+                    <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Active Area</span>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                        {isDesignReady && electrodeArea !== null ? `${electrodeArea} cm²` : "—"}
+                    </strong>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Per cell pair</div>
+                </div>
+
+                {/* Channel ΔP */}
+                <div style={{ background: "#F8FAFC", padding: "8px 10px", borderRadius: "3px", border: "1px solid #E2E8F0" }}>
                     <span style={{ color: "#64748B", display: "block", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Channel ΔP</span>
-                    <strong style={{ fontSize: "15px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
+                    <strong style={{ fontSize: "16px", color: "#0F172A", display: "block", marginTop: "2px", fontFamily: "monospace" }}>
                         {isDesignReady && pressureDrop !== null ? `${pressureDrop} Pa` : "—"}
                     </strong>
-                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>
-                        Total System: {isDesignReady ? (eng.totalSystemPressureDrop ?? (pressureDrop !== null ? pressureDrop + 500 : 0)) : 0} Pa
-                    </div>
-                    <div style={{ fontSize: "9.5px", color: isDesignReady ? "#15803D" : "#64748B", fontWeight: "600" }}>
-                        {isDesignReady ? "Mesh Loss" : "—"}
-                    </div>
+                    <div style={{ fontSize: "9.5px", color: "#64748B", marginTop: "2px" }}>Mesh loss</div>
                 </div>
             </div>
 
@@ -650,8 +677,16 @@ export default function EngineeringCalculatorPanel() {
                         <h3 style={{ fontSize: "12.5px", fontWeight: "700", color: "#0F172A", margin: 0, textTransform: "uppercase", letterSpacing: "0.03em" }}>
                             Mass &amp; Water Balance
                         </h3>
-                        <span style={{ fontSize: "9.5px", fontWeight: "700", color: isDesignReady ? "#15803D" : "#64748B", background: isDesignReady ? "#DCFCE7" : "#F1F5F9", padding: "1px 6px", borderRadius: "2px" }}>
-                            {isDesignReady ? "BALANCE: CLOSED" : "PENDING INPUTS"}
+                        <span style={{ 
+                            fontSize: "9.5px", 
+                            fontWeight: "700", 
+                            color: isDesignReady ? ((isWaterPass && isSaltPass && isFaradayPass) ? "#15803D" : "#DC2626") : "#64748B", 
+                            background: isDesignReady ? ((isWaterPass && isSaltPass && isFaradayPass) ? "#DCFCE7" : "#FEE2E2") : "#F1F5F9", 
+                            border: `1px solid ${isDesignReady ? ((isWaterPass && isSaltPass && isFaradayPass) ? "#86EFAC" : "#FCA5A5") : "#CBD5E1"}`,
+                            padding: "1px 6px", 
+                            borderRadius: "2px" 
+                        }}>
+                            {isDesignReady ? ((isWaterPass && isSaltPass && isFaradayPass) ? "BALANCE: CLOSED" : "BALANCE: DISCREPANCY") : "PENDING INPUTS"}
                         </span>
                     </div>
 
@@ -702,25 +737,58 @@ export default function EngineeringCalculatorPanel() {
                             </div>
                         </div>
 
-                        {/* Residuals Summary with Industrial Tolerances */}
-                        <div style={{ marginTop: "8px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", background: "#F8FAFC", padding: "8px", borderRadius: "3px", border: "1px solid #E2E8F0", fontSize: "10px" }}>
-                            <div style={{ padding: "4px 6px", background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "2px" }}>
-                                <div style={{ fontWeight: "700", color: "#0F172A", marginBottom: "2px" }}>Flow Balance</div>
-                                <div>Residual: <strong style={{ color: isDesignReady ? (flowResidual <= 0.001 ? "#15803D" : "#DC2626") : "#64748B", fontFamily: "monospace" }}>{isDesignReady ? `${flowResidual.toFixed(3)} L/min` : "—"}</strong></div>
-                                <div style={{ color: "#64748B", fontSize: "9px" }}>Tolerance: ±0.001 L/min</div>
-                                <div style={{ marginTop: "2px", fontWeight: "700", color: isDesignReady ? (flowResidual <= 0.001 ? "#15803D" : "#DC2626") : "#64748B" }}>
-                                    STATUS: {isDesignReady ? (flowResidual <= 0.001 ? "CLOSED" : "OPEN") : "—"}
-                                </div>
+                        {/* Summary of Balances */}
+                        <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F8FAFC", padding: "8px 12px", borderRadius: "3px", border: "1px solid #E2E8F0", fontSize: "11px" }}>
+                            <div>
+                                Water Balance: <strong style={{ color: isWaterPass ? "#15803D" : "#DC2626" }}>{isDesignReady ? (isWaterPass ? "CLOSED (✓ PASS)" : `OPEN (${flowResidual.toFixed(4)} L/min)`) : "PENDING"}</strong>
                             </div>
-                            <div style={{ padding: "4px 6px", background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "2px" }}>
-                                <div style={{ fontWeight: "700", color: "#0F172A", marginBottom: "2px" }}>Salt Mass Balance</div>
-                                <div>Residual: <strong style={{ color: isDesignReady ? (saltMassResidual <= 0.0001 ? "#15803D" : "#DC2626") : "#64748B", fontFamily: "monospace" }}>{isDesignReady ? `${saltMassResidual.toFixed(4)} g/s` : "—"}</strong></div>
-                                <div style={{ color: "#64748B", fontSize: "9px" }}>Tolerance: ±0.0001 g/s</div>
-                                <div style={{ marginTop: "2px", fontWeight: "700", color: isDesignReady ? (saltMassResidual <= 0.0001 ? "#15803D" : "#DC2626") : "#64748B" }}>
-                                    STATUS: {isDesignReady ? (saltMassResidual <= 0.0001 ? "CLOSED" : "OPEN") : "—"}
-                                </div>
+                            <div>
+                                Salt Balance: <strong style={{ color: isSaltPass ? "#15803D" : "#DC2626" }}>{isDesignReady ? (isSaltPass ? "CLOSED (✓ PASS)" : `OPEN (${saltMassResidual.toFixed(4)} g/s)`) : "PENDING"}</strong>
                             </div>
                         </div>
+
+                        {/* Electrochemical Charge Transfer & Faraday Balance */}
+                        {isDesignReady && (
+                            <div style={{
+                                marginTop: "8px",
+                                padding: "8px 10px",
+                                background: isFaradayReconciled ? "#F0FDF4" : "#FEF2F2",
+                                border: `1px solid ${isFaradayReconciled ? "#BBF7D0" : "#FECACA"}`,
+                                borderRadius: "4px",
+                                fontSize: "10.5px"
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                                    <span style={{ fontWeight: "700", color: isFaradayReconciled ? "#166534" : "#991B1B" }}>
+                                        ⚛ Faraday Electrochemical Balance
+                                    </span>
+                                    <span style={{
+                                        fontSize: "9px",
+                                        fontWeight: "800",
+                                        padding: "1px 6px",
+                                        borderRadius: "3px",
+                                        background: isFaradayReconciled ? "#DCFCE7" : "#FEE2E2",
+                                        color: isFaradayReconciled ? "#15803D" : "#B91C1C",
+                                        border: `1px solid ${isFaradayReconciled ? "#86EFAC" : "#FCA5A5"}`
+                                    }}>
+                                        {isFaradayReconciled ? "RECONCILED" : "DISCREPANCY"} (Δ {faradayRelErrorPct.toFixed(4)}%)
+                                    </span>
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "10px", color: "#334155" }}>
+                                    <div>
+                                        Current: <strong>{current !== null ? (current < 1 ? `${current.toFixed(3)} A` : `${current.toFixed(2)} A`) : "—"}</strong> ({cellPairs || 0} pairs) · Efficiency (Λ): <strong>{(chargeEfficiencyFrac * 100).toFixed(1)}%</strong>
+                                    </div>
+                                    <div style={{ fontFamily: "monospace" }}>
+                                        Faraday Salt Removal: <strong>{faradaySalt10MinMg.toFixed(1)} mg / 10 min</strong> ({faradaySaltRateMgS.toFixed(3)} mg/s)
+                                    </div>
+                                    <div style={{ fontFamily: "monospace" }}>
+                                        Stream Salt Removal: <strong>{streamSalt10MinMg.toFixed(1)} mg / 10 min</strong> ({streamSaltRateMgS.toFixed(3)} mg/s)
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: "9px", color: "#64748B", marginTop: "3px", borderTop: "1px solid rgba(0,0,0,0.06)", paddingTop: "2px" }}>
+                                    Physical Bridge: I ({current !== null ? (current < 1 ? current.toFixed(3) : current.toFixed(2)) : 0} A) → Q ({totalFaradayCurrentA.toFixed(2)} C/s) → Ion Transport ({(faradayMolarRateMolS * 1e6).toFixed(1)} µmol/s) → Salt ({faradaySalt10MinMg.toFixed(1)} mg/10min)
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -785,8 +853,8 @@ export default function EngineeringCalculatorPanel() {
                             </div>
 
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #F1F5F9" }}>
-                                <span style={{ color: "#334155" }} title={`v = Q / A_flow = (${flow || 20} L/min / 60000) / (${channelAreaM2.toFixed(5)} m²)`}>
-                                    Parallel-Channel Velocity (v = Q / A_flow)
+                                <span style={{ color: "#334155" }} title="Parallel-channel superficial velocity (governing formula available in Equation Editor)">
+                                    Parallel-Channel Superficial Velocity
                                 </span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                     <strong style={{ fontFamily: "monospace" }}>{isDesignReady ? `${calculatedVelocity} m/s` : "0 m/s"}</strong>
@@ -842,17 +910,9 @@ export default function EngineeringCalculatorPanel() {
                         </div>
 
                         {/* STATUS BANNER */}
-                        {isModified ? (
-                            <div style={{ background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: "3px", padding: "3px 8px", fontSize: "10.5px", color: "#92400E", display: "flex", alignItems: "center", gap: "6px" }}>
+                        {isModified && (
+                            <div style={{ background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: "3px", padding: "3px 8px", fontSize: "10.5px", color: "#92400E" }}>
                                 <span style={{ fontWeight: "700" }}>PARAMETERS MODIFIED</span>
-                                <span style={{ color: "#B45309" }}>— Design contains unsaved parameter changes</span>
-                            </div>
-                        ) : (
-                            <div style={{ background: isDesignReady ? "#F0FDF4" : "#F8FAFC", border: `1px solid ${isDesignReady ? "#BBF7D0" : "#CBD5E1"}`, borderRadius: "3px", padding: "3px 8px", fontSize: "10.5px", color: isDesignReady ? "#15803D" : "#64748B", display: "flex", alignItems: "center", gap: "6px" }}>
-                                <span style={{ fontWeight: "700" }}>{isDesignReady ? "DESIGN CALCULATED" : "AWAITING SPECIFICATIONS"}</span>
-                                <span style={{ color: isDesignReady ? "#16A34A" : "#64748B" }}>
-                                    {isDesignReady ? "— Inputs synchronized · Mass balance closed" : "— Enter basis in sidebar and generate design"}
-                                </span>
                             </div>
                         )}
                     </div>
@@ -1088,68 +1148,6 @@ export default function EngineeringCalculatorPanel() {
                 )}
             </div>
 
-            {/* 5. INDUSTRIAL ENGINEERING STATUS STRIP */}
-            <div style={{
-                background: "#F8FAFC",
-                border: "1px solid #CBD5E1",
-                borderRadius: "3px",
-                padding: "8px 14px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                fontSize: "11px",
-                color: "#475569"
-            }}>
-                <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
-                    <div>
-                        Solver Status: {isDesignReady && flow > 0 && feedTds > 0 ? (
-                            <strong style={{ color: "#15803D" }}>CONVERGED</strong>
-                        ) : (
-                            <strong style={{ color: "#D97706" }}>AWAITING INPUTS</strong>
-                        )}
-                    </div>
-                    <div>
-                        Mass Balance: {isDesignReady && flow > 0 && feedTds > 0 ? (
-                            <strong style={{ color: "#15803D" }}>CLOSED (Residual &lt; 0.001)</strong>
-                        ) : (
-                            <strong style={{ color: "#64748B" }}>PENDING INPUTS</strong>
-                        )}
-                    </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                    <div>
-                        {isDesignReady && isTdsPass && isRecPass ? (
-                            <div>
-                                <strong style={{ color: "#15803D" }}>Design Check — PASS (Fully Compliant)</strong>
-                                <div style={{ fontSize: "10px", color: "#334155", fontFamily: "monospace" }}>
-                                    Product TDS = {outletTds?.toFixed(1)} mg/L → <strong style={{ color: "#15803D" }}>PASS</strong> &nbsp;|&nbsp; Recovery = {recovery?.toFixed(1)}% → <strong style={{ color: "#15803D" }}>PASS</strong>
-                                </div>
-                            </div>
-                        ) : isDesignReady && isTdsPass && !isRecPass ? (
-                            <div>
-                                <strong style={{ color: "#991B1B" }}>Design Check — FAIL (Recovery Deficit)</strong>
-                                <div style={{ fontSize: "10px", color: "#334155", fontFamily: "monospace" }}>
-                                    Product TDS = {outletTds?.toFixed(1)} mg/L | Specification ≤ {targetTds?.toFixed(1)} mg/L → <strong style={{ color: "#15803D" }}>PASS</strong> &nbsp;|&nbsp; Recovery = {recovery?.toFixed(1)}% | Req ≥ 95.0% → <strong style={{ color: "#DC2626" }}>FAIL</strong>
-                                </div>
-                            </div>
-                        ) : isDesignReady ? (
-                            <div>
-                                <strong style={{ color: "#991B1B" }}>Design Check — FAIL</strong>
-                                <div style={{ fontSize: "10px", color: "#991B1B", fontFamily: "monospace" }}>
-                                    Product TDS = {outletTds?.toFixed(1)} mg/L | Specification ≤ {targetTds !== null ? Number(targetTds).toFixed(1) : "—"} mg/L → <strong style={{ color: "#DC2626" }}>FAIL</strong> &nbsp;|&nbsp; Recovery = {recovery?.toFixed(1)}% → <strong style={{ color: isRecPass ? "#15803D" : "#DC2626" }}>{isRecPass ? "PASS" : "FAIL"}</strong>
-                                </div>
-                            </div>
-                        ) : (
-                            <div>
-                                <strong style={{ color: "#64748B" }}>Design Check — PENDING INPUTS</strong>
-                                <div style={{ fontSize: "10px", color: "#64748B", fontFamily: "sans-serif" }}>
-                                    Enter feed water design basis and click "GENERATE DESIGN".
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

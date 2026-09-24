@@ -37,8 +37,10 @@ const CATEGORIES = [
     "Electrochemical",
     "Performance",
     "Energy",
-    "Optimization"
+    "Optimization",
+    "Economic"
 ];
+
 
 const SOURCE_CLASSIFICATIONS = [
     "First Principles",

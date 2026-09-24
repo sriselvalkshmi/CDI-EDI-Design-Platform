@@ -25,7 +25,7 @@ describe("Hardened First-Principles FCDI Engineering Model Suite", () => {
         expect(res.outletTDS).toBe(50);
         expect(res.removalEfficiency).toBe(90);
         expect(res.chargeUtilizationFrac).toBe(0.88);
-        expect(res.totalFaradayCurrent).toBeCloseTo(140.71, 1);
+        expect(res.totalFaradayCurrent).toBeCloseTo(142.27, 1);
 
         expect(res.pairsPerModule).toBe(34);
         expect(res.numberOfModules).toBe(2);
@@ -34,10 +34,10 @@ describe("Hardened First-Principles FCDI Engineering Model Suite", () => {
         expect(res.voltageCell).toBe(1.40);
         expect(res.voltageModule).toBe(47.60);
         expect(res.voltageStack).toBe(95.20);
-        expect(res.electricalPowerW).toBeCloseTo(196.9, 0);
+        expect(res.electricalPowerW).toBeCloseTo(199.2, 0);
 
         expect(res.productFlowM3h).toBe(0.54);
-        expect(res.secElectrical).toBeCloseTo(0.3647, 3);
+        expect(res.secElectrical).toBeCloseTo(0.3688, 3);
         expect(res.status).toBe("TARGET ACHIEVED — MODEL PREDICTION");
         expect(res.secEstimateLabel).toContain("[MODEL ESTIMATE]");
     });

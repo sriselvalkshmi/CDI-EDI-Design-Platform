@@ -39,3 +39,7 @@ export { predictActualPerformance } from "./core/mlCorrectionEngine.js";
 // Validation & Calibration
 export { default as calibrateEquations } from "./validation/experimentalCalibration.js";
 export { LITERATURE_BENCHMARKS, runExperimentalValidationSuite } from "./validation/experimentalValidation.js";
+
+// Techno-Economic Analysis (TEA)
+export { default as calculateTEA, calculateTEA as computeTEA, validateEconomicInputs, DEFAULT_TEA_INPUTS } from "./tea/technoEconomicEngine.js";
+

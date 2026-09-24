@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 
 import EngineeringCalculatorPanel from "../components/EngineeringCalculatorPanel";
 import TechTradeoffsPanel from "../components/TechTradeoffsPanel";
+import TechnoEconomicAnalysisPanel from "../components/TechnoEconomicAnalysisPanel";
 import DesignExplorerPanel from "../components/DesignExplorerPanel";
 import PIDDiagram from "../components/PIDDiagram";
 import SimulationGraphs from "../components/SimulationGraphs";
@@ -30,20 +31,23 @@ export default function Dashboard() {
 
                 {/* ACTIVE PROCESS ENGINEERING DASHBOARD */}
                 <main style={{ overflowY: "auto", padding: "14px 18px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "14px" }}>
-                    {/* 4, 6, 7, 8, 9, 12. DESIGN RESULT / KPI STRIP, STACK & PROCESS SPECIFICATIONS, MASS BALANCE, BASIS, CONTROLS */}
+                    {/* 1. ENGINEERING RESULT / KPIS, MASS & SALT BALANCE, STACK SPECIFICATIONS, BASIS */}
                     <EngineeringCalculatorPanel />
 
-                    {/* 5. TECHNOLOGY SCREENING MATRIX */}
-                    <TechTradeoffsPanel />
-
-                    {/* DESIGN EXPLORER — SCENARIO & SENSITIVITY ANALYSIS */}
-                    <DesignExplorerPanel />
-
-                    {/* 10. STACK GEOMETRY & PROCESS FLOW */}
+                    {/* 2. PROCESS FLOW & P&ID WORKSPACE (INDUSTRIAL P&ID | DYNAMIC FLOW | 3D STACK GEOMETRY) */}
                     <PIDDiagram />
 
-                    {/* 11. DYNAMIC PROCESS SIMULATION */}
+                    {/* 3. DYNAMIC PROCESS CYCLE SIMULATION */}
                     <SimulationGraphs />
+
+                    {/* 4. TECHNOLOGY ASSESSMENT & COMPARATIVE TRADE-OFFS */}
+                    <TechTradeoffsPanel />
+
+                    {/* 5. DESIGN EXPLORER — SCENARIO & SENSITIVITY ANALYSIS */}
+                    <DesignExplorerPanel />
+
+                    {/* 6. TECHNO-ECONOMIC ANALYSIS (TEA) */}
+                    <TechnoEconomicAnalysisPanel />
                 </main>
             </div>
 

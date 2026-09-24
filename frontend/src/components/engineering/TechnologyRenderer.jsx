@@ -5,6 +5,8 @@ import CDISchematic from "./CDISchematic";
 import MCDISchematic from "./MCDISchematic";
 import FCDISchematic from "./FCDISchematic";
 import EDISchematic from "./EDISchematic";
+import EDSchematic from "./EDSchematic";
+import EDRSchematic from "./EDRSchematic";
 import MultiStageSchematic from "./MultiStageSchematic";
 import EquipmentInspectorModal from "./EquipmentInspectorModal";
 
@@ -116,10 +118,15 @@ export default function TechnologyRenderer({
                     borderRadius: "6px",
                     border: "1px solid #E2E8F0",
                     position: "relative",
-                    overflowX: "auto",
-                    minHeight: "450px"
+                    overflow: "hidden",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    width: "100%",
+                    minHeight: "440px",
+                    height: "440px"
                 }}>
-                    <svg width="980" height="440" viewBox="0 0 980 440" style={{ width: "100%", height: "440px", minWidth: "850px", display: "block" }}>
+                    <svg viewBox="0 0 980 440" style={{ width: "100%", height: "100%", maxHeight: "440px", display: "block" }} preserveAspectRatio="xMidYMid meet">
                         {/* CAD Grid Pattern */}
                         <g opacity="0.15">
                             <pattern id="cadGridTech" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -185,6 +192,31 @@ export default function TechnologyRenderer({
                                 )}
                                 {activeTech === "EDI" && (
                                     <EDISchematic
+                                        geometry={geometry}
+                                        electrical={electrical}
+                                        labels={labels}
+                                        feedWater={feedWater}
+                                        engineering={engineering}
+                                        particleOffset={particleOffset}
+                                        cycleStep={cycleStep}
+                                        onHover={handleHover}
+                                        onClickEquipment={handleEquipmentClick}
+                                    />
+                                )}
+                                {activeTech === "ED" && (
+                                    <EDSchematic
+                                        geometry={geometry}
+                                        electrical={electrical}
+                                        labels={labels}
+                                        feedWater={feedWater}
+                                        engineering={engineering}
+                                        particleOffset={particleOffset}
+                                        onHover={handleHover}
+                                        onClickEquipment={handleEquipmentClick}
+                                    />
+                                )}
+                                {activeTech === "EDR" && (
+                                    <EDRSchematic
                                         geometry={geometry}
                                         electrical={electrical}
                                         labels={labels}

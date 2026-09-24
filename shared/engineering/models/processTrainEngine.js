@@ -108,8 +108,9 @@ export function calculateROStageModel(inputs = {}) {
     const waterRecoveryPct = Number(inputs.waterRecovery ?? 75.0); // 75% recovery for standard brackish RO pass
 
     const rejectionRatio = 0.95; // 95% salt rejection per RO pass
+    const hardnessRejectionRatio = 0.997; // RO membranes reject divalent Ca/Mg hardness by >99.5%
     const outletTds = Number((feedTds * (1 - rejectionRatio)).toFixed(2));
-    const outletHardness = Number((feedHardness * (1 - rejectionRatio)).toFixed(2));
+    const outletHardness = Number((feedHardness * (1 - hardnessRejectionRatio)).toFixed(2));
 
     const waterRecoveryFrac = waterRecoveryPct / 100;
     const productFlowLmin = flowRateLmin * waterRecoveryFrac;
@@ -343,7 +344,11 @@ export function calculateProcessTrain(params = {}) {
 
         const prodFlowLmin = Number(stageRes.productFlowLmin || (currentStream.flowRate * ((stageRes.waterRecovery || 90) / 100)));
         const prodTds = Number(stageRes.outletTds || stageRes.outletTDS || 50);
-        const prodHardness = Number(stageRes.predictedOutletHardness || (currentStream.hardness * (prodTds / Math.max(1, currentStream.tds))));
+        const tdsRemovalFrac = currentStream.tds > 0 ? Math.max(0, (currentStream.tds - prodTds) / currentStream.tds) : 0.9;
+        const hardnessPassFrac = (tech === "CDI" || tech === "MCDI" || tech === "FCDI" || tech === "RO")
+            ? Math.pow(Math.max(0.005, 1 - tdsRemovalFrac), 2.2)
+            : (prodTds / Math.max(1, currentStream.tds));
+        const prodHardness = Number(stageRes.predictedOutletHardness || (currentStream.hardness * hardnessPassFrac));
 
         const productStream = {
             flowRate: Number(prodFlowLmin.toFixed(2)),

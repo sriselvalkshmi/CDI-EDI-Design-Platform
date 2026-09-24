@@ -40,6 +40,8 @@ export default function EndToEndTraceabilityModal({ isOpen, onClose }) {
     const calibrationFactor = Number(engineering.calibrationFactor ?? 1.0317);
     const calibratedOutlet = Number((outletTds * calibrationFactor).toFixed(2));
 
+    const hasCalibration = Boolean(engineering.isCalibrated || engineering.calibrationData);
+
     const chainSteps = [
         {
             stage: "1. FEED INPUT",
@@ -92,10 +94,12 @@ export default function EndToEndTraceabilityModal({ isOpen, onClose }) {
         },
         {
             stage: "8. EXPERIMENTAL CALIBRATION",
-            badge: "[EXPERIMENTALLY_CALIBRATED]",
-            badgeBg: "#FAF5FF",
-            badgeColor: "#7E22CE",
-            content: `Calibration Multiplier: ${calibrationFactor} | Calibrated Outlet Prediction: ${calibratedOutlet} mg/L`
+            badge: hasCalibration ? "[EXPERIMENTALLY_CALIBRATED]" : "[UNCALIBRATED_FIRST_PRINCIPLES]",
+            badgeBg: hasCalibration ? "#FAF5FF" : "#F1F5F9",
+            badgeColor: hasCalibration ? "#7E22CE" : "#475569",
+            content: hasCalibration
+                ? `Calibration Multiplier: ${calibrationFactor} | Calibrated Outlet Prediction: ${calibratedOutlet} mg/L`
+                : "Uncalibrated First-Principles Baseline (Awaiting Experimental Calibration Dataset)"
         },
         {
             stage: "9. LITERATURE COMPARISON",
@@ -106,10 +110,12 @@ export default function EndToEndTraceabilityModal({ isOpen, onClose }) {
         },
         {
             stage: "10. VALIDATION STATUS",
-            badge: engineering.isTargetAchieved ? "[FIRST_PRINCIPLES_PREDICTION]" : "[TARGET_UNMET]",
-            badgeBg: engineering.isTargetAchieved ? "#DCFCE7" : "#FEE2E2",
-            badgeColor: engineering.isTargetAchieved ? "#15803D" : "#991B1B",
-            content: `Status: ${engineering.isTargetAchieved ? "TARGET ACHIEVED — MODEL PREDICTION" : "TARGET NOT ACHIEVED (PHYSICAL LIMIT)"} | Mass & Salt Balance: 0.00% Error (CONSERVED)`
+            badge: hasCalibration
+                ? "[CALIBRATED_BENCHMARK_VALIDATED]"
+                : (engineering.isTargetAchieved ? "[FIRST_PRINCIPLES_PREDICTION]" : "[TARGET_UNMET]"),
+            badgeBg: hasCalibration ? "#FAF5FF" : (engineering.isTargetAchieved ? "#DCFCE7" : "#FEE2E2"),
+            badgeColor: hasCalibration ? "#7E22CE" : (engineering.isTargetAchieved ? "#15803D" : "#991B1B"),
+            content: `Status: ${hasCalibration ? "CALIBRATED WITH EXPERIMENTAL DATASET" : (engineering.isTargetAchieved ? "TARGET ACHIEVED — FIRST-PRINCIPLES PHYSICAL MODEL" : "TARGET NOT ACHIEVED (PHYSICAL LIMIT)")} | Mass & Salt Balance: 0.00% Error (CONSERVED)`
         }
     ];
 

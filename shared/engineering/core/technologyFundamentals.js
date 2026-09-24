@@ -125,6 +125,66 @@ export const TECHNOLOGY_FUNDAMENTALS = {
             "Sensitive to hardness (Ca2+/Mg2+) and silica scaling in concentrate channels under high pH water-splitting conditions",
             "Complex multi-compartment fluid manifolds and electrode gas venting requirements"
         ]
+    },
+
+    ED: {
+        name: "Electrodialysis (ED)",
+        operatingPrinciple: "Continuous electrochemical transport where an applied DC electric field drives ions from alternating dilute feed channels through ion-selective membranes (CEM for cations, AEM for anions) into adjacent concentrate channels without resin beads.",
+        electrodeConfiguration: "Terminal anode (+) and cathode (-) electrode compartments contacting platinized titanium or mixed metal oxide (MMO) electrodes with dedicated rinse streams.",
+        membraneConfiguration: "Multi-cell repeating stack of alternating Cation Exchange Membranes (CEM) and Anion Exchange Membranes (AEM) separated by flow spacers.",
+        feedWaterFlowDirection: "Continuous parallel flow through dilute and concentrate channels bounded by alternating CEM and AEM sheets.",
+        productWaterFlowPath: "Continuous desalinated product water stream flowing out of dilute compartment manifold.",
+        concentrateRejectFlowPath: "Continuous concentrated brine stream exiting concentrate compartment manifold (with optional recirculation loop).",
+        electricalPolarity: "Continuous constant DC electric field (typically 0.8–1.5 V per cell pair; constant polarity during operation).",
+        ionTransportDirection: "Cations electromigrate through CEM toward cathode; anions electromigrate through AEM toward anode; retention occurs in concentrate channels.",
+        desalinationMechanism: "Electromigration across ion-selective membranes driven by applied electric field potential gradient.",
+        regenerationMechanism: "Continuous process requiring no cyclic regeneration; periodic chemical cleaning-in-place (CIP) with dilute acid used to clear scale.",
+        operationType: "Continuous Operation (steady-state dilute and concentrate flows).",
+        pretreatmentRequirements: "Cartridge filtration (5–10 µm), turbidity < 1 NTU, acid or antiscalant dosing required if feed Langelier Saturation Index (LSI) > 0.2.",
+        operatingEnvelope: "Medium-to-high salinity brackish water (typically 1,000–12,000 mg/L TDS; max validated ~15,000 mg/L TDS).",
+        literatureRange: { min: 500, max: 12000, unit: "mg/L TDS", source: "Strathmann 2004; Valero et al. 2011" },
+        projectValidatedRange: { min: 1000, max: 12000, unit: "mg/L TDS", status: "First-Principles Validated" },
+        pedigree: "FIRST_PRINCIPLES",
+        advantages: [
+            "Continuous high water recovery (85–94%) across moderate-to-high salinity brackish water",
+            "Proven industrial track record with long membrane service lifetime",
+            "High concentration factor capability in concentrate stream"
+        ],
+        limitations: [
+            "Susceptible to mineral scaling on membrane surfaces without acid or antiscalant dosing",
+            "Subject to Sherwood limiting current density (I_lim) polarization boundaries",
+            "Requires chemical cleaning (CIP) intervals"
+        ]
+    },
+
+    EDR: {
+        name: "Electrodialysis Reversal (EDR)",
+        operatingPrinciple: "Self-cleaning electrodialysis process where the DC electric field polarity is periodically reversed (every 15–45 minutes) alongside automated 4-way valve stream switching. Polarity reversal dissolves colloidal fouling and mineral scale in-situ, eliminating continuous acid/antiscalant dosing.",
+        electrodeConfiguration: "Dual reversible mixed metal oxide (MMO) electrodes capable of operating alternately as anode and cathode without accelerated degradation.",
+        membraneConfiguration: "Symmetric multi-cell repeating stack of alternating CEM and AEM membranes separated by identical reversible flow spacers.",
+        feedWaterFlowDirection: "Reversible flow channels where dilute and concentrate streams swap identities upon automated 4-way valve inversion.",
+        productWaterFlowPath: "Desalinated product water stream flowing out of active dilute channels, routed to product tank via 3-way flush divert valve.",
+        concentrateRejectFlowPath: "Concentrated brine reject stream routed to discharge, plus 60–120s transition flush water diverted to waste after each reversal.",
+        electricalPolarity: "Periodic reversible DC potential (+V_stack in forward phase, -V_stack in reversed phase; switched every 15–45 minutes).",
+        ionTransportDirection: "Reverses direction every cycle: ions move out of active dilute channels and into active concentrate channels under the prevailing field.",
+        desalinationMechanism: "Electromigration across ion-selective membranes with periodic polarity inversion for in-situ scale dissolution.",
+        regenerationMechanism: "In-situ self-cleaning scale dissolution induced by local pH shift and concentration reversal during polarity switching.",
+        operationType: "Periodic Reversing Continuous Operation (continuous feed with automated stream inversion and short flush purge).",
+        pretreatmentRequirements: "Cartridge filtration (10 µm); tolerant to higher hardness (up to 800 mg/L) and scaling indices (LSI up to +2.0) without acid dosing.",
+        operatingEnvelope: "High-scaling brackish water (typically 1,000–15,000 mg/L TDS; hardness up to 800 mg/L as CaCO3).",
+        literatureRange: { min: 500, max: 15000, unit: "mg/L TDS", source: "Allison 1993; SUEZ EDR Engineering Handbook" },
+        projectValidatedRange: { min: 1000, max: 15000, unit: "mg/L TDS", status: "First-Principles Validated" },
+        pedigree: "FIRST_PRINCIPLES",
+        advantages: [
+            "In-situ scale dissolution eliminates or drastically minimizes continuous acid and antiscalant addition",
+            "High tolerance for elevated feed hardness (up to 800 mg/L) and supersaturated silica/calcium salts",
+            "Extended membrane life and reduced chemical cleaning (CIP) frequency"
+        ],
+        limitations: [
+            "Transition flush purge volume reduces net water recovery by 5–8% compared to standard ED",
+            "Requires automated 4-way and 3-way actuated reversing valves and MMO electrodes",
+            "Slightly higher instrumentation and valve maintenance requirements"
+        ]
     }
 };
 

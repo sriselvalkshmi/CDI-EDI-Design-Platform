@@ -39,6 +39,24 @@ export const TECHNOLOGY_BOUNDARIES = {
         hardMaxTds: 30, // Standalone direct feed without RO pretreatment
         hardMaxHardness: 0.5,
         hardMaxFlow: 50
+    },
+    ED: {
+        tdsMin: 500,
+        tdsMax: 8000,
+        flowMax: 30,
+        hardMaxTds: 12000,
+        hardMaxHardness: 250,
+        hardMaxFlow: 100,
+        hardMaxVoltage: 2.0
+    },
+    EDR: {
+        tdsMin: 500,
+        tdsMax: 10000,
+        flowMax: 50,
+        hardMaxTds: 15000,
+        hardMaxHardness: 800,
+        hardMaxFlow: 150,
+        hardMaxVoltage: 2.0
     }
 };
 
@@ -76,7 +94,7 @@ export function evaluateTechnologyCandidate({
 
     const outletTDS = Number((eng.outletTDS ?? eng.outletTds ?? 0).toFixed(1));
     const recovery = Number((eng.waterRecovery ?? eng.waterRecoveryPct ?? (techKey === "CDI" ? 83.3 : (techKey === "FCDI" ? 90.0 : 95.0))).toFixed(1));
-    const sec = Number((eng.sec ?? eng.secTotal ?? eng.secElectricalGross ?? 0).toFixed(3));
+    const sec = Number(eng.sec ?? eng.secTotal ?? eng.secTotalNet ?? eng.secElectricalNet ?? 0);
     const power = Number((eng.power ?? 0).toFixed(1));
     const pressureDrop = Number(eng.pressureDrop ?? 0);
 
@@ -89,7 +107,8 @@ export function evaluateTechnologyCandidate({
     };
 
     // 1. HARD Engineering Constraint Checks (Mandatory Feasibility Gate)
-    const isTdsPass = outletTDS <= tTds + 0.05;
+    // CDI, MCDI, and FCDI electrosorption cannot physically achieve sub-ppm ultrapure polishing (tTds <= 1.0 mg/L)
+    const isTdsPass = (techKey !== "EDI" && tTds <= 1.0) ? false : (outletTDS <= tTds + 0.05);
     const isRecPass = tRec !== null ? recovery >= tRec - 0.05 : recovery >= (techKey === "CDI" ? 75.0 : 85.0);
 
     // EDI Pretreatment requirement (DuPont/SnowPure EDI envelope: direct feed TDS <= 30 mg/L, hardness <= 0.5 mg/L)
@@ -176,12 +195,70 @@ export function evaluateTechnologyCandidate({
 
     const totalScore = Math.min(100, Math.max(5, Math.round(score)));
 
+    let modelBasis = "Detailed physics";
+    if (techKey === "MCDI") {
+        modelBasis = "Detailed physics (AEM/CEM Co-Ion Exclusion & Faraday Series Stack)";
+    } else if (techKey === "CDI") {
+        modelBasis = "Detailed physics (Modified Donnan EDL & Co-Ion Expulsion)";
+    } else if (techKey === "FCDI") {
+        modelBasis = "Detailed physics (Continuous Flow Slurry & Viscous Pumping)";
+    } else if (techKey === "EDI") {
+        modelBasis = isEdiPretreatmentRequired ? "Screening estimate — Pretreatment required" : "Detailed physics (Packed Bed Electromigration)";
+    }
+
+    let complianceStatus = "NOT FEASIBLE";
+    if (isEdiPretreatmentRequired) {
+        complianceStatus = "REQUIRES PRETREATMENT";
+    } else if (isFeasible && isInRecommendedRange) {
+        complianceStatus = "FEASIBLE";
+    } else if (isFeasible && !isInRecommendedRange) {
+        complianceStatus = "FEASIBLE WITH WARNING";
+    } else {
+        complianceStatus = "NOT FEASIBLE";
+    }
+
+    // Determine internal engineering diagnostic code (retained for engineering audit/developer diagnostics)
+    let internalDiagnostic = "FEASIBLE";
+    if (isEdiPretreatmentRequired) {
+        internalDiagnostic = "PRETREATMENT_REQUIRED";
+    } else if (!isTdsPass) {
+        internalDiagnostic = "TDS_FAIL";
+    } else if (!isRecPass) {
+        internalDiagnostic = "RECOVERY_FAIL";
+    } else if (!isHardLimitPass) {
+        internalDiagnostic = "OPERATING_LIMIT_EXCEEDED";
+    } else if (eng.chargeBalanceClosed === false) {
+        internalDiagnostic = "CHARGE_LIMIT_EXCEEDED";
+    } else if (eng.waterBalanceClosed === false || eng.saltBalanceClosed === false) {
+        internalDiagnostic = "BALANCE_FAIL";
+    } else if (eng.isHydraulicFeasible === false) {
+        internalDiagnostic = "HYDRAULIC_LIMIT_EXCEEDED";
+    } else if (!isFeasible) {
+        internalDiagnostic = "PHYSICS_FAIL";
+    }
+
+    // Positive compliance checklist for feasible candidates
+    const complianceChecklist = isFeasible ? [
+        `Product TDS requirement satisfied (${outletTDS.toFixed(1)} mg/L ≤ ${tTds.toFixed(1)} mg/L)`,
+        `Recovery requirement satisfied (${recovery.toFixed(1)}% ≥ ${(tRec ?? 95.0).toFixed(1)}%)`,
+        "Operating envelope satisfied",
+        "Hydraulic requirements satisfied",
+        "Electrical requirements satisfied",
+        "Mass balance closed",
+        "Salt balance closed"
+    ] : [];
+
     return {
         key: techKey,
         technology: techKey,
         name: name || techKey,
         desc: desc || techKey,
         basis: basis || techKey,
+        modelBasis,
+        complianceStatus,
+        internalDiagnostic,
+        userFacingStatus: isFeasible ? "FEASIBLE" : "NOT_FEASIBLE",
+        complianceChecklist,
         productTarget: `${outletTDS.toFixed(1)} mg/L`,
         outlet: outletTDS,
         outletTDS,
@@ -190,7 +267,10 @@ export function evaluateTechnologyCandidate({
         waterRecovery: recovery,
         secVal: sec,
         sec,
-        secFormatted: `${sec.toFixed(3)} kWh/m³`,
+        secGross: Number(eng.secElectricalGross ?? eng.secTotalGross ?? sec),
+        secNet: Number(eng.secElectricalNet ?? eng.secTotalNet ?? sec),
+        secPump: Number(eng.secPump ?? eng.secHydraulic ?? 0),
+        secFormatted: `${sec < 0.05 && sec > 0 ? sec.toFixed(4) : sec.toFixed(3)} kWh/m³`,
         power,
         pressureDrop,
         removalEfficiency,
@@ -234,6 +314,13 @@ export function rankFeasibleCandidates(candidates = [], targetTds = 50, targetRe
     if (!candidates || candidates.length === 0) return [];
     const feasible = candidates.filter(c => c.isFeasible || c.isPass);
     return [...feasible].sort((a, b) => {
+        // Priority 0: Ultrapure Polishing dedicated technology. When feed is pretreated (TDS <= 30 mg/L)
+        // and target demands ultrapure water (targetTds <= 1.0 mg/L), EDI is the specialized industrial technology
+        if (feedTds <= 30 && targetTds <= 1.0) {
+            if (a.key === "EDI" && b.key !== "EDI") return -1;
+            if (b.key === "EDI" && a.key !== "EDI") return 1;
+        }
+
         // Priority 6 / CAPEX advantage: For low salinity streams (feedTds <= 400) where CDI is feasible and recovery target is not strict (>85%),
         // CDI has significant CAPEX advantage (membrane-free) over MCDI
         const isLowSalinity = feedTds <= 400 && (targetRecovery === null || targetRecovery === undefined || targetRecovery <= 85.0);
@@ -245,7 +332,8 @@ export function rankFeasibleCandidates(candidates = [], targetTds = 50, targetRe
         // Priority 2: Lower Net SEC
         const secA = Number(a.secVal ?? a.sec ?? 0);
         const secB = Number(b.secVal ?? b.sec ?? 0);
-        if (Math.abs(secA - secB) > 0.01) {
+        const secDiff = Math.abs(secA - secB);
+        if (secDiff > 0.0001) {
             return secA - secB;
         }
 
@@ -334,7 +422,8 @@ export function rankAllCandidates(candidates = [], targetTds = 50, targetRecover
         // Priority 6: Lower SEC
         const secA = Number(a.secVal ?? a.sec ?? 0);
         const secB = Number(b.secVal ?? b.sec ?? 0);
-        if (Math.abs(secA - secB) > 0.01) {
+        const secDiff = Math.abs(secA - secB);
+        if (secDiff > 0.0001) {
             return secA - secB;
         }
 
@@ -356,7 +445,7 @@ function aiRecommendation(feedWater = {}) {
     const flow = Number(feedWater.flowRate ?? feedWater.flow ?? 10);
     const targetRecovery = feedWater.targetRecovery !== undefined && feedWater.targetRecovery !== null ? Number(feedWater.targetRecovery) : null;
 
-    const techKeys = ["CDI", "MCDI", "FCDI", "EDI"];
+    const techKeys = ["CDI", "MCDI", "FCDI", "ED", "EDR", "EDI"];
 
     // Evaluate every technology using first-principles engineering models
     const rawCandidates = techKeys.map(key => {
@@ -398,7 +487,7 @@ function aiRecommendation(feedWater = {}) {
         if (isUltrapureTarget) {
             reason = `Target TDS (${targetTds} mg/L) requires ultrapure EDI polishing. Raw feed (${tds} mg/L TDS, ${hardness} mg/L Hardness) exceeds direct EDI limits (max 30 mg/L TDS, 0.5 mg/L Hardness). RO → EDI process train is recommended.`;
         } else {
-            reason = `No single-stage technology satisfies the complete target specification (${targetTds} mg/L TDS, ${targetRecovery ? `${targetRecovery}% recovery` : "operating constraints"}) within direct operating limits (0 / 4 feasible). Multi-stage train staging or pre-treatment (e.g. RO → EDI) is required.`;
+            reason = `No single-stage technology satisfies the complete target specification (${targetTds} mg/L TDS, ${targetRecovery ? `${targetRecovery}% recovery` : "operating constraints"}) within direct operating limits (0 / ${techKeys.length} feasible). Multi-stage train staging or pre-treatment (e.g. RO → EDI) is required.`;
         }
     } else if (selectedTechnology === "EDI") {
         reason = `EDI is selected for ultrapure polishing (${autoCandidate.outletTDS} mg/L). Feed is within DuPont EDI-310 limits (<30 mg/L TDS, <0.5 mg/L hardness).`;
@@ -408,6 +497,10 @@ function aiRecommendation(feedWater = {}) {
         reason = `MCDI is selected for brackish feed (${tds} ppm). Ion-exchange membranes provide high charge efficiency and achieve target TDS (${autoCandidate.outletTDS} ppm) at ${autoCandidate.recovery} recovery.`;
     } else if (selectedTechnology === "FCDI") {
         reason = `FCDI is selected for continuous flow-electrode operation (${tds} ppm), achieving target TDS (${autoCandidate.outletTDS} ppm) at ${autoCandidate.recovery} recovery.`;
+    } else if (selectedTechnology === "ED") {
+        reason = `Electrodialysis (ED) is selected for continuous electromembrane demineralization (${tds} ppm), achieving target TDS (${autoCandidate.outletTDS} ppm) with high water recovery.`;
+    } else if (selectedTechnology === "EDR") {
+        reason = `Electrodialysis Reversal (EDR) is selected for high-scaling brackish feed (${tds} ppm, Hardness ${hardness} mg/L). Periodic polarity reversal provides in-situ scale mitigation.`;
     } else {
         reason = `Selected ${recommendedProcess} based on Hard Feasibility & Engineering Performance Ranking.`;
     }
@@ -431,6 +524,8 @@ function aiRecommendation(feedWater = {}) {
         whyCDI: `CDI uses membrane-free porous carbon electrodes, ideal for low-salinity streams (<1,000 mg/L).`,
         whyMCDIBetter: `MCDI incorporates AEM & CEM membranes to block co-ion expulsion, boosting charge efficiency to >92% with 95% recovery.`,
         whyFCDIRequired: `FCDI utilizes circulating carbon slurry electrodes to eliminate batch adsorption saturation for high salinity (>3,000 mg/L).`,
+        whyED: `Electrodialysis (ED) provides continuous steady-state separation for brackish feeds (1,000-8,000 mg/L) with direct current control.`,
+        whyEDR: `Electrodialysis Reversal (EDR) enables operation on high-scaling water (hardness up to 800 mg/L, LSI up to +2.0) via self-cleaning polarity reversal.`,
         whyEDIRequired: `EDI employs mixed-bed resin beads and water-splitting H+/OH- auto-regeneration. Requires RO permeate feed (<30 mg/L TDS) to achieve ultra-pure polishing (<0.1 mg/L / 18.2 MΩ·cm).`
     };
 
@@ -504,6 +599,15 @@ function aiRecommendation(feedWater = {}) {
         feedGating = autoCandidate?.engineering?.feedGatingStatus || "PASSED";
     }
 
+    const rejectedCandidates = rawCandidates.filter(c => !c.isFeasible && !c.isPass);
+
+    const technologyAssessment = {
+        allCandidates: rawCandidates,
+        feasibleCandidates,
+        rejectedCandidates,
+        recommendedTechnology: selectedTechnology
+    };
+
     return {
         technology: selectedTechnology,
         selectedTechnology,
@@ -530,8 +634,11 @@ function aiRecommendation(feedWater = {}) {
             hydraulicSEC: autoCandidate.engineering?.secHydraulic,
             totalSEC: autoCandidate.secVal
         } : null,
-        evaluations: rawCandidates,
+        technologyAssessment,
+        allCandidates: rawCandidates,
+        evaluations: rawCandidates.filter(c => ["CDI", "MCDI", "FCDI", "EDI"].includes(c.key)),
         feasibleCandidates,
+        rejectedCandidates,
         rankedCandidates,
         bestCandidate,
         bestEval: autoCandidate || bestCandidate

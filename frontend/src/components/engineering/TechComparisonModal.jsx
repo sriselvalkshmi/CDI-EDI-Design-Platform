@@ -100,10 +100,46 @@ export default function TechComparisonModal({ isOpen, onClose, currentTech = "CD
             applications: "Pharmaceutical WFI water, semiconductor manufacturing, power plant high-pressure boiler feed.",
             complexity: "Moderate-High (Resin + Membranes)",
             cost: "$$$$ (High CAPEX / Low Chemical OPEX)"
+        },
+        ED: {
+            name: "Electrodialysis (ED)",
+            structure: "Feed → Anode Rinse → Repeating [CEM → Dilute Spacer → AEM → Conc Spacer] → Cathode Rinse",
+            advantages: [
+                "High water recovery (85 - 94%) across moderate-to-high salinity brackish water",
+                "Proven industrial reliability with multi-cell repeating pairs",
+                "Independent control of dilute and concentrate stream flow dynamics",
+                "Low specific energy consumption for 1,000 - 10,000 mg/L brackish waters"
+            ],
+            disadvantages: [
+                "Susceptible to mineral scaling at high LSI without acid/antiscalant dosing",
+                "Requires strict limiting current density (I_lim) polarization monitoring",
+                "Membrane cleaning (CIP) required periodically"
+            ],
+            applications: "Brackish groundwater desalination (1,000 - 12,000 mg/L), industrial wastewater recovery, brine concentration.",
+            complexity: "Moderate (Multi-Cell Membrane Stack)",
+            cost: "$$$ (Moderate CAPEX / Low SEC OPEX)"
+        },
+        EDR: {
+            name: "Electrodialysis Reversal (EDR)",
+            structure: "Feed → 4-Way Reversal Valve → Reversible MMO Electrodes → [CEM/AEM Alternating Stacks] → 3-Way Flush Divert Valve",
+            advantages: [
+                "Periodic DC polarity reversal (15 - 45 min) dissolves mineral scale in-situ",
+                "Eliminates or sharply minimizes continuous antiscalant and acid dosing",
+                "Handles high scaling feeds (hardness up to 800 mg/L, LSI up to +2.0)",
+                "Robust self-cleaning operation for high-fouling brackish sources"
+            ],
+            disadvantages: [
+                "Transition flush purge volume reduces net water recovery by 5 - 8% vs ED",
+                "Requires automated 4-way reversing valves and durable MMO electrodes",
+                "Slightly higher control complexity"
+            ],
+            applications: "High-scaling brackish groundwater, municipal drinking water, industrial recycle with high silica/calcium.",
+            complexity: "Moderate-High (Reversing Valves + Divert Logic)",
+            cost: "$$$ (Moderate-High CAPEX / Low Chemical OPEX)"
         }
     };
 
-    const TECH_KEYS = ["CDI", "MCDI", "FCDI", "EDI"];
+    const TECH_KEYS = ["CDI", "MCDI", "FCDI", "ED", "EDR", "EDI"];
 
     return (
         <div className="tech-comparison-overlay" style={{

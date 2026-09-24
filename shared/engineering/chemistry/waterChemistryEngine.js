@@ -17,9 +17,11 @@ export const ION_SPECIES_DATA = {
     Cl: { name: "Chloride (Cl⁻)", weight: 35.45, valency: 1, charge: -1, type: "anion" },
     SO4: { name: "Sulfate (SO₄²⁻)", weight: 96.06, valency: 2, charge: -2, type: "anion" },
     HCO3: { name: "Bicarbonate (HCO₃⁻)", weight: 61.02, valency: 1, charge: -1, type: "anion" },
+    CO3: { name: "Carbonate (CO₃²⁻)", weight: 60.01, valency: 2, charge: -2, type: "anion" },
     NO3: { name: "Nitrate (NO₃⁻)", weight: 62.00, valency: 1, charge: -1, type: "anion" },
 
     SiO2: { name: "Silica (SiO₂)", weight: 60.08, valency: 0, charge: 0, type: "neutral" },
+    CO2: { name: "Carbon Dioxide (CO₂)", weight: 44.01, valency: 0, charge: 0, type: "neutral" },
     B: { name: "Boron (B / H₃BO₃)", weight: 10.81, valency: 0, charge: 0, type: "neutral" }
 };
 
@@ -29,22 +31,23 @@ export const ION_SPECIES_DATA = {
  * @returns {Object} Comprehensive water chemistry summary
  */
 export function analyzeWaterChemistry(feedWater = {}) {
-    const rawTds = Number(feedWater.tds ?? 500);
-    const ph = Number(feedWater.ph ?? feedWater.pH ?? 7.2);
-    const tempC = Number(feedWater.temperature ?? 25);
-    const isExplicitNacl = feedWater.naclEquivalentAssumed !== false && (feedWater.na === undefined && feedWater.ca === undefined);
+    const fw = feedWater || {};
+    const rawTds = Number(fw.tds ?? 500);
+    const ph = Number(fw.ph ?? fw.pH ?? 7.2);
+    const tempC = Number(fw.temperature ?? 25);
+    const isExplicitNacl = fw.naclEquivalentAssumed !== false && (fw.na === undefined && fw.ca === undefined);
 
     // 1. Determine explicitly provided species
-    const userNa = feedWater.na ?? feedWater.Na;
-    const userK = feedWater.k ?? feedWater.K;
-    const userCa = feedWater.ca ?? feedWater.Ca;
-    const userMg = feedWater.mg ?? feedWater.Mg;
-    const userNH4 = feedWater.nh4 ?? feedWater.NH4;
+    const userNa = fw.na ?? fw.Na;
+    const userK = fw.k ?? fw.K;
+    const userCa = fw.ca ?? fw.Ca;
+    const userMg = fw.mg ?? fw.Mg;
+    const userNH4 = fw.nh4 ?? fw.NH4;
 
-    const userCl = feedWater.cl ?? feedWater.Cl;
-    const userSO4 = feedWater.so4 ?? feedWater.SO4;
-    const userHCO3 = feedWater.hco3 ?? feedWater.HCO3;
-    const userNO3 = feedWater.no3 ?? feedWater.NO3;
+    const userCl = fw.cl ?? fw.Cl;
+    const userSO4 = fw.so4 ?? fw.SO4;
+    const userHCO3 = fw.hco3 ?? fw.HCO3;
+    const userNO3 = fw.no3 ?? fw.NO3;
 
     // Default distribution ratios if no cations/anions supplied
     let defaultCaMgL = userCa !== undefined ? Number(userCa) : (feedWater.hardness !== undefined ? (Number(feedWater.hardness) * 0.70) / 2.497 : rawTds * 0.08);
@@ -160,6 +163,20 @@ export function analyzeWaterChemistry(feedWater = {}) {
     const divalentCationFraction = cationMeqSum > 0 ? ((2 * (ionsMgL.Ca / 40.08 + ionsMgL.Mg / 24.31)) / cationMeqSum) : 0.2;
     const valencySelectivityFactor = Number((1.0 + 0.35 * divalentCationFraction).toFixed(3));
 
+    // Total Alkalinity as CaCO3 (mg/L) = (meq/L HCO3 + 2*meq/L CO3) * 50.04
+    const hco3Meq = ionsMeqL.HCO3 || 0;
+    const co3Meq = ionsMeqL.CO3 || 0;
+    const totalAlkalinityMgL = Number(((hco3Meq + co3Meq) * 50.04).toFixed(1));
+
+    // Three Engineering Calculation Levels Classification
+    const chemistryMode = isExplicitNacl ? "SCREENING_TDS_ONLY" : "DETAILED_IONIC";
+    const engineeringLevel = isExplicitNacl
+        ? "LEVEL_0_SCREENING"
+        : (feedWater.isCalibrated ? "LEVEL_2_VALIDATED_DESIGN" : "LEVEL_1_ENGINEERING_DESIGN");
+    const engineeringLevelLabel = isExplicitNacl
+        ? "Level 0: Screening Model (TDS Basis)"
+        : (feedWater.isCalibrated ? "Level 2: Validated Design (Calibrated Kinetics)" : "Level 1: Engineering Design (Detailed Ionic Speciation)");
+
     return {
         tds: rawTds,
         conductivityUsCm: condUsCm,
@@ -169,6 +186,9 @@ export function analyzeWaterChemistry(feedWater = {}) {
         conductivityDiagnosticProvenance: isRatioNormal ? "CALCULATED" : "PROJECT_ASSUMPTION",
         ph,
         tempC,
+        chemistryMode,
+        engineeringLevel,
+        engineeringLevelLabel,
         naclEquivalentAssumed: isExplicitNacl,
         naclProvenance: isExplicitNacl ? "PROJECT_ASSUMPTION (NaCl-Equivalent Feed)" : "LITERATURE_SUPPORTED (Multi-Ion Composition)",
         assumptionsNotice: isExplicitNacl ? "[PROJECT_ASSUMPTION] NaCl-equivalent approximation used for unmeasured ions." : "Multi-ion composition",
@@ -181,7 +201,9 @@ export function analyzeWaterChemistry(feedWater = {}) {
         chargeBalanceErrorPercent,
         isChargeBalanced,
         totalHardnessMgL,
+        totalAlkalinityMgL,
         hardnessBasis: "mg/L as CaCO3",
+        alkalinityBasis: "mg/L as CaCO3",
         hardnessProvenance: "CALCULATED (2.497*Ca + 4.118*Mg)",
         lsiIndex,
         lsiProvenance: "SCREENING_INDICATOR",
@@ -190,7 +212,7 @@ export function analyzeWaterChemistry(feedWater = {}) {
         divalentCationFraction: Number(divalentCationFraction.toFixed(3)),
         valencySelectivityFactor,
         valencySelectivityProvenance: "MODEL_ASSUMPTION_CALIBRATION_PARAMETER",
-        summaryLabel: `Water Chemistry (${isExplicitNacl ? "NaCl-Equivalent [PROJECT_ASSUMPTION]" : "Multi-Ion"}): Hardness ${totalHardnessMgL} mg/L as CaCO3, LSI ${lsiIndex > 0 ? `+${lsiIndex}` : lsiIndex} (${scalingRisk} Scaling Risk [SCREENING_INDICATOR]), Charge Error ${chargeBalanceErrorPercent}%`
+        summaryLabel: `Water Chemistry (${isExplicitNacl ? "Screening / NaCl-Equivalent" : "Detailed Multi-Ion"}): Hardness ${totalHardnessMgL} mg/L, Alk ${totalAlkalinityMgL} mg/L, LSI ${lsiIndex > 0 ? `+${lsiIndex}` : lsiIndex} (${scalingRisk}), Charge Error ${chargeBalanceErrorPercent}% [${engineeringLevel}]`
     };
 }
 

@@ -22,8 +22,10 @@ import { DEFAULT_EQUATIONS_DATABASE } from "@shared/engineering/equations/defaul
 import aiRecommendation from "@shared/engineering/core/aiRecommendation.js";
 import analyzeWaterChemistry from "@shared/engineering/chemistry/waterChemistry.js";
 import calculateEconomics from "@shared/engineering/core/economicEngine.js";
+import calculateTEA, { DEFAULT_TEA_INPUTS, validateEconomicInputs } from "@shared/engineering/tea/technoEconomicEngine.js";
 import calibrateEquations from "@shared/engineering/validation/experimentalCalibration.js";
 import { predictActualPerformance } from "@shared/engineering/core/mlCorrectionEngine.js";
+
 
 EquationEngine.setSupabaseClient(supabase);
 
@@ -106,6 +108,12 @@ export function AppProvider({ children }) {
         { id: 3, type: "Electrode", name: "Carbon Electrode", area: 250, thickness: 0.6, material: "Activated Carbon" }
     ]);
 
+    //------------------------------------------
+    // TECHNO-ECONOMIC ANALYSIS (TEA)
+    //------------------------------------------
+    const [teaInputs, setTeaInputs] = useState(DEFAULT_TEA_INPUTS);
+
+
     const [user, setUser] = useState(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [page, setPage] = useState("DASHBOARD");
@@ -152,6 +160,7 @@ export function AppProvider({ children }) {
     const [showDesignTrace, setShowDesignTrace] = useState(false);
     const [showEngineeringBasis, setShowEngineeringBasis] = useState(false);
     const [showSelectionLogic, setShowSelectionLogic] = useState(false);
+    const [showEngineeringReview, setShowEngineeringReview] = useState(false);
 
     // Client-side engineering calculation engine
     const recalculate = (currentInputs = optimizationInputs, currentTech = technology, isOptimization = false, feedWaterOverride = null, isScenario = false) => {
@@ -182,9 +191,9 @@ export function AppProvider({ children }) {
             // 1. Water Chemistry Analysis
             const waterChem = analyzeWaterChemistry(sanitizedFeed);
 
-            // 2. AI Recommendation
+            // 2. AI Recommendation & Authoritative Technology Evaluation
             const ai = aiRecommendation(sanitizedFeed);
-            const bestCandidateTech = ai.selectedTechnology || ai.rankedCandidates?.[0]?.key || "MCDI";
+            const bestCandidateTech = ai.recommendedTechnology || ai.selectedTechnology || ai.rankedCandidates?.[0]?.key || "MCDI";
             const activeTech = currentTech === "AUTO" ? bestCandidateTech : currentTech;
             const prevTech = designResult?.selectedTechnology;
 
@@ -194,6 +203,11 @@ export function AppProvider({ children }) {
                 calcInputs = {};
             }
 
+            // In AI / Target-controlled mode, do NOT pass manual current unless locked
+            if (!lockedParameters.current && optimizationMode !== "MANUAL") {
+                delete calcInputs.current;
+            }
+
             // Filter out empty, null, or non-positive manual overrides so sizing calculations size themselves from first principles
             Object.keys(calcInputs).forEach(key => {
                 if (calcInputs[key] === "" || calcInputs[key] === null || calcInputs[key] === undefined || Number(calcInputs[key]) <= 0) {
@@ -201,12 +215,19 @@ export function AppProvider({ children }) {
                 }
             });
 
+            // Single Authoritative Calculation Pipeline:
+            // Check if active candidate already has authoritative calculation from aiRecommendation
+            const candidateEval = ai.technologyAssessment?.allCandidates?.find(c => c.key === activeTech);
+            const hasManualOverrides = Object.keys(calcInputs).length > 0 && (optimizationMode === "MANUAL" || Object.values(lockedParameters).some(Boolean));
+
             // 3. Engineering Equation Engine
-            let eng = engineeringEquationEngine({
-                technology: activeTech,
-                feedWater: sanitizedFeed,
-                ...calcInputs
-            });
+            let eng = (candidateEval && (candidateEval.engineering || candidateEval.model) && !hasManualOverrides)
+                ? (candidateEval.engineering || candidateEval.model)
+                : engineeringEquationEngine({
+                    technology: activeTech,
+                    feedWater: sanitizedFeed,
+                    ...calcInputs
+                });
 
             // Synchronize flowVelocity and residenceTime authoritatively from engineering calculation
             calcInputs = {
@@ -221,39 +242,43 @@ export function AppProvider({ children }) {
             // 5. Component Sizing
             let size = componentSizing(eng, activeTech);
 
-            // 6. Design Optimizer
-            const feedWaterWithOpt = {
-                ...sanitizedFeed,
-                optimizationMode,
-                optimizationInputs: calcInputs,
-                lockedParameters
-            };
-            const optResult = designOptimizer(feedWaterWithOpt, size, eng);
-
-            if (optResult && (isOptimization || calcInputs.cellPairs === undefined || calcInputs.cellPairs === 36)) {
-                calcInputs = {
-                    ...calcInputs,
-                    voltage: optResult.optimizedVoltage ?? calcInputs.voltage,
-                    current: optResult.current ?? calcInputs.current,
-                    flowRate: sanitizedFeed.flowRate,
-                    electrodeArea: optResult.optimizedElectrodeArea ?? calcInputs.electrodeArea,
-                    cellPairs: optResult.optimizedCellPairs ?? calcInputs.cellPairs,
-                    residenceTime: eng.residenceTime,
-                    flowVelocity: eng.flowVelocity
+            // 6. Design Optimizer (only runs if explicitly requested via isOptimization)
+            if (isOptimization) {
+                const feedWaterWithOpt = {
+                    ...sanitizedFeed,
+                    optimizationMode,
+                    optimizationInputs: calcInputs,
+                    lockedParameters
                 };
+                const optResult = designOptimizer(feedWaterWithOpt, size, eng);
 
-                // Recalculate physical equations with optimized parameters
-                eng = engineeringEquationEngine({
-                    technology: activeTech,
-                    feedWater: sanitizedFeed,
-                    ...calcInputs
-                });
+                if (optResult) {
+                    calcInputs = {
+                        ...calcInputs,
+                        voltage: optResult.optimizedVoltage ?? calcInputs.voltage,
+                        flowRate: sanitizedFeed.flowRate,
+                        electrodeArea: optResult.optimizedElectrodeArea ?? calcInputs.electrodeArea,
+                        cellPairs: optResult.optimizedCellPairs ?? calcInputs.cellPairs,
+                        residenceTime: eng.residenceTime,
+                        flowVelocity: eng.flowVelocity
+                    };
+                    if (lockedParameters.current) {
+                        calcInputs.current = optResult.current;
+                    }
 
-                elect = electrodeModel(sanitizedFeed, eng);
-                size = componentSizing(eng, activeTech);
+                    // Recalculate physical equations with optimized parameters
+                    eng = engineeringEquationEngine({
+                        technology: activeTech,
+                        feedWater: sanitizedFeed,
+                        ...calcInputs
+                    });
 
-                if (!isScenario) {
-                    setOptimizationInputs(calcInputs);
+                    elect = electrodeModel(sanitizedFeed, eng);
+                    size = componentSizing(eng, activeTech);
+
+                    if (!isScenario) {
+                        setOptimizationInputs(calcInputs);
+                    }
                 }
             }
 
@@ -265,6 +290,8 @@ export function AppProvider({ children }) {
 
             // 9. Economic & Energy Analysis
             const economics = calculateEconomics(eng, sanitizedFeed);
+            const tea = calculateTEA({ engineering: eng, economicInputs: teaInputs });
+
 
             // 10. Dynamic Layout Generator (P&ID)
             const pid = layoutGenerator({ engineering: eng, input: { feedWater: sanitizedFeed } });
@@ -312,18 +339,52 @@ export function AppProvider({ children }) {
                 }
             ];
 
+            const allTechnologyResults = {};
+            (ai.technologyAssessment?.allCandidates || []).forEach(cand => {
+                allTechnologyResults[cand.key] = cand.engineering || cand.model;
+            });
+            const feasibleTechnologyResults = {};
+            (ai.technologyAssessment?.feasibleCandidates || []).forEach(cand => {
+                feasibleTechnologyResults[cand.key] = cand.engineering || cand.model;
+            });
+            const rejectedTechnologyResults = {};
+            (ai.technologyAssessment?.rejectedCandidates || []).forEach(cand => {
+                rejectedTechnologyResults[cand.key] = cand.engineering || cand.model;
+            });
+
             const unifiedResult = {
                 input: { feedWater: sanitizedFeed, technology: activeTech },
+                allTechnologyResults,
+                feasibleTechnologyResults,
+                rejectedTechnologyResults,
+                recommendedTechnology: bestCandidateTech,
                 selectedTechnology: activeTech,
+                selectedDesign: eng,
                 aiRecommendation: ai,
+                technologyAssessment: ai.technologyAssessment,
+                feasibleCandidates: ai.feasibleCandidates || [],
+                rejectedCandidates: ai.rejectedCandidates || [],
                 engineering: eng,
                 electrode: elect,
                 sizing: size,
                 simulation: sim,
                 performance: perf,
                 economics,
+                tea,
                 equipment,
                 pid,
+                canonical: eng,
+                feasibilityGate: eng.feasibilityGate,
+                DesignBasis: eng.DesignBasis,
+                TechnologyResult: eng.TechnologyResult,
+                HydraulicResult: eng.HydraulicResult,
+                ElectricalResult: eng.ElectricalResult,
+                MassBalance: eng.MassBalance,
+                SaltBalance: eng.SaltBalance,
+                ChargeBalance: eng.ChargeBalance,
+                DynamicCycleResult: eng.DynamicCycleResult,
+                ValidationResult: eng.ValidationResult,
+
                 kpi: {
                     outletTDS: eng.outletTDS,
                     removalEfficiency: eng.removalEfficiency,
@@ -347,6 +408,7 @@ export function AppProvider({ children }) {
 
             if (!isScenario) {
                 setDesignResult(unifiedResult);
+                setSelectedDesign(eng);
                 setDesignGenerated(true);
             }
             return unifiedResult;
@@ -367,6 +429,15 @@ export function AppProvider({ children }) {
             recalculate();
         }
     }, [technology]);
+
+    // Synchronize TEA whenever teaInputs change without re-solving entire physical pipeline
+    useEffect(() => {
+        if (designResult?.engineering) {
+            const updatedTea = calculateTEA({ engineering: designResult.engineering, economicInputs: teaInputs });
+            setDesignResult(prev => prev ? ({ ...prev, tea: updatedTea }) : null);
+        }
+    }, [teaInputs]);
+
 
     return (
         <AppContext.Provider value={{
@@ -416,8 +487,14 @@ export function AppProvider({ children }) {
             setShowEngineeringBasis,
             showSelectionLogic,
             setShowSelectionLogic,
+            showEngineeringReview,
+            setShowEngineeringReview,
+            teaInputs,
+            setTeaInputs,
+            resetTeaInputs: () => setTeaInputs(DEFAULT_TEA_INPUTS),
             recalculate
         }}>
+
             {children}
         </AppContext.Provider>
     );

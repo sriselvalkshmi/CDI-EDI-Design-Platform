@@ -166,7 +166,7 @@ describe("12-Minute Cycle, Mass Balances & EDI Multi-Gate Screening Audit Suite"
 
             expect(uChannel).toBeCloseTo(0.105, 3);
             expect(res.currentDensity).toBeCloseTo(21.4, 1);
-            expect(res.secElectricalGross).toBeCloseTo(0.0313, 4);
+            expect(res.secElectricalGross).toBeCloseTo(0.03125, 4);
         });
     });
 

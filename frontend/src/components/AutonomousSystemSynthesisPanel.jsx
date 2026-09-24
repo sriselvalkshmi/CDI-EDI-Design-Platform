@@ -43,13 +43,13 @@ export default function AutonomousSystemSynthesisPanel() {
 
     return (
         <div style={{ background: "#FFFFFF", border: "1px solid #CBD5E1", borderRadius: "6px", padding: "16px 18px", marginTop: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-            {/* 1. TOP HEADER: AUTONOMOUS SYSTEM SYNTHESIS STATUS */}
+            {/* 1. TOP HEADER: PROCESS TRAIN SYNTHESIS STATUS */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #E2E8F0", paddingBottom: "10px", flexWrap: "wrap", gap: "10px" }}>
                 <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <h2 style={{ fontSize: "14px", fontWeight: "800", color: "#0F172A", margin: 0, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: "6px" }}>
                             <Layers size={16} color="#2563EB" />
-                            Autonomous Engineering System Synthesis
+                            Multi-Stage Process Train Synthesis
                         </h2>
                         <span style={{ 
                             fontSize: "10px", 
@@ -208,7 +208,7 @@ export default function AutonomousSystemSynthesisPanel() {
             {activeTab === "CANDIDATES" && (
                 <div style={{ marginTop: "12px" }}>
                     <div style={{ fontSize: "11px", color: "#64748B", marginBottom: "8px" }}>
-                        The Autonomous Synthesis Engine evaluated all technically valid treatment train permutations against your feed water chemistry and constraints:
+                        The Multi-Stage Process Synthesis Engine evaluated all technically valid treatment train configurations against your feed water chemistry and constraints:
                     </div>
 
                     <div style={{ overflowX: "auto" }}>

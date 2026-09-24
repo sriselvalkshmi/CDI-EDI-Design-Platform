@@ -1140,6 +1140,260 @@ export const DEFAULT_EQUATIONS_DATABASE = [
             saltRemovalEfficiency: { unit: "%", label: "Salt Demineralization", default: 90.0 }
         },
         dependencyChain: ["Autonomous Technology Selection", "Recommendation Hierarchy"]
+    },
+
+    // =========================================================================
+    // DOMAIN 12 — TECHNO-ECONOMIC ANALYSIS (TEA) (6 Equations)
+    // =========================================================================
+    {
+        id: "EQ-TEA-01",
+        name: "Annual Product Water Volume",
+        formula: "(productFlowRate * 60 * operatingHours * operatingDays) / 1000",
+        factoryFormula: "(productFlowRate * 60 * operatingHours * operatingDays) / 1000",
+        category: "Economic",
+        units: "m³/year",
+        sourceClassification: "Engineering Model",
+        description: "Calculates total annual purified clean water volumetric output yielded from product permeate flow and operational duty cycle.",
+        applicableBasis: "Annual Volumetric Delivery",
+        author: "TEA Core",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            productFlowRate: { unit: "L/min", label: "Product Flow Rate", default: 9.52 },
+            operatingHours: { unit: "h/day", label: "Daily Operating Duration", default: 24 },
+            operatingDays: { unit: "days/year", label: "Operating Days per Year", default: 350 }
+        },
+        dependencyChain: ["Annual Energy Consumption", "Operating Treatment Cost"]
+    },
+    {
+        id: "EQ-TEA-02",
+        name: "Annual Energy Consumption",
+        formula: "grossSEC * annualProductWater",
+        factoryFormula: "grossSEC * annualProductWater",
+        category: "Economic",
+        units: "kWh/year",
+        sourceClassification: "Engineering Model",
+        description: "Determines total annual gross electrical energy consumed by the desalination system normalized to annual product water throughput.",
+        applicableBasis: "Annual Grid Energy Demand",
+        author: "TEA Core",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            grossSEC: { unit: "kWh/m³", label: "Gross Electrical SEC", default: 0.040 },
+            annualProductWater: { unit: "m³/year", label: "Annual Product Water", default: 4798.08 }
+        },
+        dependencyChain: ["Annual Energy Cost", "Carbon Footprint Assessment"]
+    },
+    {
+        id: "EQ-TEA-03",
+        name: "Annual Energy Cost",
+        formula: "annualEnergyConsumption * electricityTariff",
+        factoryFormula: "annualEnergyConsumption * electricityTariff",
+        category: "Economic",
+        units: "₹/year",
+        sourceClassification: "Engineering Model",
+        description: "Evaluates annual electrical power utility expenditure by multiplying total annual energy demand by commercial electricity tariff.",
+        applicableBasis: "Utility Electricity Expenditure",
+        author: "TEA Core",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            annualEnergyConsumption: { unit: "kWh/year", label: "Annual Energy Consumption", default: 191.92 },
+            electricityTariff: { unit: "₹/kWh", label: "Electricity Tariff", default: 8.00 }
+        },
+        dependencyChain: ["Annual OPEX", "Operating Treatment Cost"]
+    },
+    {
+        id: "EQ-TEA-04",
+        name: "Total Capital Expenditure (CAPEX)",
+        formula: "equipmentCost + stackCost + pumpCost + powerSupplyCost + membraneCost + installationCost",
+        factoryFormula: "equipmentCost + stackCost + pumpCost + powerSupplyCost + membraneCost + installationCost",
+        category: "Economic",
+        units: "₹",
+        sourceClassification: "Engineering Model",
+        description: "Aggregates total upfront turnkey capital expenditure across structural skid equipment, stack core, pumps, power electronics, membranes, and installation.",
+        applicableBasis: "Turnkey System CAPEX",
+        author: "TEA Core",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            equipmentCost: { unit: "₹", label: "Equipment Skid Cost", default: 50000 },
+            stackCost: { unit: "₹", label: "Desalination Stack Cost", default: 120000 },
+            pumpCost: { unit: "₹", label: "Pumps & Boosters Cost", default: 35000 },
+            powerSupplyCost: { unit: "₹", label: "DC Power Supply Cost", default: 25000 },
+            membraneCost: { unit: "₹", label: "Membranes & Electrodes Cost", default: 40000 },
+            installationCost: { unit: "₹", label: "Installation & Commissioning Cost", default: 30000 }
+        },
+        dependencyChain: ["Financial Appraisal", "Capital Investment Budgeting"]
+    },
+    {
+        id: "EQ-TEA-05",
+        name: "Annual Operating Expenditure (OPEX)",
+        formula: "annualEnergyCost + annualMaintenanceCost + annualReplacementCost",
+        factoryFormula: "annualEnergyCost + annualMaintenanceCost + annualReplacementCost",
+        category: "Economic",
+        units: "₹/year",
+        sourceClassification: "Engineering Model",
+        description: "Sums all annual recurring operational expenditures including power utility costs, routine preventive maintenance, and consumable replacements.",
+        applicableBasis: "Annual Operating Budget",
+        author: "TEA Core",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            annualEnergyCost: { unit: "₹/year", label: "Annual Energy Cost", default: 1535.39 },
+            annualMaintenanceCost: { unit: "₹/year", label: "Annual Maintenance Servicing", default: 15000 },
+            annualReplacementCost: { unit: "₹/year", label: "Annual Parts Replacement", default: 10000 }
+        },
+        dependencyChain: ["Operating Treatment Cost", "Plant OPEX Monitoring"]
+    },
+    {
+        id: "EQ-TEA-06",
+        name: "Operating Treatment Cost per Cubic Meter",
+        formula: "annualOPEX / annualProductWater",
+        factoryFormula: "annualOPEX / annualProductWater",
+        category: "Economic",
+        units: "₹/m³",
+        sourceClassification: "Performance Metric",
+        description: "Normalizes total annual operational expenditure to annual product clean water throughput to yield the operating unit cost per cubic meter.",
+        applicableBasis: "Unit Operating Cost",
+        author: "TEA Core",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            annualOPEX: { unit: "₹/year", label: "Total Annual OPEX", default: 26535.39 },
+            annualProductWater: { unit: "m³/year", label: "Annual Product Water Volume", default: 4798.08 }
+        },
+        dependencyChain: ["Commercial Benchmarking", "Levelized Water Feasibility"]
+    },
+
+    // =========================================================================
+    // DOMAIN 08 — ELECTRODIALYSIS & CONSISTENCY RELATIONS (4 Equations)
+    // =========================================================================
+    {
+        id: "EQ-ED-01",
+        name: "Sherwood Limiting Current Density",
+        formula: "(z * F * D * c_bulk) / (delta_bl * (T_mem - t_sol))",
+        factoryFormula: "(z * F * D * c_bulk) / (delta_bl * (T_mem - t_sol))",
+        category: "Electrochemical",
+        units: "A/m²",
+        sourceClassification: "First Principles",
+        description: "Calculates the limiting current density in electrodialysis boundary layers beyond which water splitting and concentration polarization occur.",
+        applicableBasis: "Boundary Layer Concentration Polarization",
+        author: "Core Registry",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            z: { unit: "-", label: "Ion Valence", default: 1 },
+            F: { unit: "C/mol", label: "Faraday Constant", default: 96485 },
+            D: { unit: "m²/s", label: "Diffusion Coefficient", default: 1.61e-9 },
+            c_bulk: { unit: "mol/m³", label: "Bulk Solution Concentration", default: 8.55 },
+            delta_bl: { unit: "m", label: "Diffusion Boundary Layer Thickness", default: 5e-5 },
+            T_mem: { unit: "-", label: "Membrane Transport Number", default: 0.98 },
+            t_sol: { unit: "-", label: "Solution Transport Number", default: 0.40 }
+        },
+        dependencyChain: ["Operational Current Density Bounding", "Concentration Polarization Check"]
+    },
+    {
+        id: "EQ-ED-02",
+        name: "Cell Pair Ohmic & Donnan Voltage",
+        formula: "currentDensity * (R_aem + R_cem + R_dilute + R_conc) + V_donnan",
+        factoryFormula: "currentDensity * (R_aem + R_cem + R_dilute + R_conc) + V_donnan",
+        category: "Electrochemical",
+        units: "V",
+        sourceClassification: "First Principles",
+        description: "Governs total cell pair voltage across AEM/CEM membranes, dilute/concentrate bulk spacers, and Donnan potential jump.",
+        applicableBasis: "Cell Pair Voltage Drop (Ohmic + Donnan)",
+        author: "Core Registry",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            currentDensity: { unit: "A/m²", label: "Current Density", default: 120.0 },
+            R_aem: { unit: "Ω·m²", label: "AEM Area Resistance", default: 0.00025 },
+            R_cem: { unit: "Ω·m²", label: "CEM Area Resistance", default: 0.00025 },
+            R_dilute: { unit: "Ω·m²", label: "Dilute Channel Resistance", default: 0.0028 },
+            R_conc: { unit: "Ω·m²", label: "Concentrate Channel Resistance", default: 0.0008 },
+            V_donnan: { unit: "V", label: "Donnan Potential Difference", default: 0.055 }
+        },
+        dependencyChain: ["Stack Voltage Calculation", "Specific Energy Consumption"]
+    },
+    {
+        id: "EQ-EDR-01",
+        name: "EDR Cycle Water Recovery with Flush Purge",
+        formula: "recovery_ed * (1 - t_flush / t_cycle)",
+        factoryFormula: "recovery_ed * (1 - t_flush / t_cycle)",
+        category: "Hydraulic",
+        units: "%",
+        sourceClassification: "Engineering Model",
+        description: "Rigorously accounts for the transition flush volume diverted to waste following periodic DC polarity reversal in EDR stacks.",
+        applicableBasis: "Periodic Polarity Reversal Flush Balance",
+        author: "Core Registry",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            recovery_ed: { unit: "%", label: "Base Electrodialysis Recovery", default: 90.0 },
+            t_flush: { unit: "min", label: "Transition Flush Divert Duration", default: 1.5 },
+            t_cycle: { unit: "min", label: "Polarity Reversal Half-Cycle Period", default: 20.0 }
+        },
+        dependencyChain: ["Product Volume Output", "Brine Discharge Sizing", "Annual OPEX"]
+    },
+    {
+        id: "EQ-CONS-01",
+        name: "Electrochemical Charge-Mass Consistency",
+        formula: "((Q_effective - Q_stoichiometric) / Q_stoichiometric) * 100",
+        factoryFormula: "((Q_effective - Q_stoichiometric) / Q_stoichiometric) * 100",
+        category: "Electrochemical",
+        units: "%",
+        sourceClassification: "First Principles",
+        description: "Reconciles cumulative Faradaic electrical charge (integral(I * dt) * Lambda) against physical solute mass transport (Delta_TDS * V_prod). Consistency requires error <= 5%.",
+        applicableBasis: "Electrochemical Conservation Verification",
+        author: "Core Registry",
+        dateModified: new Date("2026-03-01").toISOString(),
+        version: "1.0.0",
+        status: "Factory",
+        isCustom: false,
+        isModified: false,
+        enabled: true,
+        variableUnits: {
+            Q_effective: { unit: "C", label: "Effective Faradaic Charge Transported", default: 100000 },
+            Q_stoichiometric: { unit: "C", label: "Stoichiometric Solute Charge Removed", default: 100000 }
+        },
+        dependencyChain: ["Engineering Audit", "Simulation Engine Verification"]
     }
 ];
 

@@ -1,8 +1,8 @@
-"use strict";
-
 import calculateEngineering from "../engine/engineeringEquationEngine.js";
 import aiRecommendation, { evaluateTechnologyCandidate, rankFeasibleCandidates, rankAllCandidates, TECHNOLOGY_BOUNDARIES } from "./aiRecommendation.js";
 import { calculateMCDIChargeEfficiency } from "../models/mCDIModel.js";
+import calculateTEA, { DEFAULT_TEA_INPUTS } from "../tea/technoEconomicEngine.js";
+
 
 /**
  * Searches allowable technology configurations and operating variables for a scenario point.
@@ -16,10 +16,12 @@ export function optimizeScenarioTechnology({
     scOptInputs = {},
     parameter = "Feed TDS",
     baseTech = "AUTO",
-    baselinePressureDrop = 406
+    baselinePressureDrop = 406,
+    baseline = null
 }) {
     // All registered technologies to evaluate in scenario discovery
-    const allRegisteredTechs = ["MCDI", "FCDI", "CDI", "EDI"];
+    const isEdRequested = baseTech === "ED" || baseTech === "EDR";
+    const allRegisteredTechs = isEdRequested ? ["MCDI", "FCDI", "CDI", "EDI", "ED", "EDR"] : ["MCDI", "FCDI", "CDI", "EDI"];
     const targetTds = Number(scFeed.targetTds ?? 3.0);
     const targetRecovery = Number(scFeed.targetRecovery ?? 95.0);
     const feedTds = Number(scFeed.tds ?? 500);
@@ -44,8 +46,7 @@ export function optimizeScenarioTechnology({
             ? [Math.max(1, Math.round(Number(scOptInputs.cellPairs) / 34))]
             : [1, 2, 3, 4, 5];
 
-        const targetSetpoint = Math.min(targetTds, Math.max(0.5, targetTds <= 3.0 ? 2.8 : targetTds - 0.5));
-        const deltaTds = Math.max(0, feedTds - targetSetpoint);
+        const deltaTds = Math.max(0, feedTds - targetTds);
         const molarRemoval = (flowM3s * deltaTds) / 58.44;
 
         let bestMcdiOption = null;
@@ -61,7 +62,7 @@ export function optimizeScenarioTechnology({
                 const cellCurrent = totalFaradayCurrent / pairs;
                 const j = cellCurrent / planarAreaM2;
 
-                if (j >= 10.0 && j <= 250.0) {
+                if (j >= 0.1 && j <= 250.0) {
                     try {
                         const res = calculateEngineering({
                             technology: "MCDI",
@@ -404,20 +405,177 @@ export function optimizeScenarioTechnology({
         if (!bestInfeasible && !bestEdiOption?.isFeasible) {
             bestInfeasible = bestEdiOption;
         }
+     // --- 5. EVALUATE ED (when requested) ---
+    if (isEdRequested) {
+        const isEdFeedCompliant = feedTds <= 12000.0 && (scFeed.hardness ?? 0) <= 400.0;
+        let bestEdOption = null;
+
+        if (isEdFeedCompliant) {
+            for (const v of [1.0, 1.2, 1.4]) {
+                for (const p of [50, 100, 150]) {
+                    try {
+                        const res = calculateEngineering({
+                            technology: "ED",
+                            feedWater: scFeed,
+                            voltage: v,
+                            cellPairs: p,
+                            targetTds,
+                            targetRecovery
+                        });
+                        const cand = evaluateTechnologyCandidate({
+                            key: "ED",
+                            name: "ED",
+                            feedWater: scFeed,
+                            model: res,
+                            targetTds,
+                            targetRecovery
+                        });
+                        const resRec = ((res.waterRecoveryPct ?? res.waterRecovery ?? 0) <= 1.0 && (res.waterRecoveryPct ?? res.waterRecovery ?? 0) > 0)
+                            ? (res.waterRecoveryPct ?? res.waterRecovery) * 100
+                            : (res.waterRecoveryPct ?? res.waterRecovery ?? 0);
+                        const isTargetMet = res.outletTds <= targetTds + 0.05 && resRec >= targetRecovery - 0.5;
+                        const isFeasible = cand.isFeasible && isTargetMet;
+                        const isInRecommended = isFeasible && (v <= 1.4);
+
+                        const option = {
+                            engModel: res,
+                            selectedCandidate: cand,
+                            tech: "ED",
+                            isFeasible,
+                            isInRecommended,
+                            pairs: res.cellPairs ?? p,
+                            modules: 1,
+                            cellCurrent: Number(res.current ?? 0),
+                            currentDensity: Number(res.currentDensity ?? 0),
+                            cellVoltage: v,
+                            electrodeArea: Number(res.electrodeArea ?? 350),
+                            sec: res.secElectricalGross ?? res.sec ?? 0,
+                            outletTds: res.outletTds,
+                            recovery: resRec,
+                            reason: isFeasible ? "Fully compliant with ED operational envelope." : cand.rejectionReason
+                        };
+                        if (isFeasible) feasibleOptions.push(option);
+                        if (!bestEdOption || (option.isFeasible && !bestEdOption.isFeasible)) bestEdOption = option;
+                    } catch (e) {}
+                }
+            }
+        }
+
+        const edReason = !isEdFeedCompliant
+            ? `Feed violates ED maximum limits (Feed TDS ${feedTds} mg/L > 12000 mg/L or Hardness ${scFeed.hardness ?? 0} mg/L > 400 mg/L).`
+            : (bestEdOption?.reason ?? "Targets not met.");
+
+        evaluatedTechnologies.push({
+            tech: "ED",
+            name: "Electrodialysis",
+            isFeasible: bestEdOption?.isFeasible ?? false,
+            isInRecommended: bestEdOption?.isInRecommended ?? false,
+            status: isEdFeedCompliant ? (bestEdOption?.isFeasible ? "FEASIBLE" : "NOT FEASIBLE") : "CONSTRAINTS EXCEEDED",
+            outletTds: bestEdOption?.outletTds ?? null,
+            recovery: bestEdOption?.recovery ?? null,
+            sec: bestEdOption?.sec ?? null,
+            reason: edReason
+        });
+
+        if (!bestInfeasible && !bestEdOption?.isFeasible) {
+            bestInfeasible = bestEdOption;
+        }
+    }
+
+    // --- 6. EVALUATE EDR (when requested) ---
+    if (isEdRequested) {
+        const isEdrFeedCompliant = feedTds <= 15000.0 && (scFeed.hardness ?? 0) <= 800.0;
+        let bestEdrOption = null;
+
+        if (isEdrFeedCompliant) {
+            for (const v of [1.0, 1.2, 1.4]) {
+                for (const p of [50, 100, 150]) {
+                    try {
+                        const res = calculateEngineering({
+                            technology: "EDR",
+                            feedWater: scFeed,
+                            voltage: v,
+                            cellPairs: p,
+                            targetTds,
+                            targetRecovery
+                        });
+                        const cand = evaluateTechnologyCandidate({
+                            key: "EDR",
+                            name: "EDR",
+                            feedWater: scFeed,
+                            model: res,
+                            targetTds,
+                            targetRecovery
+                        });
+                        const resRec = ((res.waterRecoveryPct ?? res.waterRecovery ?? 0) <= 1.0 && (res.waterRecoveryPct ?? res.waterRecovery ?? 0) > 0)
+                            ? (res.waterRecoveryPct ?? res.waterRecovery) * 100
+                            : (res.waterRecoveryPct ?? res.waterRecovery ?? 0);
+                        const isTargetMet = res.outletTds <= targetTds + 0.05 && resRec >= targetRecovery - 0.5;
+                        const isFeasible = cand.isFeasible && isTargetMet;
+                        const isInRecommended = isFeasible && (v <= 1.4);
+
+                        const option = {
+                            engModel: res,
+                            selectedCandidate: cand,
+                            tech: "EDR",
+                            isFeasible,
+                            isInRecommended,
+                            pairs: res.cellPairs ?? p,
+                            modules: 1,
+                            cellCurrent: Number(res.current ?? 0),
+                            currentDensity: Number(res.currentDensity ?? 0),
+                            cellVoltage: v,
+                            electrodeArea: Number(res.electrodeArea ?? 350),
+                            sec: res.secElectricalGross ?? res.sec ?? 0,
+                            outletTds: res.outletTds,
+                            recovery: resRec,
+                            reason: isFeasible ? "Fully compliant with EDR high-scaling operational envelope." : cand.rejectionReason
+                        };
+                        if (isFeasible) feasibleOptions.push(option);
+                        if (!bestEdrOption || (option.isFeasible && !bestEdrOption.isFeasible)) bestEdrOption = option;
+                    } catch (e) {}
+                }
+            }
+        }
+
+        const edrReason = !isEdrFeedCompliant
+            ? `Feed violates EDR maximum limits (Feed TDS ${feedTds} mg/L > 15000 mg/L or Hardness ${scFeed.hardness ?? 0} mg/L > 800 mg/L).`
+            : (bestEdrOption?.reason ?? "Targets not met.");
+
+        evaluatedTechnologies.push({
+            tech: "EDR",
+            name: "Electrodialysis Reversal",
+            isFeasible: bestEdrOption?.isFeasible ?? false,
+            isInRecommended: bestEdrOption?.isInRecommended ?? false,
+            status: isEdrFeedCompliant ? (bestEdrOption?.isFeasible ? "FEASIBLE" : "NOT FEASIBLE") : "CONSTRAINTS EXCEEDED",
+            outletTds: bestEdrOption?.outletTds ?? null,
+            recovery: bestEdrOption?.recovery ?? null,
+            sec: bestEdrOption?.sec ?? null,
+            reason: edrReason
+        });
+
+        if (!bestInfeasible && !bestEdrOption?.isFeasible) {
+            bestInfeasible = bestEdrOption;
+        }
+    }
     }
 
     // --- SYNTHESIZE FEASIBLE TECHNOLOGIES & SELECT BEST CANDIDATE ---
     // Strictly evaluate configurations in the RECOMMENDED envelope
     const recommendedFeasibleOptions = feasibleOptions.filter(o => o.isFeasible && o.isInRecommended);
-    const feasibleTechs = Array.from(new Set(recommendedFeasibleOptions.map(o => o.tech)));
+    const candidatePool = recommendedFeasibleOptions;
+    const feasibleTechs = Array.from(new Set(candidatePool.map(o => o.tech)));
 
     let chosenOption = null;
-    if (recommendedFeasibleOptions.length > 0) {
-        // Authoritative platform ranking using rankFeasibleCandidates (no baseTech favoritism bias)
-        const candidates = recommendedFeasibleOptions.map(o => o.selectedCandidate);
+    if (candidatePool.length > 0) {
+        // Authoritative platform ranking using rankFeasibleCandidates
+        const candidates = candidatePool.map(o => o.selectedCandidate);
         const rankedCandidates = rankFeasibleCandidates(candidates, targetTds, targetRecovery, feedTds);
         const bestCandidate = rankedCandidates[0];
-        chosenOption = recommendedFeasibleOptions.find(o => o.selectedCandidate === bestCandidate || o.tech === bestCandidate?.key) || recommendedFeasibleOptions[0];
+        chosenOption = candidatePool.find(o => o.selectedCandidate === bestCandidate || o.tech === bestCandidate?.key) || candidatePool[0];
+    } else if (baseTech && baseTech !== "AUTO" && feasibleOptions.filter(o => o.tech === baseTech).length > 0) {
+        // Available in extended envelope for baseTech
+        chosenOption = feasibleOptions.find(o => o.tech === baseTech);
     }
 
     const summaryStr = feasibleTechs.length > 0 ? feasibleTechs.join(", ") : "None";
@@ -431,21 +589,27 @@ export function optimizeScenarioTechnology({
         };
     }
 
+    const techSpecificInfeasible = (baseTech && baseTech !== "AUTO")
+        ? evaluatedTechnologies.find(t => t.tech === baseTech)
+        : null;
+
     return bestInfeasible ? {
         ...bestInfeasible,
-        isFeasible: false,
-        isInRecommended: false,
-        feasibleTechnologies: [],
-        feasibleTechSummary: "None",
-        evaluatedTechnologies
-    } : {
-        tech: "NONE",
+        tech: baseTech !== "AUTO" ? baseTech : (bestInfeasible.tech || "NONE"),
         isFeasible: false,
         isInRecommended: false,
         feasibleTechnologies: [],
         feasibleTechSummary: "None",
         evaluatedTechnologies,
-        reason: "No registered technology satisfies all engineering constraints within the recommended envelope."
+        reason: techSpecificInfeasible?.reason || bestInfeasible.reason || "Physical constraints not met."
+    } : {
+        tech: baseTech !== "AUTO" ? baseTech : "NONE",
+        isFeasible: false,
+        isInRecommended: false,
+        feasibleTechnologies: [],
+        feasibleTechSummary: "None",
+        evaluatedTechnologies,
+        reason: techSpecificInfeasible?.reason || "No registered configuration satisfies all engineering constraints within envelope."
     };
 }
 
@@ -628,7 +792,7 @@ export function validateSweepConfig({ parameter, from, to, count }) {
  * @param {number[]} options.values Array of generated parameter values
  * @returns {Object} Scenario analysis results, summary metrics, and recommended operating region
  */
-export function runScenarioAnalysis({ baseline = {}, parameter = "Feed TDS", values = [], recalculatePipeline = null }) {
+export function runScenarioAnalysis({ baseline = {}, parameter = "Feed TDS", values = [], recalculatePipeline = null, teaInputs = null }) {
     const meta = SWEEP_PARAMETERS[parameter];
     if (!meta || !Array.isArray(values) || values.length === 0) {
         return {
@@ -741,8 +905,10 @@ export function runScenarioAnalysis({ baseline = {}, parameter = "Feed TDS", val
             (parameter === "Active Area" && Math.abs(val - baseArea) < 0.01)
         );
 
-        if (isBaselineCase && baseCurrent !== null) {
+        const baseMode = baseline.engineering?.calculationMode || baseline.inputs?.calculationMode || (baseInputs.current ? "CURRENT_CONTROLLED" : "TARGET_CONTROLLED");
+        if (isBaselineCase && baseMode === "CURRENT_CONTROLLED" && baseCurrent !== null) {
             scInput.optimizationInputs.current = baseCurrent;
+            scInput.optimizationInputs.calculationMode = "CURRENT_CONTROLLED";
         }
 
         const scFeed = scInput.feedWater;
@@ -770,29 +936,81 @@ export function runScenarioAnalysis({ baseline = {}, parameter = "Feed TDS", val
             pipelineTech = "NONE";
             engModel = null;
         } else {
-            // For baseline case S01, if baseline.engineering is already calculated, use it directly
-            // to guarantee exact reproduction of baseline Product TDS, recovery, and SEC.
-            if (isBaselineCase && baseline.engineering && (baseline.engineering.outletTDS !== undefined || baseline.engineering.outletTds !== undefined)) {
-                engModel = baseline.engineering;
-                pipelineTech = (baseline.engineering.technology && baseline.engineering.technology !== "AUTO")
-                    ? baseline.engineering.technology
-                    : (baseTech !== "AUTO" ? baseTech : null);
-                aiResult = baseline.aiRecommendation || null;
-            }
-
-            // Always run multi-technology scenario discovery evaluating all 4 registered technologies for EVERY scenario
+            // Always run multi-technology scenario discovery evaluating registered technologies for EVERY scenario
             optConfig = optimizeScenarioTechnology({
                 scFeed,
                 scOptInputs,
                 parameter,
                 baseTech,
-                baselinePressureDrop: Number(baseline?.engineering?.pressureDrop ?? 406)
+                baseline
             });
 
-            if (!isBaselineCase || !engModel) {
+            const isBaselineSyncCase = Boolean(baseline.engineering) && isBaselineCase;
+            if (isBaselineSyncCase) {
+                // S01: Strictly consume and independently execute active authoritative model
+                const activeBaselineTech = baseline.engineering?.technology || (baseTech !== "AUTO" ? baseTech : (optConfig?.tech || "MCDI"));
+                pipelineTech = activeBaselineTech;
+
+                try {
+                    const s01CalcInputs = {
+                        technology: activeBaselineTech,
+                        feedWater: scFeed,
+                        ...scOptInputs,
+                        ...(baseline.inputs || {})
+                    };
+                    if (baseMode === "CURRENT_CONTROLLED" && baseCurrent !== null) {
+                        s01CalcInputs.current = baseCurrent;
+                        s01CalcInputs.calculationMode = "CURRENT_CONTROLLED";
+                    } else {
+                        delete s01CalcInputs.current;
+                        s01CalcInputs.targetTds = scFeed.targetTds;
+                        s01CalcInputs.targetRecovery = scFeed.targetRecovery;
+                    }
+                    engModel = calculateEngineering(s01CalcInputs);
+                } catch (e) {
+                    console.error("[DesignExplorer] S01 authoritative baseline calculation error:", e);
+                }
+
+                // Independent verification that S01 reproduces active baseline engineering metrics
+                if (baseline.engineering && engModel) {
+                    const baseEng = baseline.engineering;
+                    const baseOutlet = Number(baseEng.outletTDS ?? baseEng.outletTds ?? 0);
+                    const calcOutlet = Number(engModel.outletTDS ?? engModel.outletTds ?? 0);
+                    const baseRec = Number(baseEng.waterRecoveryPct ?? baseEng.waterRecovery ?? 0);
+                    const calcRec = Number(engModel.waterRecoveryPct ?? engModel.waterRecovery ?? 0);
+                    const isVerified = Math.abs(baseOutlet - calcOutlet) <= 0.05 && Math.abs(baseRec - calcRec) <= 0.1;
+                    if (!isVerified) {
+                        console.warn(`[DesignExplorer] S01 baseline verification: Active=${baseOutlet} mg/L, Calculated=${calcOutlet} mg/L`);
+                    }
+                }
+            } else if (baseTech !== "AUTO") {
+                pipelineTech = baseTech;
+                const dynamicPairs = (parameter !== "Cell Pairs" && optConfig?.tech === baseTech && optConfig?.pairs) 
+                    ? optConfig.pairs 
+                    : scOptInputs.cellPairs;
+                try {
+                    engModel = calculateEngineering({
+                        technology: baseTech,
+                        feedWater: scFeed,
+                        ...scOptInputs,
+                        ...(dynamicPairs ? { cellPairs: dynamicPairs } : {}),
+                        targetTds: scFeed.targetTds,
+                        targetRecovery: scFeed.targetRecovery
+                    });
+                } catch (e) {}
+            } else {
                 if (optConfig?.engModel) {
                     engModel = optConfig.engModel;
                     pipelineTech = optConfig.tech;
+                } else {
+                    try {
+                        engModel = calculateEngineering({
+                            technology: optConfig?.tech || "MCDI",
+                            feedWater: scFeed,
+                            ...scOptInputs
+                        });
+                        pipelineTech = optConfig?.tech || "MCDI";
+                    } catch (e) {}
                 }
             }
         }
@@ -802,7 +1020,7 @@ export function runScenarioAnalysis({ baseline = {}, parameter = "Feed TDS", val
         }
 
         // Determine displayed technology:
-        let displayTech = pipelineTech || optConfig?.tech || (baseTech === "AUTO" ? (aiResult?.selectedTechnology || "MCDI") : baseTech);
+        let displayTech = baseTech !== "AUTO" ? baseTech : (pipelineTech || optConfig?.tech || aiResult?.selectedTechnology || "MCDI");
         if (displayTech === "AUTO") {
             displayTech = optConfig?.tech || aiResult?.selectedTechnology || "MCDI";
         }
@@ -836,17 +1054,29 @@ export function runScenarioAnalysis({ baseline = {}, parameter = "Feed TDS", val
             rawRecovery = rawRecovery * 100;
         }
         const recovery = Number(rawRecovery.toFixed(1));
-        const sec = Number((engModel?.secElectricalGross ?? engModel?.sec ?? 0).toFixed(3));
-        const secNet = Number((engModel?.secElectricalNet ?? engModel?.sec ?? 0).toFixed(3));
-        const pressureDrop = parameter === "Feed TDS"
-            ? Number(baseline?.engineering?.pressureDrop ?? 406)
-            : Number((engModel?.pressureDrop ?? 406).toFixed(0));
-        const cellPairs = Number(optConfig?.pairs ?? engModel?.cellPairs ?? scOptInputs.cellPairs ?? 34);
-        const electrodeArea = Number(optConfig?.electrodeArea ?? engModel?.electrodeArea ?? scOptInputs.electrodeArea ?? 350);
-        const cellVoltage = Number(optConfig?.cellVoltage ?? engModel?.voltageCell ?? engModel?.voltage ?? scOptInputs.voltage ?? 1.4);
-        const operatingCurrent = Number((optConfig?.cellCurrent ?? engModel?.cellCurrent ?? engModel?.current ?? scOptInputs.current ?? 0).toFixed(2));
-        const power = Number((engModel?.stackElectricalPowerW ?? engModel?.power ?? (operatingCurrent * (engModel?.stackVoltage ?? (cellVoltage * cellPairs)))).toFixed(1));
-        const currentDensity = Number((optConfig?.currentDensity ?? engModel?.currentDensity ?? (operatingCurrent / (Math.max(0.01, electrodeArea / 10000)))).toFixed(1));
+        const sec = Number((engModel?.secElectricalGross ?? engModel?.secTotalGross ?? engModel?.sec ?? 0).toFixed(3));
+        const secGross = sec;
+        const secNet = Number((engModel?.secElectricalNet ?? engModel?.secTotalNet ?? engModel?.sec ?? 0).toFixed(4));
+        const secPump = Number((engModel?.secPump ?? engModel?.secHydraulic ?? 0).toFixed(5));
+        const secHydraulic = secPump;
+        const pressureDrop = Number((engModel?.pressureDropPa ?? engModel?.pressureDrop ?? engModel?.HydraulicResult?.totalPressureDrop?.value ?? 220).toFixed(0));
+        const cellPairs = isBaselineCase
+            ? Number(engModel?.cellPairs ?? basePairs)
+            : (parameter === "Cell Pairs" ? Math.round(val) : Number(engModel?.cellPairs ?? optConfig?.pairs ?? scOptInputs.cellPairs ?? 34));
+        const electrodeArea = isBaselineCase
+            ? Number(engModel?.electrodeArea ?? baseArea)
+            : (parameter === "Active Area" ? val : Number(engModel?.electrodeArea ?? optConfig?.electrodeArea ?? scOptInputs.electrodeArea ?? 350));
+        const cellVoltage = isBaselineCase
+            ? Number(engModel?.voltageCell ?? engModel?.voltage ?? baseVoltage)
+            : (parameter === "Cell Voltage" ? val : Number(engModel?.voltageCell ?? engModel?.voltage ?? optConfig?.cellVoltage ?? scOptInputs.voltage ?? 1.4));
+        const voltageStack = Number((engModel?.voltageStack ?? (cellVoltage * cellPairs)).toFixed(2));
+        const operatingCurrent = isBaselineCase
+            ? Number((engModel?.cellCurrent ?? engModel?.current ?? 0).toFixed(4))
+            : Number((engModel?.cellCurrent ?? engModel?.current ?? optConfig?.cellCurrent ?? scOptInputs.current ?? 0).toFixed(4));
+        const power = Number((engModel?.stackElectricalPowerW ?? engModel?.power ?? (operatingCurrent * voltageStack)).toFixed(1));
+        const currentDensity = Number((engModel?.currentDensity ?? (operatingCurrent / (Math.max(0.01, electrodeArea / 10000)))).toFixed(1));
+        const flowVelocity = Number((engModel?.flowVelocity ?? engModel?.flowVelocityWater ?? 0.035).toFixed(4));
+        const recoveryType = engModel?.recoveryType || (parameter === "Recovery" ? "SWEEP TARGET" : "DESIGN CONSTRAINT");
 
         // Flow & Salt Mass Balance recalculation and exact residuals
         const prodFlow = Number((engModel?.productFlowLmin ?? (scFeed.flowRate * (recovery / 100))).toFixed(3));
@@ -953,6 +1183,27 @@ Salt residual: ${saltResidual}
 Operating range: ${operatingRange}
 Feasibility: ${feasibilityStatus}`);
 
+        // TEA Economic Analysis for Scenario
+        const scenarioTea = calculateTEA({
+            engineering: engModel || {
+                flowRate: scFeed.flowRate,
+                feedFlow: scFeed.flowRate,
+                productFlowLmin: prodFlow,
+                waterRecoveryPct: recovery,
+                waterRecovery: recovery,
+                secElectricalGross: sec,
+                sec,
+                stackElectricalPowerW: power,
+                power,
+                technology: displayTech,
+                cellPairs,
+                electrodeArea,
+                numberOfModules: optConfig?.modules ?? engModel?.numberOfModules ?? scOptInputs.numberOfModules ?? 1
+            },
+            economicInputs: teaInputs || baseline?.teaInputs || DEFAULT_TEA_INPUTS,
+            scaleWithDesign: true
+        });
+
         scenarios.push({
             id: scenarioId,
             scenarioId,
@@ -965,22 +1216,44 @@ Feasibility: ${feasibilityStatus}`);
             feedFlow: scFeed.flowRate,
             targetTds: scFeed.targetTds,
             targetRecovery: scFeed.targetRecovery,
+            scenarioInputs: {
+                tds: scFeed.tds,
+                flowRate: scFeed.flowRate,
+                targetTds: scFeed.targetTds,
+                targetRecovery: scFeed.targetRecovery
+            },
+            candidateResults: optConfig?.candidateResults || aiResult?.technologyAssessment?.allCandidates || [],
+            recommendedTechnology: optConfig?.tech || aiResult?.selectedTechnology || "MCDI",
+            selectedTechnology: baseTech !== "AUTO" ? baseTech : (optConfig?.tech || aiResult?.selectedTechnology || "MCDI"),
+            selectionReason: optConfig?.reason || aiResult?.reason || feasibilityReason,
             cellVoltage,
             cellPairs,
             activeArea: electrodeArea,
             electrodeArea,
             technology: displayTech,
-            selectedTechnology: displayTech,
             outletTds,
             productTds: outletTds,
             recovery,
             calculatedRecovery: recovery,
-            sec,
-            secNet,
-            pressureDrop,
+            recoveryType,
+            stackVoltage: voltageStack,
+            voltageStack,
             power,
+            stackPower: power,
             current: operatingCurrent,
             currentDensity,
+            sec,
+            secGross,
+            secNet,
+            secPump,
+            secHydraulic,
+            electricalSec: sec,
+            hydraulicSec: secPump,
+            pressureDrop,
+            channelPressureDropPa: pressureDrop,
+            flowVelocity,
+            chargeEfficiency: Number(engModel?.chargeEfficiency ?? 90),
+            sac: Number(engModel?.sac ?? 0),
             productFlow: prodFlow,
             rejectFlow: rejFlow,
             concentrateTds: rejTds,
@@ -991,14 +1264,83 @@ Feasibility: ${feasibilityStatus}`);
             massBalanceStatus,
             saltBalanceStatus,
             balanceStatus,
+            waterBalance: {
+                residual: flowResidual,
+                tolerance: 0.005,
+                status: massBalanceStatus,
+                isBalanced: isMassBalanceClosed
+            },
+            saltBalance: {
+                residual: saltResidual,
+                tolerance: 0.001,
+                status: saltBalanceStatus,
+                isBalanced: isSaltBalanceClosed
+            },
+            faradayBalance: {
+                faradaySaltRateMgS: Number((engModel?.faradayChargeReconciliation?.faradaySaltRemovalMgS ?? (operatingCurrent * cellPairs * (Number(engModel?.chargeEfficiency ?? 90) / 100) / 96485 * 58.44 * 1000)).toFixed(4)),
+                streamSaltRateMgS: Number((engModel?.faradayChargeReconciliation?.streamSaltRemovalMgS ?? Math.max(0, (feedSaltMass - prodSaltMass) * 1000)).toFixed(4)),
+                residualMg: Number(Math.abs((engModel?.faradayChargeReconciliation?.faradaySaltRemovedPerCycleMg ?? 0) - (engModel?.faradayChargeReconciliation?.streamSaltRemovedPerCycleMg ?? 0)).toFixed(2)),
+                relativeErrorPct: Number((engModel?.faradayChargeReconciliation?.chargeBalanceRelativeErrorPct ?? 0).toFixed(4)),
+                tolerancePct: 0.5,
+                status: (engModel?.faradayChargeReconciliation?.isConserved ?? true) ? "CLOSED" : "DISCREPANCY"
+            },
+            faradayBalanceStatus: (engModel?.faradayChargeReconciliation?.isConserved ?? true) ? "CLOSED" : "DISCREPANCY",
+            isFaradayBalanceClosed: Boolean(engModel?.faradayChargeReconciliation?.isConserved ?? true),
+            calculationTrace: {
+                technology: displayTech,
+                modelId: engModel?.modelPedigree ? `${displayTech}-FIRST-PRINCIPLES` : `${displayTech}-MODEL`,
+                equationId: engModel?.faradayChargeReconciliation?.equationId || "EQ-03-04",
+                inputs: {
+                    feedTds: scFeed.tds,
+                    feedFlowLmin: scFeed.flowRate,
+                    targetTds: scFeed.targetTds,
+                    targetRecovery: scFeed.targetRecovery,
+                    recoveryType,
+                    cellVoltage,
+                    cellPairs,
+                    electrodeArea,
+                    current: operatingCurrent
+                },
+                outputs: {
+                    productFlowLmin: prodFlow,
+                    concentrateFlowLmin: rejFlow,
+                    outletTds,
+                    concentrateTds: rejTds,
+                    stackVoltage: voltageStack,
+                    powerW: power,
+                    secElectricalGross: sec,
+                    secHydraulic: secPump,
+                    pressureDropPa: pressureDrop,
+                    flowVelocity
+                },
+                balances: {
+                    waterResidualLmin: flowResidual,
+                    saltResidualGs: saltResidual,
+                    faradayDiscrepancyPct: Number((engModel?.faradayChargeReconciliation?.chargeBalanceRelativeErrorPct ?? 0).toFixed(4))
+                },
+                governingEquations: ["EQ-01-02", "EQ-02-02", "EQ-03-04", "EQ-03-05", "EQ-03-06"],
+                operatingRange,
+                feasibility: feasibilityStatus
+            },
             operatingRange,
             feasibility: feasibilityStatus,
             feasibilityBadge,
             feasibilityReason,
+            reason: feasibilityReason,
+            failureReason: feasibilityStatus === "FEASIBLE" ? null : feasibilityReason,
             isFeasible: feasibilityStatus === "FEASIBLE",
             isWarning: feasibilityStatus === "FEASIBLE WITH WARNING",
             isPass: feasibilityStatus === "FEASIBLE" || feasibilityStatus === "FEASIBLE WITH WARNING",
             score: selectedCandidate?.score ?? 50,
+            // TEA Economic outputs
+            capex: scenarioTea.capexInr,
+            annualOpex: scenarioTea.annualOpexInr,
+            energyCost: scenarioTea.annualEnergyCostInr,
+            operatingTreatmentCost: scenarioTea.operatingTreatmentCostInrPerM3,
+            treatmentCost: scenarioTea.operatingTreatmentCostInrPerM3,
+            annualProductWater: scenarioTea.annualProductWaterM3,
+            annualEnergyKwh: scenarioTea.annualEnergyConsumptionKwh,
+            tea: scenarioTea,
             // Detailed scenario inspection payload
             inputs: {
                 feedTds: scFeed.tds,
@@ -1006,7 +1348,8 @@ Feasibility: ${feasibilityStatus}`);
                 targetTds: scFeed.targetTds,
                 targetRecovery: scFeed.targetRecovery,
                 recovery: scFeed.targetRecovery,
-                cellVoltage,
+                recoveryType,
+                cellVoltage: parameter === "Cell Voltage" ? val : Number(scOptInputs.voltage ?? baseVoltage ?? 1.4),
                 cellPairs,
                 activeArea: electrodeArea,
                 modules: optConfig?.modules ?? engModel?.numberOfModules ?? scOptInputs.numberOfModules ?? 1,
@@ -1017,9 +1360,19 @@ Feasibility: ${feasibilityStatus}`);
                 productFlow: prodFlow,
                 rejectFlow: rejFlow,
                 recovery,
+                recoveryType,
                 sec,
+                electricalSec: sec,
+                hydraulicSec: secPump,
                 stackPower: power,
-                pressureDrop
+                stackVoltage: voltageStack,
+                pressureDrop,
+                flowVelocity,
+                capex: scenarioTea.capexInr,
+                annualOpex: scenarioTea.annualOpexInr,
+                energyCost: scenarioTea.annualEnergyCostInr,
+                operatingTreatmentCost: scenarioTea.operatingTreatmentCostInrPerM3,
+                treatmentCost: scenarioTea.operatingTreatmentCostInrPerM3
             },
             balances: {
                 flowResidual,
@@ -1064,7 +1417,7 @@ Feasibility: ${feasibilityStatus}`);
     if (feasibleCases.length > 0) {
         // Strictly FEASIBLE: lowest SEC, then highest recovery
         const sortedFeasible = [...feasibleCases].sort((a, b) => {
-            if (Math.abs(a.sec - b.sec) > 0.01) return a.sec - b.sec;
+            if (Math.abs(a.sec - b.sec) > 0.0001) return a.sec - b.sec;
             return b.recovery - a.recovery;
         });
 
@@ -1176,6 +1529,7 @@ Feasibility: ${feasibilityStatus}`);
             warningCount: 0,
             discardedCount: infeasibleCases.length,
             infeasibleCount: infeasibleCases.length,
+            bestCaseTech: bestRegion?.bestTechnology,
             bestRegion
         },
         engineeringInsight

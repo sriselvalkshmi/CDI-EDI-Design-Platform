@@ -1,0 +1,162 @@
+{
+  "technology": "EDR",
+  "name": "Electrodialysis Reversal (EDR)",
+  "description": "Electrodialysis Reversal stack with periodic DC polarity reversal (15-45 min) and automated 4-way valve stream switching to dissolve scale in-situ and eliminate acid/antiscalant dosing.",
+  "standard": "ISO 10628 / ISA 5.1",
+  "flowPath": [
+    "Feed Tank",
+    "Feed Pump",
+    "4-Way Inlet Reversal Valve V-101",
+    "EDR Stack (Active Dilute / Conc)",
+    "4-Way Outlet Reversal Valve V-102",
+    "3-Way Flush Divert Valve V-103",
+    "Product Outlet",
+    "Brine Discharge"
+  ],
+  "layers": [
+    {
+      "id": "reversible_electrode_1",
+      "name": "Reversible Electrode Terminal A",
+      "type": "electrode",
+      "polarity": "reversible",
+      "material": "Mixed Metal Oxide DSA (Ti / IrO2-RuO2)",
+      "color": "#8B5CF6",
+      "stroke": "#6D28D9",
+      "symbol": "ELECTRODE_REVERSIBLE"
+    },
+    {
+      "id": "cem_membrane_1",
+      "name": "Cation Exchange Membrane (CEM)",
+      "type": "membrane",
+      "membraneType": "CEM",
+      "material": "Cross-linked Sulfonated Polymer",
+      "color": "#10B981",
+      "stroke": "#059669",
+      "symbol": "MEMBRANE_CEM"
+    },
+    {
+      "id": "reversible_channel_a",
+      "name": "Reversible Flow Channel A (Dilute ↔ Conc)",
+      "type": "spacer",
+      "material": "Polypropylene Turbulence Promoting Mesh",
+      "color": "#C7D2FE",
+      "stroke": "#4338CA",
+      "symbol": "SPACER_REVERSIBLE"
+    },
+    {
+      "id": "aem_membrane",
+      "name": "Anion Exchange Membrane (AEM)",
+      "type": "membrane",
+      "membraneType": "AEM",
+      "material": "Quaternary Ammonium Functionalized Membrane",
+      "color": "#F59E0B",
+      "stroke": "#D97706",
+      "symbol": "MEMBRANE_AEM"
+    },
+    {
+      "id": "reversible_channel_b",
+      "name": "Reversible Flow Channel B (Conc ↔ Dilute)",
+      "type": "spacer",
+      "material": "Polypropylene Turbulence Promoting Mesh",
+      "color": "#DDD6FE",
+      "stroke": "#6D28D9",
+      "symbol": "SPACER_REVERSIBLE"
+    },
+    {
+      "id": "cem_membrane_2",
+      "name": "Cation Exchange Membrane (CEM)",
+      "type": "membrane",
+      "membraneType": "CEM",
+      "material": "Cross-linked Sulfonated Polymer",
+      "color": "#10B981",
+      "stroke": "#059669",
+      "symbol": "MEMBRANE_CEM"
+    },
+    {
+      "id": "reversible_electrode_2",
+      "name": "Reversible Electrode Terminal B",
+      "type": "electrode",
+      "polarity": "reversible",
+      "material": "Mixed Metal Oxide DSA (Ti / IrO2-RuO2)",
+      "color": "#8B5CF6",
+      "stroke": "#6D28D9",
+      "symbol": "ELECTRODE_REVERSIBLE"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "FEED_TANK",
+      "name": "Raw Feed Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "HDPE Polyethylene",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric (1.0 bar)",
+        "temperatureRange": "5 - 45 °C"
+      }
+    },
+    {
+      "id": "FEED_PUMP",
+      "name": "EDR High-Reliability Feed Pump",
+      "type": "pump",
+      "symbol": "ISA_CENTRIFUGAL_PUMP",
+      "material": "316L Stainless Steel",
+      "manufacturer": "Grundfos CR Series",
+      "specs": {
+        "pumpType": "Centrifugal Booster Pump",
+        "efficiency": "80%",
+        "motorPower": "2.2 kW"
+      }
+    },
+    {
+      "id": "EDR_STACK",
+      "name": "Electrodialysis Reversal Stack",
+      "type": "reactor",
+      "symbol": "ISA_EDR_CELL_STACK",
+      "material": "Chlorine/Oxygen Resistant MMO Electrodes + Neosepta Membranes",
+      "manufacturer": "SUEZ / Veolia Water Technologies",
+      "specs": {
+        "maxCurrentDensity": "320 A/m²",
+        "burstPressure": "4.0 bar",
+        "reversalPeriodMin": "15 - 45 min"
+      }
+    },
+    {
+      "id": "V_101",
+      "name": "4-Way Inlet Stream Reversal Valve",
+      "type": "valve",
+      "symbol": "ISA_FOUR_WAY_VALVE",
+      "material": "PVDF / PTFE Lined",
+      "manufacturer": "Bray Controls",
+      "specs": {
+        "valveType": "Pneumatically Actuated 4-Way Reversing Valve",
+        "cycleTime": "3 sec"
+      }
+    },
+    {
+      "id": "V_102",
+      "name": "4-Way Outlet Stream Reversal Valve",
+      "type": "valve",
+      "symbol": "ISA_FOUR_WAY_VALVE",
+      "material": "PVDF / PTFE Lined",
+      "manufacturer": "Bray Controls",
+      "specs": {
+        "valveType": "Pneumatically Actuated 4-Way Reversing Valve",
+        "cycleTime": "3 sec"
+      }
+    },
+    {
+      "id": "V_103",
+      "name": "3-Way Flush Divert Valve",
+      "type": "valve",
+      "symbol": "ISA_THREE_WAY_VALVE",
+      "material": "PVDF / PTFE Lined",
+      "manufacturer": "Bray Controls",
+      "specs": {
+        "valveType": "Pneumatic 3-Way Divert Valve",
+        "flushPeriod": "60 - 120 sec"
+      }
+    }
+  ]
+}

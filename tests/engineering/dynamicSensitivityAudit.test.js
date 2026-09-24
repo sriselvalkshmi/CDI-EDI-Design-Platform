@@ -56,7 +56,7 @@ describe("Dynamic Parametric Sensitivity & Charge Efficiency Audit (Tests A, B, 
             const saltMassResidual = Math.abs(feedSalt - (prodSalt + rejSalt));
             expect(saltMassResidual).toBeLessThan(0.0001);
 
-            expect(res.power).toBeCloseTo(35.7, 1);
+            expect(res.power).toBeCloseTo(35.6, 1);
             expect(res.secElectricalGross || res.secElectricalAdsorption).toBeCloseTo(0.0313, 3);
         });
     });

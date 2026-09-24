@@ -4,12 +4,16 @@ import cdiTemplate from "../templates/CDI.json";
 import mcdiTemplate from "../templates/MCDI.json";
 import fcdiTemplate from "../templates/FCDI.json";
 import ediTemplate from "../templates/EDI.json";
+import edTemplate from "../templates/ED.json";
+import edrTemplate from "../templates/EDR.json";
 
 const TEMPLATES = {
     CDI: cdiTemplate,
     MCDI: mcdiTemplate,
     FCDI: fcdiTemplate,
-    EDI: ediTemplate
+    EDI: ediTemplate,
+    ED: edTemplate,
+    EDR: edrTemplate
 };
 
 /**
@@ -172,6 +176,10 @@ export function generateStructure({
             dimString = `${plateWidthPx}mm L x ${plateHeightPx}mm W x ${stackHeightPx}mm H`;
             formulaUsed = "J = I / A_electrode; N_pairs = Q_req / q_pair";
             calculationSource = "engineeringEquationEngine & electrodeModel";
+        } else if (eq.type === "valve") {
+            dimString = `DN${pipeDiameterMm} Actuated Port`;
+            formulaUsed = "C_v = 1.156 * Q / sqrt(ΔP)";
+            calculationSource = "fluidDynamics & valveSizing";
         }
 
         return {

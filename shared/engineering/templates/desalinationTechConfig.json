@@ -37,6 +37,22 @@
       "maxDirectFeedHardness": 0.5,
       "source": "DuPont EDI-310 Vendor Technical Specification & ASTM Standards",
       "confidence": "High (Vendor Specification)"
+    },
+    "ED": {
+      "name": "Electrodialysis",
+      "maxDirectFeedTds": 12000,
+      "maxDirectFeedConductivity": 18000,
+      "maxDirectFeedHardness": 250,
+      "source": "Tokuyama Neosepta & Suez Commercial ED Technical Handbooks",
+      "confidence": "High (Commercial Benchmark)"
+    },
+    "EDR": {
+      "name": "Electrodialysis Reversal",
+      "maxDirectFeedTds": 15000,
+      "maxDirectFeedConductivity": 22000,
+      "maxDirectFeedHardness": 800,
+      "source": "Ionics / Suez EDR Municipal & Industrial Design Manuals",
+      "confidence": "High (Commercial Benchmark)"
     }
   },
   "technologies": {
@@ -187,6 +203,78 @@
       "limitations": [
         "Requires low TDS feed (< 30 mg/L TDS / RO permeate) & hardness <= 0.5 ppm as CaCO3",
         "Direct raw feed operation is not feasible without upstream feed conditioning"
+      ]
+    },
+    "ED": {
+      "name": "Electrodialysis",
+      "flowConfiguration": "Continuous dual stream: Feed partitioned into Diluate (Demineralized Product) and Concentrate (Brine) channels",
+      "electrodeConfiguration": "Dimensionally stable Ti/Pt or mixed metal oxide (MMO) electrodes in rinse compartments",
+      "membraneConfiguration": "Alternating Anion-Exchange Membranes (AEM) and Cation-Exchange Membranes (CEM) separated by netting spacers",
+      "ionTransport": "Electric field-driven Faradaic counter-ion electromigration governed by boundary layer mass transfer (Sherwood correlation)",
+      "polarity": "Constant DC electric potential (0.8–1.5 V per cell pair)",
+      "productStream": "Continuous demineralized product stream (70–90% water recovery)",
+      "concentrateStream": "Continuous brine concentrate stream (recirculated with bleed)",
+      "pretreatment": "Cartridge filtration (5 µm), scaling mitigation (hardness <= 250 mg/L as CaCO3, LSI <= +0.5)",
+      "regenerationMode": "Continuous steady-state separation; no cyclic desorption downtime",
+      "minVoltage": 0.5,
+      "maxVoltage": 2.0,
+      "defaultVoltage": 1.0,
+      "minCurrentDensity": 20.0,
+      "maxCurrentDensity": 300.0,
+      "baseRemoval": 0.85,
+      "maxRemoval": 0.90,
+      "chargeEfficiency": 0.90,
+      "waterRecovery": 85.0,
+      "membraneThicknessMm": 0.15,
+      "typicalFeedTdsRange": "500 - 12000 mg/L (Brackish & Industrial Desalination)",
+      "secLiteratureRangeKwhM3": "0.50 - 2.50",
+      "maxDirectFeedTds": 12000,
+      "maxDirectFeedConductivity": 18000,
+      "maxDirectFeedHardness": 250,
+      "advantages": [
+        "High water recovery (up to 85-90%) with continuous steady-state separation",
+        "Robust against silica and biological fouling compared to high-pressure RO",
+        "Direct control of demineralization rate via DC current"
+      ],
+      "limitations": [
+        "Limited by boundary layer mass transfer (limiting current density I_lim)",
+        "Precipitation scaling risk on CEM at high calcium/sulfate concentrations (hardness > 250 mg/L)"
+      ]
+    },
+    "EDR": {
+      "name": "Electrodialysis Reversal",
+      "flowConfiguration": "Continuous reversible dual stream: 4-way valves periodically invert dilute and concentrate compartments",
+      "electrodeConfiguration": "Symmetric noble metal oxide (MMO / IrO2 / RuO2) electrodes capable of continuous polarity reversal",
+      "membraneConfiguration": "Fouling-resistant alternating AEM and CEM stacks with symmetric flow distribution manifolds",
+      "ionTransport": "Alternating direction Faradaic electromigration; self-cleaning polarity reversal dissolves nascent scale",
+      "polarity": "Periodic DC polarity reversal (typically every 15 to 30 minutes) coupled with hydraulic valve switching",
+      "productStream": "Continuous demineralized product (accounting for brief 1-2 min off-spec reversal flush divert)",
+      "concentrateStream": "Alternating concentrate stream carrying self-cleaned dissolved mineral scale",
+      "pretreatment": "Coarse cartridge filtration (10 µm); operable up to LSI +2.0 and hardness 800 mg/L without continuous acid dosing",
+      "regenerationMode": "In-situ self-cleaning via polarity and stream reversal (chemical-free continuous operation)",
+      "minVoltage": 0.5,
+      "maxVoltage": 2.0,
+      "defaultVoltage": 1.0,
+      "minCurrentDensity": 20.0,
+      "maxCurrentDensity": 300.0,
+      "baseRemoval": 0.85,
+      "maxRemoval": 0.90,
+      "chargeEfficiency": 0.90,
+      "waterRecovery": 82.0,
+      "membraneThicknessMm": 0.15,
+      "typicalFeedTdsRange": "500 - 15000 mg/L (High-Scaling Brackish & Wastewater)",
+      "secLiteratureRangeKwhM3": "0.60 - 2.80",
+      "maxDirectFeedTds": 15000,
+      "maxDirectFeedConductivity": 22000,
+      "maxDirectFeedHardness": 800,
+      "advantages": [
+        "Self-cleaning polarity reversal dissolves CaCO3 and CaSO4 scale in-situ without acid",
+        "Operates reliably at high scaling potential (LSI up to +2.0)",
+        "Extended membrane lifespan with minimal chemical cleaning downtime"
+      ],
+      "limitations": [
+        "Small water recovery reduction (~5-8%) during off-spec polarity transition flush",
+        "Requires 4-way reversing valves and symmetric reversible electrodes"
       ]
     }
   }

@@ -1,0 +1,149 @@
+{
+  "technology": "ED",
+  "name": "Electrodialysis (ED)",
+  "description": "Multi-cell repeating stack of alternating Cation Exchange Membranes (CEM) and Anion Exchange Membranes (AEM) separated by dilute and concentrate flow spacers under continuous DC electric field.",
+  "standard": "ISO 10628 / ISA 5.1",
+  "flowPath": [
+    "Feed Tank",
+    "Dilute Feed Pump",
+    "ED Stack (Dilute/Conc Cells)",
+    "Concentrate Recirculation Loop",
+    "Product Outlet",
+    "Concentrate Blowdown"
+  ],
+  "layers": [
+    {
+      "id": "anode_terminal",
+      "name": "Anode (+) Terminal",
+      "type": "electrode",
+      "polarity": "positive",
+      "material": "Platinized Titanium / Mixed Metal Oxide (MMO)",
+      "color": "#DC2626",
+      "stroke": "#991B1B",
+      "symbol": "ANODE_TERMINAL"
+    },
+    {
+      "id": "cem_membrane_1",
+      "name": "Cation Exchange Membrane (CEM)",
+      "type": "membrane",
+      "membraneType": "CEM",
+      "material": "Cross-linked Sulfonated Polystyrene / Divinylbenzene",
+      "color": "#10B981",
+      "stroke": "#059669",
+      "symbol": "MEMBRANE_CEM"
+    },
+    {
+      "id": "dilute_spacer",
+      "name": "Dilute Flow Spacer Channel",
+      "type": "spacer",
+      "material": "Diamond-Woven Low-Resistance Polypropylene",
+      "color": "#E0F2FE",
+      "stroke": "#0284C7",
+      "symbol": "SPACER_DILUTE"
+    },
+    {
+      "id": "aem_membrane",
+      "name": "Anion Exchange Membrane (AEM)",
+      "type": "membrane",
+      "membraneType": "AEM",
+      "material": "Quaternary Ammonium Functionalized Polymer",
+      "color": "#F59E0B",
+      "stroke": "#D97706",
+      "symbol": "MEMBRANE_AEM"
+    },
+    {
+      "id": "conc_spacer",
+      "name": "Concentrate Flow Spacer Channel",
+      "type": "spacer",
+      "material": "Diamond-Woven Low-Resistance Polypropylene",
+      "color": "#FEE2E2",
+      "stroke": "#DC2626",
+      "symbol": "SPACER_CONCENTRATE"
+    },
+    {
+      "id": "cem_membrane_2",
+      "name": "Cation Exchange Membrane (CEM)",
+      "type": "membrane",
+      "membraneType": "CEM",
+      "material": "Cross-linked Sulfonated Polystyrene / Divinylbenzene",
+      "color": "#10B981",
+      "stroke": "#059669",
+      "symbol": "MEMBRANE_CEM"
+    },
+    {
+      "id": "cathode_terminal",
+      "name": "Cathode (-) Terminal",
+      "type": "electrode",
+      "polarity": "negative",
+      "material": "Stainless Steel 316L / Titanium Substrate",
+      "color": "#2563EB",
+      "stroke": "#1D4ED8",
+      "symbol": "CATHODE_TERMINAL"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "FEED_TANK",
+      "name": "Raw Feed Tank",
+      "type": "tank",
+      "symbol": "ISA_PROCESS_TANK",
+      "material": "HDPE / Fiber-Reinforced Plastic",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric (1.0 bar)",
+        "temperatureRange": "5 - 45 °C"
+      }
+    },
+    {
+      "id": "DILUTE_PUMP",
+      "name": "Dilute Stream Feed Pump",
+      "type": "pump",
+      "symbol": "ISA_CENTRIFUGAL_PUMP",
+      "material": "316L Stainless Steel",
+      "manufacturer": "Grundfos CR Series",
+      "specs": {
+        "pumpType": "Centrifugal Booster Pump",
+        "efficiency": "80%",
+        "motorPower": "2.2 kW"
+      }
+    },
+    {
+      "id": "CONC_PUMP",
+      "name": "Concentrate Recirculation Pump",
+      "type": "pump",
+      "symbol": "ISA_CENTRIFUGAL_PUMP",
+      "material": "Duplex Stainless Steel / PVDF",
+      "manufacturer": "Goulds Pumps",
+      "specs": {
+        "pumpType": "Recirculation Booster Pump",
+        "efficiency": "78%",
+        "motorPower": "1.5 kW"
+      }
+    },
+    {
+      "id": "ED_STACK",
+      "name": "Electrodialysis Membrane Stack",
+      "type": "reactor",
+      "symbol": "ISA_ED_CELL_STACK",
+      "material": "Neosepta / Fujifilm AEM/CEM + PP Spacers",
+      "manufacturer": "Eurodia / AGC Engineering",
+      "specs": {
+        "maxCurrentDensity": "350 A/m²",
+        "burstPressure": "3.5 bar",
+        "limitingCurrentFactor": "0.85"
+      }
+    },
+    {
+      "id": "CONC_TANK",
+      "name": "Concentrate Recirculation Tank",
+      "type": "tank",
+      "symbol": "ISA_CONCENTRATE_TANK",
+      "material": "HDPE Polyethylene",
+      "manufacturer": "Polytank Industrial",
+      "specs": {
+        "designPressure": "Atmospheric",
+        "temperatureRange": "5 - 50 °C"
+      }
+    }
+  ]
+}

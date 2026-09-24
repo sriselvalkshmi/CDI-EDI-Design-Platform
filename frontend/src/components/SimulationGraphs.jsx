@@ -221,6 +221,7 @@ export default function SimulationGraphs() {
     const saltProdVal = (adsVol * calcOutlet).toFixed(1);
     const saltConcVal = (Number(saltInVal) - Number(saltProdVal)).toFixed(1);
     const concTdsDynamic = desVol > 0 ? (Number(saltConcVal) / desVol) : concTds;
+    const desFlowLmin = tDesMin > 0 ? Number((desVol / tDesMin).toFixed(2)) : Number((flowRate * (1 - recoveryPct / 100)).toFixed(2));
     
     // Half-sine peak for cyclic desorption (MCDI / CDI / FCDI):
     const fcdiPeakTds = Number((concTdsDynamic * 1.508).toFixed(1));
@@ -254,38 +255,19 @@ export default function SimulationGraphs() {
         let note = null;
 
         if (isFCDI) {
-            // FCDI: 12-MINUTE OPERATING CYCLE (ADSORPTION 0-10M -> REVERSE DESORPTION 10-11M -> RINSE 11-12M)
-            if (t > 10 && t <= 11) {
-                phase = "Desorption (10–11m) [Reverse Polarity Mode]";
-                streamType = "High-Salinity Concentrate Stream (Brine Peak)";
-                const progress = (t - 10);
-                tds = feedTds + (fcdiPeakTds - feedTds) * Math.sin(progress * Math.PI);
-                curr = -Number((steadyCurrent * 0.8).toFixed(2)); // Reverse polarity discharge current (-1.66 A)
-                volt = -Number((voltageStack * 0.5).toFixed(1)); // Reverse polarity voltage setpoint (-47.6 V)
-                eff = 90.0; // Desorption ion release efficiency (Λ_des = 90%)
-                note = `FCDI Desorption: Ion release under Reverse Polarity Mode (Peak: ~${fcdiPeakTds.toFixed(1)} mg/L, Avg: ${concTdsDynamic.toFixed(1)} mg/L, I = -${(steadyCurrent * 0.8).toFixed(2)} A, V = -${(voltageStack * 0.5).toFixed(1)} V, Λ = 90%)`;
-            } else if (t > 11 && t <= 12) {
-                phase = "Rinse (11–12m)";
-                streamType = "Internal Flush Stream";
-                const progress = (t - 11);
-                tds = (feedTds * 0.5) * (1 - progress * 0.8);
-                curr = 0.0;
-                volt = 0.0;
-                eff = 0.0; // Unpowered rinse flush
-                note = "Rinse Phase: Zero current flush (I = 0 A, V = 0 V, Λ = 0.0%)";
+            // FCDI: CONTINUOUS STEADY-STATE FLOW-ELECTRODE OPERATION
+            // Carbon slurry continuously recirculates through electrode chambers and regenerates in-line
+            phase = "Continuous FCDI Slurry Desalination";
+            streamType = "Continuous Desalinated Product Water";
+            const excessTds = (feedTds - calcOutlet) * Math.exp(-t / tauMin);
+            tds = calcOutlet + (t < 0.8 ? excessTds : 0);
+            curr = steadyCurrent;
+            volt = voltageStack;
+            eff = activeChargeEff;
+            if (t < tStabilization) {
+                note = `FCDI Startup Transient (τ = ${tauMin.toFixed(2)} min, ${feedTds} -> ${calcOutlet.toFixed(1)} mg/L)`;
             } else {
-                phase = "Adsorption (0–10m)";
-                streamType = "Desalinated Product Water";
-                const excessTds = (feedTds - calcOutlet) * Math.exp(-t / tauMin);
-                tds = calcOutlet + (t < 0.8 ? excessTds : 0);
-                curr = steadyCurrent;
-                volt = voltageStack;
-                eff = activeChargeEff;
-                if (t < tStabilization) {
-                    note = `Hydraulic startup transient (τ = ${tauMin.toFixed(2)} min, ${feedTds} -> ${calcOutlet.toFixed(1)} mg/L)`;
-                } else {
-                    note = `Steady Adsorption Desalination: Product ~${calcOutlet.toFixed(1)} mg/L, I = +${steadyCurrent.toFixed(2)} A, V = +${voltageStack.toFixed(1)} V, Λ = ${activeChargeEff}%`;
-                }
+                note = `Continuous FCDI Desalination: Product ~${calcOutlet.toFixed(1)} mg/L, Slurry Loop ~${(engineering.slurryFlowRateLmin || engineering.slurryFlowLmin || (flowRate * 1.2)).toFixed(1)} L/min (Continuous In-Line Regeneration)`;
             }
         } else if (isEDI) {
             // EDI: CONTINUOUS STEADY-STATE OPERATION (NO CYCLIC DESORPTION / NO POLARITY REVERSAL)
@@ -446,7 +428,9 @@ export default function SimulationGraphs() {
                         letterSpacing: "0.02em",
                         textTransform: "uppercase"
                     }}>
-                        {isEDI ? "EDI Continuous Process Simulation (Steady-State)" : `${activeTech} Process Simulation & Dynamic Operating Cycle`}
+                        {isContinuous 
+                            ? `${activeTech} Continuous Process Simulation (Steady-State)` 
+                            : `${activeTech} Process Simulation & Dynamic Operating Cycle`}
                     </h3>
                     <p style={{
                         margin: "2px 0 0",
@@ -455,14 +439,16 @@ export default function SimulationGraphs() {
                     }}>
                         {isEDI 
                             ? "Continuous Electromigration & In-Situ Electrochemical Water Splitting Resin Regeneration (Non-Cyclic)"
-                            : (isCDI 
-                                ? "12-Min Dynamic Cycle — operational / regeneration cycle: Adsorption (0–10m) → Short-Circuit ZVD (10–11m) → Rinse (11–12m)"
-                                : "12-Min Dynamic Cycle — operational / regeneration cycle: Adsorption (0–10m) → Reversed Polarity Desorption (10–11m) → Rinse (11–12m)")}
+                            : (isFCDI 
+                                ? "Continuous Flow-Electrode Electrosorption with In-Line Carbon Slurry Regeneration (Non-Cyclic Steady-State)"
+                                : (isCDI 
+                                    ? "12-Min Dynamic Cycle — operational / regeneration cycle: Adsorption (0–10m) → Short-Circuit ZVD (10–11m) → Rinse (11–12m)"
+                                    : "12-Min Dynamic Cycle — operational / regeneration cycle: Adsorption (0–10m) → Reversed Polarity Desorption (10–11m) → Rinse (11–12m)"))}
                     </p>
                 </div>
 
                 {/* View Mode Switcher (only for cyclic technologies) */}
-                {!isEDI && (
+                {!isContinuous && (
                     <div style={{
                         display: "flex",
                         background: "#F1F5F9",
@@ -511,7 +497,7 @@ export default function SimulationGraphs() {
             </div>
 
             {/* Phase Legend Bar (for cyclic technologies) */}
-            {viewMode === "CYCLE" && !isEDI && (
+            {viewMode === "CYCLE" && !isContinuous && (
                 <div style={{
                     display: "grid",
                     gridTemplateColumns: "10fr 1fr 1fr",
@@ -536,12 +522,12 @@ export default function SimulationGraphs() {
             <div className="simulation-grid">
                 {/* 1. Operating Cycle / Continuous TDS Profile */}
                 <ChartCard
-                    title={isEDI ? "EDI Product TDS Profile" : "Operating Cycle TDS Profile"}
-                    subtitle={isEDI 
-                        ? `Ultrapure Product: ${calcOutlet.toFixed(2)} mg/L (Continuous In-Situ Resin Regeneration)`
+                    title={isContinuous ? `${activeTech} Product TDS Profile` : "Operating Cycle TDS Profile"}
+                    subtitle={isContinuous 
+                        ? `Product: ${calcOutlet.toFixed(2)} mg/L (Continuous Steady-State Operation)`
                         : (viewMode === "ADSORPTION" 
                             ? `Steady State ~${calcOutlet.toFixed(1)} mg/L (~${tStabilization} min hydraulic stabilization transient, >99% equilibrium)` 
-                            : `Adsorption ~${calcOutlet.toFixed(1)} mg/L | Model Desorption Profile: Peak ~${concPeakDynamic.toFixed(1)} mg/L (Avg: ${concTdsDynamic.toFixed(1)} mg/L @ 19.2 L/min)`)}
+                            : `Adsorption ~${calcOutlet.toFixed(1)} mg/L | Desorption Profile: Peak ~${concPeakDynamic.toFixed(1)} mg/L (Avg: ${concTdsDynamic.toFixed(1)} mg/L @ ${desFlowLmin.toFixed(2)} L/min, Total Salt: ${saltConcVal} mg)`)}
                     data={activeData}
                     dataKey="tds"
                     unit="mg/L"
@@ -549,39 +535,37 @@ export default function SimulationGraphs() {
                     gradientId="gradTds"
                     targetValue={targetTDS}
                     yDomain={tdsDomain}
-                    calloutPills={isEDI ? [
-                        { text: `Product: ${calcOutlet.toFixed(2)} mg/L`, bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" },
+                    calloutPills={isContinuous ? [
+                        { text: `Product: ${calcOutlet.toFixed(1)} mg/L`, bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" },
                         { text: "Continuous Operation", bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
                         { text: `Product: ~${calcOutlet.toFixed(1)} mg/L`, bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" },
-                        { text: isFCDI ? `Desorption Peak: ~${fcdiPeakTds.toFixed(1)} mg/L` : `Peak: ~${concPeakDynamic.toFixed(1)} mg/L`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" }
+                        { text: `Peak: ~${concPeakDynamic.toFixed(1)} mg/L`, bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" }
                     ] : [
                         { text: `Steady State: ~${calcOutlet.toFixed(1)} mg/L`, bg: "#DCFCE7", color: "#15803D", border: "#BBF7D0" }
                     ])}
                     viewMode={viewMode}
-                    showPhases={!isEDI}
+                    showPhases={!isContinuous}
                 />
 
                 {/* 2. Stack Current */}
                 <ChartCard
                     title="Stack Current"
-                    subtitle={isEDI 
-                        ? `Continuous DC Current: +${steadyCurrent.toFixed(2)} A (Faradaic Ion Transport + Water Splitting)`
+                    subtitle={isContinuous 
+                        ? `Continuous DC Current: +${steadyCurrent.toFixed(2)} A (Faradaic Ion Transport)`
                         : (viewMode === "ADSORPTION"
                             ? `Calculated Operating Current: +${steadyCurrent.toFixed(2)} A (Faradaic Charging)`
                             : (isCDI 
                                 ? `Faradaic Current: Adsorption +${steadyCurrent.toFixed(2)} A | ZVD Discharge Current: 0.00 A`
-                                : (isFCDI 
-                                    ? `Adsorption: +${steadyCurrent.toFixed(2)} A | Desorption: -${(steadyCurrent * 0.8).toFixed(2)} A (RPD Mode) | Rinse: 0 A`
-                                    : `Faradaic Current: Adsorption +${steadyCurrent.toFixed(2)} A | Desorption: -${(steadyCurrent * 0.8).toFixed(2)} A (RPD Mode)`)))}
+                                : `Faradaic Current: Adsorption +${steadyCurrent.toFixed(2)} A | Desorption: -${(steadyCurrent * 0.8).toFixed(2)} A (RPD Mode)`))}
                     data={activeData}
                     dataKey="current"
                     unit="A"
                     color="#16A34A"
                     gradientId="gradCurr"
                     yDomain={currDomain}
-                    showZeroLine={!isEDI && !isCDI}
-                    calloutPills={isEDI ? [
+                    showZeroLine={!isContinuous && !isCDI}
+                    calloutPills={isContinuous ? [
                         { text: `+${steadyCurrent.toFixed(2)} A DC`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
                         { text: `Ads: +${steadyCurrent.toFixed(2)} A`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
@@ -591,29 +575,27 @@ export default function SimulationGraphs() {
                         { text: `Faradaic Current: +${steadyCurrent.toFixed(2)} A`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ])}
                     viewMode={viewMode}
-                    showPhases={!isEDI}
+                    showPhases={!isContinuous}
                 />
 
                 {/* 3. Stack Voltage / Polarity Reversal */}
                 <ChartCard
-                    title={isEDI ? "Stack DC Voltage" : "Stack Voltage / Polarity Reversal"}
-                    subtitle={isEDI 
+                    title={isContinuous ? "Stack DC Voltage" : "Stack Voltage / Polarity Reversal"}
+                    subtitle={isContinuous 
                         ? `Continuous DC Driving Voltage: +${voltageStack.toFixed(1)} V (Constant Field Polarization)`
                         : (viewMode === "ADSORPTION"
                             ? `Design Operating Voltage: +${voltageStack.toFixed(1)} V (${(voltageStack / (engineering.cellPairs || 34)).toFixed(2)} V/cell)`
                             : (isCDI 
                                 ? `Design Operating Setpoints: Adsorption +${voltageStack.toFixed(1)} V | Desorption 0.0 V (Short-Circuit ZVD)`
-                                : (isFCDI 
-                                    ? `Adsorption: +${voltageStack.toFixed(1)} V | Desorption: -${(voltageStack * 0.5).toFixed(1)} V (RPD Mode) | Rinse: 0 V`
-                                    : `Design Operating Setpoints: Adsorption +${voltageStack.toFixed(1)} V | Desorption -${(voltageStack * 0.5).toFixed(1)} V (RPD Mode)`)))}
+                                : `Design Operating Setpoints: Adsorption +${voltageStack.toFixed(1)} V | Desorption -${(voltageStack * 0.5).toFixed(1)} V (RPD Mode)`))}
                     data={activeData}
                     dataKey="voltage"
                     unit="V"
                     color="#D97706"
                     gradientId="gradVolt"
                     yDomain={voltDomain}
-                    showZeroLine={!isEDI && !isCDI}
-                    calloutPills={isEDI ? [
+                    showZeroLine={!isContinuous && !isCDI}
+                    calloutPills={isContinuous ? [
                         { text: `+${voltageStack.toFixed(1)} V DC`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
                         { text: `Ads: +${voltageStack.toFixed(1)} V`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
@@ -623,27 +605,25 @@ export default function SimulationGraphs() {
                         { text: `Operating Voltage: +${voltageStack.toFixed(1)} V`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ])}
                     viewMode={viewMode}
-                    showPhases={!isEDI}
+                    showPhases={!isContinuous}
                 />
 
                 {/* 4. Operating Charge Efficiency (Continuous across all phases) */}
                 <ChartCard
-                    title={isEDI ? "EDI Charge Utilization (Λ_EDI)" : "Operating Charge Efficiency (Λ)"}
-                    subtitle={isEDI 
-                        ? `Continuous EDI Charge Utilization: Λ_EDI = ${(activeChargeEff / 100).toFixed(2)} (Electromigration + Water Splitting)`
+                    title={isContinuous ? `${activeTech} Charge Utilization (Λ)` : "Operating Charge Efficiency (Λ)"}
+                    subtitle={isContinuous 
+                        ? `Continuous Charge Utilization: Λ = ${(activeChargeEff / 100).toFixed(2)}`
                         : (viewMode === "ADSORPTION" 
                             ? `Adsorption Electrosorption Efficiency: Λ_ads = ${(activeChargeEff / 100).toFixed(2)} (0–10m)` 
-                            : (isFCDI 
-                                ? `Adsorption Λ = ${(activeChargeEff / 100).toFixed(2)} | Desorption Λ ≈ 0.90 | Rinse = 0%`
-                                : `Adsorption Λ_ads = ${(activeChargeEff / 100).toFixed(2)} | Desorption Λ_des ≈ 0.90 (Ion Release) | Rinse = 0.0% (Unpowered)`))}
+                            : `Adsorption Λ_ads = ${(activeChargeEff / 100).toFixed(2)} | Desorption Λ_des ≈ 0.90 (Ion Release) | Rinse = 0.0% (Unpowered)`)}
                     data={activeData}
                     dataKey="chargeEfficiency"
                     unit="%"
                     color="#0284C7"
                     gradientId="gradEff"
                     yDomain={effDomain}
-                    calloutPills={isEDI ? [
-                        { text: `Continuous Λ_EDI = ${(activeChargeEff / 100).toFixed(2)}`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
+                    calloutPills={isContinuous ? [
+                        { text: `Continuous Λ = ${(activeChargeEff / 100).toFixed(2)}`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ] : (viewMode === "CYCLE" ? [
                         { text: `Ads: ${activeChargeEff.toFixed(0)}% (${(activeChargeEff / 100).toFixed(2)})`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
                         { text: isCDI ? "Desorp: Λ_des (Decay)" : "Desorp: 90% (0.90)", bg: "#FEF3C7", color: "#92400E", border: "#FDE68A" },
@@ -652,7 +632,7 @@ export default function SimulationGraphs() {
                         { text: `Λ = ${(activeChargeEff / 100).toFixed(2)} (Model Parameter)`, bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" }
                     ])}
                     viewMode={viewMode}
-                    showPhases={!isEDI}
+                    showPhases={!isContinuous}
                 />
             </div>
 
